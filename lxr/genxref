@@ -1,0 +1,205 @@
+#!/usr/bin/perl
+# -*- tab-width: 4 -*-"
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+use strict;
+use lib 'lib';
+use Fcntl;
+use Getopt::Long;
+use IO::Handle;
+use File::MMagic;
+
+use LXR::Files;
+use LXR::Index;
+use LXR::Config;
+use LXR::Tagger;
+use LXR::Common;
+
+my %option;
+GetOptions(\%option, "help!", "url=s", "version=s", "allurls!", "allversions!", "reindexall!");
+
+if ($option{'help'}) {
+
+	# this may not be the best way to implement this, but at least it's something
+	print <<END_HELP;
+Usage: genxref [option ...]
+
+The genxref program automatically generates LXR database cross-reference
+tokens for a set of URL configuration blocks and source code versions.  These
+are both defined in the lxr.conf configuration file.  Each "URL" is a separate
+source tree; LXR separates and identifies these by their URL.  Each "version" is
+a different version of the source tree being indexed.  See lxr.conf or
+lxr.conf.template for configuring URLs and versions.
+
+Valid options are:
+  --help             Print a summary of the options.
+  --url=URL          Generate tokens for the given URL configuration block.
+  --allurls          Generate tokens for all URL configuration blocks.
+  --version=VERSION  Generate tokens for the given version of the code.
+  --allversions      Generate tokens for all versions of the code (default).
+  --reindexall       Purges existing index data
+  
+Report bugs at http://sourceforge.net/projects/lxr/.
+END_HELP
+	exit 0;
+}
+
+# TODO: implement --allurls
+die("Option --allurls not implemented.  Use --url instead.\n")
+  if $option{'allurls'};
+
+die("URL must be specified. Try \"genxref --help\".\n")
+  unless $option{'url'};
+
+$config = new LXR::Config($option{'url'});
+
+die("No matching configuration") unless $config->sourceroot;
+
+$files = new LXR::Files($config->sourceroot, $config->sourceparams);
+die "Can't create file access object " . $config->sourceroot
+  if !defined($files);
+$index = new LXR::Index($config->dbname, O_RDWR | O_CREAT);
+die "Can't create Index " . $config->dbname if !defined($index);
+
+our $filetype = new File::MMagic(-f 'lib/magic.mime'? ('lib/magic.mime') : ());
+our %binaryfiles;
+
+my @versions;
+
+if ($option{'allversions'} || !$option{'version'}) {
+	@versions = $config->varrange('v');
+	die
+	  "Option --allversions cannot be used because no versions found automatically.  Use --version=VERSION or fix lxr.conf.\n"
+	  if scalar @versions <= 0;
+} else {
+	@versions = $option{'version'};
+}
+
+foreach my $version (@versions) {
+	$index->purge($version) if $option{'reindexall'};
+	gensearch($version);
+	genindex('/', $version);
+	genrefs('/', $version);
+	$index->commit;
+}
+
+$index->DESTROY();
+
+sub genindex {
+	my ($pathname, $releaseid) = @_;
+
+	print(STDERR "*** $pathname $releaseid \n");
+
+	if ($pathname =~ m|/$|) {
+		map { genindex($pathname . $_, $releaseid) } $files->getdir($pathname, $releaseid);
+	} else {
+		&LXR::Tagger::processfile($pathname, $releaseid, $config, $files, $index)
+		  unless exists $binaryfiles{$pathname};
+		$index->commit;
+	}
+}
+
+sub genrefs {
+	my ($pathname, $releaseid) = @_;
+
+	print(STDERR "### $pathname $releaseid \n");
+
+	if ($pathname =~ m|/$|) {
+		map { genrefs($pathname . $_, $releaseid) } $files->getdir($pathname, $releaseid);
+	} else {
+		&LXR::Tagger::processrefs($pathname, $releaseid, $config, $files, $index)
+		  unless exists $binaryfiles{$pathname};
+		$index->commit;
+	}
+}
+
+sub feedswish {
+	my ($pathname, $releaseid, $swish, $filelist) = @_;
+
+	print(STDERR "&&& $pathname $releaseid \n");
+
+	if ($pathname =~ m|/$|) {
+		map { feedswish($pathname . $_, $releaseid, $swish, $filelist) }
+		  $files->getdir($pathname, $releaseid);
+	} else {
+		print $filelist "$pathname\n";
+		my $fh = $files->getfilehandle($pathname, $releaseid);
+		if ($files->getfilesize($pathname, $releaseid) > 0
+			&& $filetype->checktype_filehandle($fh) =~ m%(text|message)/%)
+		{
+			my $contents = $files->getfile($pathname, $releaseid);
+			$swish->print(
+				"Path-Name: $pathname\n",
+				"Content-Length: " . length($contents) . "\n",
+				"Document-Type: TXT\n",
+				"\n", $contents
+			);
+		} else {
+			$binaryfiles{$pathname} = 1;
+		}
+		close($fh);
+	}
+}
+
+sub gensearch {
+	my ($releaseid) = @_;
+	my $string;
+
+	if ($config->glimpsedir and $config->glimpseindex) {
+
+		$string = $config->glimpsedir . "/" . $releaseid;
+		mkdir $string;
+		system("chmod 755 $string");   # TODO - fix Unix specific call?
+		my $glimpse = new IO::Handle;
+		my $pid = open($glimpse, "|-");
+		if ($pid == 0) {
+			exec($config->glimpseindex, "-n", "-o", "-H",
+				$config->glimpsedir . "/$releaseid",
+				$config->sourceroot . "/" . $releaseid
+			);
+			print(STDERR "Couldn't exec " . $config->glimpseindex . ": $!\n");
+			kill(9, $$);
+		}
+		$glimpse->close();
+
+		# Need to chmod the glimpse files so everybody can read them.
+		$string = $config->glimpsedir . "/" . $releaseid . "/.glimpse\*";
+		system("chmod 644 $string");
+	}
+
+	if ($config->swishdir and $config->swishbin) {
+		my $swish = new IO::Handle;
+		die $config->swishdir . " does not exist" unless -d $config->swishdir;
+		my $filelist = new IO::File $config->swishdir . "/$releaseid.filenames", "w"
+		  or die "can't open $releaseid.filenames for writing";
+
+		# execute swish, as a pipe we can write to
+
+		open($swish,
+			    "| "
+			  . $config->swishbin
+			  . " -S prog -i stdin -v 1 -c swish-e.conf -f "
+			  . $config->swishdir . "/"
+			  . $releaseid
+			  . ".index")
+		  or die "Couldn't exec " . $config->swishbin . ": $!\n";
+
+		feedswish("/", $releaseid, $swish, $filelist);
+
+		$swish->close();
+		$filelist->close();
+	}
+}

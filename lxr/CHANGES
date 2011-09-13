@@ -1,0 +1,88 @@
+This file draws your attention on changes made for
+
+        ==========================
+        LXR 0.9.9  -->  LXR 0.9.10
+        ==========================
+
+This version is mainly a bug fix release.
+
+Change in generic parser for string was too specific and could result in loss of synchronisation under certain circumstances (i.e. string interpreted as code and code considered as string). Thanks to users feed-back, C, C++, Perl and Python are validated.
+
+It contains partial implementation of features announced for 0.10. DO NOT RELY on them, they are unstable.
+
+For up-to-date information, connect to http://lxr.sourceforge.net
+
+        =========================
+        LXR 0.9.8  -->  LXR 0.9.9
+        =========================
+
+which could impact your existing trees.
+
+If they result in an incompatibility, you must reindex your tree.
+
+lxr.conf
+--------
+File restructured for more logical reading		=> no impact
+
+Parameter 'graphicfile'
+  More file extensions considered "graphic"		=> no impact on indexing
+	May prevent indexing if extensions used for something non graphic;
+	in that case, modify parameter
+  Parameter now used both to tag file as graphic in directory listing
+  and attempting to display it (consistency)	=> no impact on indexing
+  Pattern simplified: match at end of file name now implicit
+	May not give you what you expect if you used untypical pattern
+	testing something in the middle of the file name.
+	In that case, report as a bug or a feature request
+	for general test on any part of the filename.
+
+Parameter 'filetype'
+  Default tab width changed for some languages	=> no impact on indexing
+	Changes the appearance of source listing
+
+New parameters 'treeextract' and 'encoding'		=> no impact on indexing
+
+lxr.css and templates
+---------------------
+Many more class'es to give more control on appearance	=> no impact on indexing
+
+New template html-fatal.html (error recovery)	=> no impact on indexing
+
+Language parsing
+----------------
+Parser in SimpleParse.pm improved so as not to lose context
+in languages with escape rules (such as C/C++ and Perl). As a
+consequence captures more identifiers
+
+Impact of change not validated outside C, C++ and Perl. Please
+report any abnormal parsing, particularly regarding "escape"
+sequences (think of \" in C-strings). Abnormal parsing means not
+classifying correctly a fragment of file as comment, string, include
+or code, or not giving it the correct extent, not missing an identifier.
+
+(CAUTION: identifier recognition is first dependent on ctags
+  capability during genxref step; thus a missed identifier
+  may be the result of it unknown to the database and the
+  parser cannot then be blamed.)
+
+generic.conf
+------------
+File restructured								=> no impact on indexing
+
+Syntax changed for language specification
+  'langid' changed (but C and C++)				=> reindex if other languages
+  new 'identdef' to define an identifier		=> no impact on indexing
+	Gives you more control on what is an identifier and reserved keyword
+  'spec' syntax changed
+	May capture more identifiers
+	If you made modifications, read manual before merging your
+	changes; in particular, 'atom' rule may no longer be needed.
+												=> reindex if deemed worth
+
+find script
+-----------
+Removed find script and html-find.html template as they were no longer
+integrated inside LXR and replaced by search.
+
+No impact unless you customised find and want to merge your changes in
+search and associated templates.

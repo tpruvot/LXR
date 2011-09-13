@@ -1,0 +1,32 @@
+Type the full name of an identifier to summarize 
+(a function name, variable name, typedef, etc).
+<br>
+Matches are case-sensitive.
+Check "Definitions only" to find only definitions of the symbol
+(unchecked, all references).
+<br><br>
+<form method="get" action="ident">
+	$variables
+	<b>Identifier: </b>
+	<input id="focus" type="text" name="i" value="$identifier_escaped" size="15">
+	<input	type="checkbox"
+			id="identdefonly"
+			name="identdefonly"
+			value="1" $checked
+	>
+	<label for="identdefonly">Definitions only</label>
+	<input type="hidden" name="remember" value="1">
+	&nbsp;&nbsp;<input type="submit" value="Find">
+</form>     
+<span class="search-ident">$identifier</span>
+<table>    
+	<tr>
+		<td colspan='2'><b>Declarations:</b></td>
+	</tr>
+$refs{<tr>
+		<td>$fileref</td>
+		<td>$type</td>
+		<td>$rel</td>
+	</tr>}
+</table>
+

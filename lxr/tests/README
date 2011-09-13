@@ -1,0 +1,6 @@
+The test files for LXR are now found in the lxr-tools module.  To run
+the tests, grab the lxr-tools module from CVS and install it next to
+the lxr directory (i.e. /path/lxr and /path/lxr-tools).
+
+Then go to the lxr-tools directory and follow instructions there.
+

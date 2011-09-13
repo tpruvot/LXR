@@ -1,0 +1,174 @@
+#!/usr/bin/perl -T
+# $Id: ident,v 1.29 2011/04/08 15:49:57 ajlittoz Exp $
+
+# ident --	Look up identifiers
+#
+#	Arne Georg Gleditsch <argggh@ifi.uio.no>
+#	Per Kristian Gjermshus <pergj@ifi.uio.no>
+#
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+######################################################################
+
+$CVSID = '$Id: ident,v 1.29 2011/04/08 15:49:57 ajlittoz Exp $ ';
+
+use strict;
+use lib '.'; # for Local.pm
+use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
+
+use LXR::Common qw(:html);
+use Local;
+
+our $defonly = undef;
+my $reference_hits;
+my $declare_hits;
+
+sub varinputs {
+	my $ret = '';
+	foreach ($config->allvariables) {
+		if ($config->variable($_) ne $config->vardefault($_)) {
+			$ret .= "<input type=\"hidden\" name=\"$_\" value=\"" . $config->variable($_) . "\">\n";
+		}
+	}
+	return $ret;
+}
+
+sub refexpand {
+	my $templ = shift;
+	my $ret   = '';
+
+	my @refs = $index->symdeclarations($identifier, $releaseid);
+
+	my $file_hits = 0;
+	my $last_file;
+	my $def;
+	foreach my $def (@refs) {
+		my ($file, $line, $type, $rel) = @$def;
+		$file_hits++ if $file ne $last_file;
+		$last_file = $file;
+
+		$rel &&= "(member of " . idref($rel, "search-member", $rel) . ")";
+		$ret .= expandtemplate(
+			$templ,
+			(
+				file    => sub { $file },
+				line    => sub { $line },
+				type    => sub { $type },
+				rel     => sub { $rel },
+				fileref => sub {
+					fileref("$file, line $line", "search-decl", $file, $line);
+				}
+			)
+		);
+
+		# 	print("<span class=\"search-li1\"> $type_names{$type} in ".
+		# 	      fileref("$file, line $line", "search-decl",
+		# 		      $file, $line).
+		# 	      " $rel</span>\n");
+	}
+	$declare_hits = "<br>" . scalar @refs . " declarations in $file_hits files.";
+	return $ret;
+}
+
+sub usesexpand {
+	my $templ = shift;
+	my $ret   = '';
+
+	my @uses = $index->symreferences($identifier, $releaseid);
+	my $file_hits = 0;
+	my $last_file;
+	foreach my $ref (sort { $$a[0] cmp $$b[0] } @uses) {
+		my ($file, $line) = @$ref;
+		$file_hits++ if $file ne $last_file;
+		$last_file = $file;
+		$ret .= expandtemplate(
+			$templ,
+			(
+				file    => sub { $file },
+				line    => sub { $line },
+				fileref => sub {
+					fileref("$file, line $line", "search-ref", $file, $line);
+				}
+			)
+		);
+	}
+	$reference_hits = "<br>" . scalar @uses . " references in $file_hits files.";
+	return $ret;
+}
+
+sub printident {
+	my $dir = shift;
+	my ($templ, $templ_refs);
+
+	#$templ = "<ul>\n\$files{\n<li>\$iconlink \$namelink\n}</ul>\n";
+	if ($config->htmlident) {
+		unless (open(TEMPL, $config->htmlident)) {
+			warning("Template " . $config->htmlident . " does not exist.");
+		} else {
+			local ($/) = undef;
+			$templ = <TEMPL>;
+			close(TEMPL);
+		}
+	} else {
+		die "Ident template not configured";
+	}
+
+	if ($config->htmlident_refs) {
+		unless (open(TEMPL, $config->htmlident_refs)) {
+			warning("Template " . $config->htmlident_refs . " does not exist.");
+		} else {
+			local ($/) = undef;
+			$templ_refs = <TEMPL>;
+			close(TEMPL);
+		}
+	} else {
+		die "Ident refs template not configured";
+	}
+
+	# print the description of the current directory
+	#dirdesc($dir);
+
+	# print the listing itself
+	print(
+		expandtemplate(
+			$templ,
+			( variables			=> \&varinputs
+			, identifier		=> sub { $_ = $identifier; s/</&lt;/g; s/>/&gt;/g; return $_; },
+			, identifier_escaped=> sub { $_ = $identifier; s/\"/&quot;/g; s/</&lt;/g; s/>/&gt;/g; return $_; },
+			, checked			=> sub { $defonly ? 'checked="checked"' : "" }
+			, refs				=> sub { refexpand(@_) },
+			)
+		)
+	);
+	print $declare_hits;
+	do {
+		print(expandtemplate($templ_refs, (uses => sub { usesexpand(@_) })));
+		print $reference_hits;
+	} unless $defonly;
+}
+
+httpinit;
+
+makeheader('ident');
+$defonly = 1 if	($HTTP->{'param'}->{'identdefonly'}
+				||	(  $config->{'identdefonly'}
+					&& !exists($HTTP->{'param'}->{'remember'})
+					)
+				);
+printident;
+makefooter('ident');
+httpclean;
+

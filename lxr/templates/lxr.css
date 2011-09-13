@@ -1,0 +1,321 @@
+/*******************/
+/* Font definition */
+/*******************/
+  body
+, a.dirfile
+, a.dirfolder
+{ font-family: Baskerville, Times, "Times New Roman", serif
+}
+  .main
+, .banner
+, .modes
+, .modes-sel
+, /*.modes*/ button
+/*, .modes-sel button*/
+, .varlink
+, .var-sel
+, .dirrow1
+, .dirrow2
+, select
+{ font-family: "Gill Sans", Helvetica, Arial, sans
+}
+
+/*****************/
+/* global styles */
+/*****************/
+body
+{ color: #000000
+; background-color: white
+}
+
+/* general link behavior */
+a
+{ text-decoration: none
+}
+
+a:hover
+{ text-decoration: underline
+}
+
+a:visited
+{
+}
+
+/* the main page title etc. */
+.main
+{ color: #000066
+; font-size: 24pt
+; font-weight: bold
+}
+
+h1.main
+{ font-size: 18pt
+; color: black
+}
+
+h2.main
+{ font-size: 14pt
+}
+
+/* banner - displayed file/folder path */
+.banner
+{ font-size: 14pt
+; color: #339966
+}
+
+.file
+{ font-family: monospace
+}
+/****************************************/
+/* menus, "variables" */
+/****************************************/
+  .modes
+, .varlink
+{ font-size: 10pt
+; color: blue
+}
+
+  a.modes
+, a.varlink
+{ text-decoration: none
+; color: blue
+}
+  a.modes:visited
+, a.varlink:visited
+{ color: blue
+}
+
+  a.modes:hover
+, a.varlink:hover 
+{ background-color: #ddffcc
+; text-decoration: none
+}
+/* currently selected mode/variable */
+  span.modes-sel
+, span.var-sel  /* selected one */
+{ font-style: italic
+; font-weight: bold
+; font-size: 10pt
+; background-color: #cceeff
+}
+
+  form.modes
+, form.modes-sel
+, form.vars
+{ margin: 1px
+; padding: 1px
+}
+  .modes-sel button
+{ font-style: italic
+/* ; font-size: 9pt */
+; font-weight: bold
+; background-color: #cceeff
+}
+  .modes button
+{ font-style: normal
+/* ; font-size: 8pt */
+; color: blue
+; background-color: #eeeeee
+}
+
+  .vars button
+{ /*font-style: normal*/
+/*;*/ font-size: 11pt
+/*; color: blue
+; background-color: #eeeeee*/
+}
+  select
+{ color: blue
+; background-color: white
+}
+  option.varlink
+{ color: blue
+; background-color: #eeeeee
+}
+  option.var-sel
+{ color: black
+; background-color: #eeeeee
+; font-weight: bold
+; font-style: italic
+}
+
+  form.diff-form
+{ display: inline
+}
+
+/************************************/
+/*			directory view			*/
+/************************************/
+
+/* link to file or folder in the source view */
+a.dirfile
+{ font-size: 12pt
+}
+
+a.dirfolder
+{ font-size: 12pt
+}
+
+/* directory listing area */
+th
+{ border-right:	 1pt solid white
+; border-left:	 none
+; border-top: none
+; border-bottom: 1pt solid blue
+; text-align: center
+}
+
+/* directory listing header */
+.dirheader
+{ background-color: #aaddff
+; color: #000000
+}
+
+/* "odd" lines (three at once) */
+.dirrow1
+{ background-color: #ffffff
+; font-size: 10pt
+}
+
+/* "even" lines (three at once) */
+.dirrow2
+{ background-color: #eeeeee
+; font-size: 10pt
+}
+
+.dirrow1 td
+{ border-right: thin solid #999999
+}
+
+.dirrow2 td
+{ border-right: thin solid #999999
+}
+
+.dirsize
+{ text-align: right
+; padding: 0 1pt 0 2pt
+}
+
+.dirtime
+{ text-align: right
+; padding: 0 1pt 0 5pt
+}
+
+.dirdesc
+{ padding-left: 5pt
+}
+
+/********************************/
+/*			file view			*/
+/********************************/
+
+/* the line number */
+.fline
+{ background-color: silver
+}
+
+/* link - the line number - underlined by default */
+a.fline
+{ text-decoration: none
+}
+
+/* link to other site (http, ftp and mailto) */
+a.offshore {
+}
+
+/* link to the include file */
+a.include
+{ color: #669966
+}
+
+/* link - identifier search */
+.fid
+{ color: #669966
+}
+
+/* general file font etc. */
+pre.file {
+}
+
+/* comments */
+.comment
+{ color: #808080
+}
+
+/* strings */
+.string
+{ color: #0000CC
+}
+
+/* reserved words */
+.reserved
+{ color: #800000
+}
+
+/************************************/
+/*		indent. search result		*/
+/************************************/
+
+/* link to "member of" */
+.search-member
+{ color: #669966
+}
+
+/* link to the file with declaration */
+.search-decl {
+}
+
+/* link to the file with reference */
+.search-ref {
+}
+
+/* identifier searched (in header) */
+.search-ident
+{ font-size: 18pt
+; font-weight: bold
+; color: #000066
+}
+
+/* declaration list block */
+.search-ul
+{ display: block
+; margin-top: 10pt
+; margin-bottom: 10pt
+}
+
+/* indented items (declaration list) */
+.search-li1
+{ display: list-item
+; margin-left: 50pt
+}
+
+/* indented (but not so much) items (ref. list) */
+.search-li2
+{ display: list-item
+; margin-left: 20pt
+}
+
+/********************************/
+/*			diff view			*/
+/********************************/
+
+/* reference to the file (in header) */
+.diff-fref {
+}
+
+/* marks like '!!', '<<' etc. */
+.diff-mark
+{ color: red
+}
+
+/* background of differing lines */
+  .diff-left
+{ background-color: #ffccdd
+}
+  .diff-both
+{ background-color: #ffffaa
+}
+  .diff-right
+{ background-color: #ddffdd
+}
+
