@@ -36,7 +36,7 @@ sub new {
 
     $self = bless({}, $self);
     if (defined($config->{dbpass})) {
-        $self->{dbh} = DBI->connect($dbname, $config->{dbuser}, $config->{dbpass})
+        $self->{dbh} = DBI->connect($dbname, $config->{dbuser}, $config->{dbpass}, { RaiseError => 1, AutoCommit => 0 })
           or fatal "Can't open connection to database: $DBI::errstr\n";
     } else {
         $self->{dbh} = DBI->connect($dbname, "lxr", $config->{dbpass})
@@ -360,8 +360,8 @@ sub decid {
 
 sub commit {
     my ($self) = @_;
-    $self->{dbh}->commit;
-	$self->{dbh}->begin_work;
+#    $self->{dbh}->commit;
+#    $self->{dbh}->begin_work;
 }
 
 
