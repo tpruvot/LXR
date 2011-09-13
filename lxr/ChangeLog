@@ -1,0 +1,2651 @@
+2011-06-11 13:00  tag release-0-9-10
+
+2011-06-11 13:00  ajlittoz
+
+	* CHANGES: Prepare release 0.9.10
+
+2011-06-10 17:08  ajlittoz
+
+	* lib/LXR/Config.pm: Preparatory corrections for SCM management
+
+	  Note: Perl complains on access to 'range' when it is defined as a
+	  sub. It says "cannot use string $var as a hash ref while strict
+	  refs in use". Expertise needed.
+
+2011-06-10 15:48  ajlittoz
+
+	* lib/LXR/Common.pm: Untaint globally $ENV{'PATH'} with a safe(?)
+	  content
+
+2011-06-10 15:40  ajlittoz
+
+	* lib/LXR/Common.pm: Make correct links to README files
+
+	  Use common sub fileref to create links to file and remove README
+	  from further processing to avoid messing up the newly built HTML
+	  tag.
+
+2011-06-10 15:22  ajlittoz
+
+	* Local.pm: Garantee sub dirdesc always returns a value
+
+	  Return &nbsp; when dirdesc doesn't find a README file in the
+	  listed directory instead of 'undef' so that CSS can decorate the
+	  cell (without that content, the cell is deleted by most browsers)
+
+2011-05-29 15:13  ajlittoz
+
+	* LXRversion.pm: [no log message]
+
+2011-05-29 14:59  ajlittoz
+
+	* templates/html-dir.html: (Cosmetic) Changed GMT to UTC
+
+	  GMT origin is at noon (solar time), while UTC origin is at
+	  midnight (legal time) which is is the usual time origin for
+	  ordinary human time.
+
+2011-05-08 19:11  ajlittoz
+
+	* Local.pm: Correct links in README markers
+
+	  Transmit directory name of README file to sub descreadme and
+	  desreadmehtml; generate links with fileref instead of reinventing
+	  the wheel (with errors).
+
+2011-05-08 16:49  ajlittoz
+
+	* Local.pm: Use correct directory designation for marking items in
+	  string
+
+	  Argument $dir should be used instead of undefined hash %Path
+	  (forgotten change many years back?)
+
+2011-05-07 13:39  ajlittoz
+
+	* lib/LXR/Common.pm: Generate valid URI for graphic files display
+
+	  To be handled by the web server, files need to be in the
+	  "DocumentRoot" hierarchy. Provided there is a symbolic from LXR
+	  root directory to source tree directory, it is possible to
+	  generate a valid <img> tag to the file. Needs a new
+	  'sourceaccess' parameter in lxr.conf.
+
+2011-05-07 12:55  ajlittoz
+
+	* diff: Allow variable width for left pane in diff
+
+	  New feature: use value of config parameter 'diffleftwidth' for
+	  number of characters in left pane. If not define, use 50
+	  characters as was previously hard-coded
+
+2011-04-21 07:44  ajlittoz
+
+	* lib/LXR/Common.pm: Modelink2button: make sure only </a> tag is
+	  transformed
+
+	  If only /a is transformed into closing button and form
+	  delimiters, regexp erroneously targets filename starting with /a;
+	  better to give full tag.
+
+2011-04-14 18:00  ajlittoz
+
+	* lib/LXR/Common.pm: Global variable $pathname may be used before
+	  being initialised causing display of bad version of file.  Shift
+	  "cleaning" of query argument 'v' after cleaning query argument
+	  'file' in httpinit
+
+2011-04-08 19:13  ajlittoz
+
+	* search: Untainting $ENV{'PATH'} forgotten for swishsearch way
+	  back 1.22 (was done for glimpsesearch)
+
+2011-04-08 16:00  ajlittoz
+
+	* source, templates/lxr.conf: When in CVS mode, truncate the
+	  annotation field to 16 characters to avoid line dangling. Signal
+	  truncation with a *
+
+2011-04-08 15:49  ajlittoz
+
+	* ident: Debug feedback on idedntifier search limited to
+	  definitions
+
+	  Use our instead of my Don't display "references" title if
+	  limitation on Configure with 0/1 instead of "true"/anything
+
+	  Thanks to Martin Wilck
+
+2011-04-07 08:35  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: Correct string parsing
+
+	  If escaping character appears as a litteral in last position of
+	  string, it causes an "out-of-sync" condition. Correct "stay"
+	  pattern must swallow ALL escaped characters.
+
+2011-04-02 18:12  ajlittoz
+
+	* ident, templates/lxr.conf: Search for identifier definition only
+
+	  Did not test for 'true' value of parameter 'identfedonly' in
+	  ident Added an example in lxr.conf
+
+2011-04-02 15:39  ajlittoz
+
+	* ident, templates/html-ident.html, templates/lxr.css: Offer the
+	  possiblity to limit identifier search to definitions only
+
+	  Add a check box in html-ident template and an hidden input field
+	  to remember the state.  Add a config parameter for default check
+	  at personal taste.  Add an "insertion" variable in printident to
+	  check the box according to default state; when initialising
+	  ident, define the check state as: - config parameter value if
+	  first search - value of previous search for second+ so that user
+	  does not have to (un)check again if he changed
+
+2011-04-02 13:55  ajlittoz
+
+	* lib/LXR/Common.pm: Allow for easy modification of line number
+	  width
+
+	  In markupfile: pattern for @ltag adjusted so that line number may
+	  have any width with a minimum of 3 digits. All that is needed is
+	  to change $line above from $line = "001"; to $line = "00001"; to
+	  get 5 digits. Interesting for files with more than 1000 lines to
+	  prevent the colums from being ragged (if tree contains many of
+	  these files).
+
+2011-04-02 13:48  ajlittoz
+
+	* diff, templates/lxr.css: Add background colors in diff markup
+
+	  Colors for differing blocks can be adjusted with lxr.css
+
+2011-04-02 11:40  ajlittoz
+
+	* lib/LXR/Common.pm, templates/diff-head-btn.html: State
+	  information incorrect for diff with buttons-and-menus interface
+
+	  Common.pm: needs to keep the state of variables when clicking on
+	  a button to select a version to compare because the button value
+	  is not transmitted as variable values but through diffvar and
+	  diffval; the original version is described by the variables.
+	  Corrected the diff-head-btn.html template in parallel
+
+2011-04-02 09:52  ajlittoz
+
+	* lib/LXR/Common.pm, templates/diff-head-btn.html,
+	  templates/html-head-btn.html: Allow for buttons-and-menus
+	  interface
+
+	  Add new HTML generating functions in Common.pm and provide
+	  example templates
+
+2011-03-28 14:12  ajlittoz
+
+	* lib/LXR/Common.pm: Extra space left instead of replacing by
+	  zero-width space!
+
+	  Space suppressed
+
+2011-03-27 17:35  tag release-0-9-9
+
+2011-03-27 17:35  ajlittoz
+
+	* templates/lxr.conf, INSTALL: Simpler MySQL instructions
+
+2011-03-27 15:54  ajlittoz
+
+	* INSTALL, apache2-require.pl: Simplify installation - no change
+	  needed in apache2-require.pl
+
+	  Using relative paths (to LXR root directory), there is no need to
+	  change apache2-require.pl during installation.  INSTALL changed
+	  to reflect this.
+
+2011-03-27 13:53  ajlittoz
+
+	* INSTALL: Clarifications on MySQL user and DB creations.  Minor
+	  typo in genxref invocation
+
+2011-03-27 09:51  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Forgot a line when committing 1.26
+
+	  Forgot to initialise a var ($identdef) from generic.conf for
+	  pattern matching an identifier
+
+2011-03-27 08:43  ajlittoz
+
+	* INSTALL: Corrected typos
+
+2011-03-27 07:51  ajlittoz
+
+	* CHANGES, INSTALL: Prepare release 0.9.9
+
+2011-03-27 07:29  ajlittoz
+
+	* templates/lxr.conf: Forgot to remove parameter 'htmlfind'
+
+2011-03-26 17:07  ajlittoz
+
+	* robots.txt: Courtesy fencing against robots
+
+	  Very restrictive robots.txt file prohibiting a well-behaved robot
+	  from indexing the site.
+
+2011-03-26 13:39  ajlittoz
+
+	* templates/: html-dir.html, html-head.html: Template update
+
+	  Related to more control with CSS
+
+2011-03-26 13:33  ajlittoz
+
+	* templates/html-find.html: Suppressed out-of-date files
+
+	  notes: better information now in User's manual diff: replaced by
+	  search, no longer integrated with Common.pm and others
+
+2011-03-26 13:28  ajlittoz
+
+	* notes, find: Suppressed out-of-date files
+
+	  notes: better information now in User's manual diff: replaced by
+	  search, no longer integrated with Common.pm and others
+
+2011-03-26 13:22  ajlittoz
+
+	* CREDITS.txt: Update and tribute to mbox
+
+2011-03-26 13:19  ajlittoz
+
+	* apache2-require.pl: Clarification on needed paths
+
+	  apache2-require.pl contained 3 paths when only 2 are really
+	  needed to load correctly LXR.
+
+2011-03-26 13:15  ajlittoz
+
+	* initdb-mysql: Remove duplicate index in initdb-mysql
+
+2011-03-26 13:12  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: Corrected typos
+
+2011-03-26 13:06  ajlittoz
+
+	* lib/LXR/Common.pm: Replace space by zero-width space in banner
+
+	  Real space splits the pathname only to allow the UA to wrap a
+	  long pathname. Use now zero-width space (&#x200B;) for that (see
+	  HTML standard).
+
+2011-03-26 13:00  ajlittoz
+
+	* LXRversion.pm, lib/LXR/Common.pm, templates/html-tail.html: New
+	  template parameter: LXRversion
+
+	  Allows to insert LXR release number in HTML footer or header
+
+2011-03-26 12:45  ajlittoz
+
+	* source, lib/LXR/Common.pm, templates/lxr.conf: Use pattern
+	  'graphicfile' everywhere
+
+	  To avoid inconsistency, pattern 'graphicfile' used now to select
+	  a graphic file AND make LXR display it graphically.  Reduced the
+	  pattern to file extension only.  Simplified extension matching in
+	  fileicon.
+
+2011-03-22 10:36  ajlittoz
+
+	* templates/lxr.conf: Clarification about htmlhead and htmlfooter
+
+	  Added a comment about the ability to use an operation-specific
+	  header or footer by providing a xxxheader or xxxfooter HTML
+	  parameter, wher xxx is one of source, sourcedir, diff, ident,
+	  search
+
+2011-03-22 08:41  ajlittoz
+
+	* lib/LXR/Common.pm: Removed typo in makefooter
+
+	  Non edited copy-and-paste from makeheader: sourcedirhead was not
+	  changed to sourcedirtail!
+
+2011-03-20 15:00  ajlittoz
+
+	* lib/LXR/Common.pm, templates/lxr.conf, templates/lxr.css: Config
+	  files restructuring
+
+	  Corrected also typos and inaccuracies
+
+2011-03-17 14:17  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Added language-dependent include
+	  handling
+
+	  New feature: allow to transform the language-specific designation
+	  of the include object to finally get a path to a file. Handling
+	  is driven through new parameters in generic.conf language specs.
+
+2011-03-17 10:29  ajlittoz
+
+	* lib/LXR/: SimpleParse.pm, Lang/generic.conf: Improve language
+	  parsing
+
+	  Transform brute-force fragment splitting strategy into a more
+	  state-oriented provessing. Only look for "open" delimiters. Then
+	  accumulate until associated "end" delimiter only (not ALL
+	  delimiters). Introduce "stay" delimiter to maintain context when
+	  encountered.
+
+	  Big impact on generic.conf which has been restructured at the
+	  same occasion
+
+2011-03-12 17:03  ajlittoz
+
+	* templates/html-fatal.html, templates/lxr.conf, lib/LXR/Common.pm,
+	  lib/LXR/Config.pm: Display error when tree not found
+
+	  Display a configurable HTML page when a tree is not found instead
+	  of die'ing silently leaving user with blank page or no change at
+	  all
+
+2011-03-12 16:39  ajlittoz
+
+	* templates/lxr.conf: Added $Id to monitor changes
+
+2011-03-12 16:37  ajlittoz
+
+	* templates/lxr.conf: Reorganised lxr.conf into clearer sections
+	  and subsections
+
+2011-03-12 13:36  ajlittoz
+
+	* source: Made generated HTML more XML compliant
+
+	  Added </p> ro close <p> blocks
+
+2011-03-12 13:10  ajlittoz
+
+	* lib/LXR/Lang.pm: Remove void comment marking at beginning of last
+	  line in block
+
+2011-03-12 13:05  ajlittoz
+
+	* lib/LXR/Lang.pm: Improve script recognition
+
+	  If file has no known extension, try to see if is a #! script or
+	  an emacs mode-tagged file.  Test only on the last element
+	  (ignoring the eventual path)
+
+2011-03-12 11:21  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Make sure #directive is always
+	  recognised
+
+	  C and C++ allow to have spaces after #: ignore those spaces when
+	  looking for the directive
+
+2011-03-12 11:02  ajlittoz
+
+	* lib/LXR/: Common.pm, Config.pm: Display nicely sources other than
+	  iso-8859-1
+
+	  Send an HTTP header with the character encoding to use Created a
+	  new tree-specific parameter 'encoding' for the tree encoding
+
+2011-03-12 10:24  ajlittoz
+
+	* lib/LXR/Common.pm: No need of a jump link to itself on every line
+	  number
+
+	  Eliminate href=...#line-no from fileref return to make a "pure"
+	  anchor definition with name=line-no
+
+2011-03-12 10:06  ajlittoz
+
+	* lib/LXR/Common.pm: Correct graphic file processing
+
+	  1. Parameter 'graphicfile' was not effective in pattern matching
+	  (Perl undocumented limitation?) 2. Removed query string from
+	  image display request link
+
+2011-03-12 09:20  ajlittoz
+
+	* lib/LXR/Lang.pm: Eliminate rescan after marking for reserved word
+
+	  If include file has a name similar to HTML tags and attributes
+	  used for marking text, the tags themselves get marked after
+	  reserved word processing.
+
+	  Replace two-pass process with a single pass where identifier can
+	  be routed to single handler according to its classification.
+
+2011-03-12 08:33  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Eliminate rescan after marking for
+	  reserved word
+
+	  If user variable has a name similar to HTML tags and attributes
+	  used for marking text, the tags themselves get marked after
+	  reserved word processing.
+
+	  Replace two-pass process with a single pass where identifier can
+	  be routed to single handler according to its classification.
+
+	  Simultaneously, made identifier recognition language dependent
+	  (new parameter 'identdef' in generic.conf) with backward
+	  compatible default
+
+2011-03-11 21:15  ajlittoz
+
+	* ident: Old interface leftover from DB revamping, upgraded to new
+	  variable and function names
+
+2010-01-15 23:23  tag release-0-9-8
+
+2010-01-15 23:23  mbox
+
+	* lib/LXR/Common.pm: Fix XSS exploit in title string
+
+2010-01-05 18:00  tag release-0-9-7
+
+2010-01-05 18:00  mbox
+
+	* ident, search: Fix for CVE-2009-4497 from Dan Rosenberg
+
+	  Avoid a XSS vulnerability
+
+2010-01-05 17:59  mbox
+
+	* lib/LXR/Common.pm: Fix bug in clean_identifier
+
+	  It wasn't cleaning the identifier properly, leaving a security
+	  hole
+
+2009-05-14 21:13  mbox
+
+	* genxref, lib/LXR/Index.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/DBI.pm, lib/LXR/Index/Mysql.pm,
+	  lib/LXR/Index/Oracle.pm, lib/LXR/Index/Postgres.pm: Remote
+	  obsolete Index::DB backend that used NDBM storage.  Now only
+	  Postgres, Mysql and Oracle are supported as backends.
+
+	  Add a commit method to the Index interface that flushes a
+	  transaction to disk and starts another one.  Added appropriate
+	  calls from genxref to Index::commit
+
+2009-05-10 11:54  adrianissott
+
+	* Local.pm, diff, find, genxref, ident, initdb-mysql,
+	  initdb-oracle.sql, initdb-postgres, search, source,
+	  lib/LXR/Common.pm, lib/LXR/Files.pm, lib/LXR/Index.pm,
+	  lib/LXR/Lang.pm, lib/LXR/Tagger.pm, lib/LXR/Files/BK.pm,
+	  lib/LXR/Files/CVS.pm, lib/LXR/Files/GIT.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Index/Oracle.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/Cobol.pm,
+	  lib/LXR/Lang/Generic.pm, lib/LXR/Lang/Java.pm: Feature 1691378
+	  (Rearchitect the DB backends) Part X * Renamed lxr_release.rel ->
+	  releaseid for Mysql * Renamed lxr_release.release -> releaseid
+	  for Oracle and Postgres * Renamed $release -> $releaseid
+	  generally
+
+2009-05-09 21:57  adrianissott
+
+	* genxref, lib/LXR/Common.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Index/Oracle.pm,
+	  lib/LXR/Index/Postgres.pm: Feature 1691378 (Rearchitect the DB
+	  backends) Part IX * Converted Postgres to an object-orientated
+	  style
+
+	  Note: an explicit call to the destructor of the LXR::Index was
+	  required since Perl wasn't doing it as part of the global
+	  destruction (on win32 v5.8.8)
+
+2009-05-09 18:55  adrianissott
+
+	* lib/LXR/Index/: Mysql.pm, Oracle.pm, Postgres.pm: Feature 1691378
+	  (Rearchitect the DB backends) Part VIII * Synchronising the
+	  implementations of the symdeclarations in Postgres, MySql and
+	  Oracle DBI implementations
+
+2009-05-09 15:56  adrianissott
+
+	* lib/LXR/Index/: Oracle.pm, Postgres.pm: Feature 1691378
+	  (Rearchitect the DB backends) Part VII * Further standisation of
+	  LXR::Index modules * Changed parameter for LXR::Index::purge()
+	  from $version -> $release in Oracle and Postgres modules
+
+2009-05-09 15:39  adrianissott
+
+	* initdb-mysql, lib/LXR/Index.pm, lib/LXR/Index/Mysql.pm,
+	  lib/LXR/Index/Oracle.pm, lib/LXR/Index/Postgres.pm: Feature
+	  1691378 (Rearchitect the DB backends) Part VI: * Changed MySql
+	  table name from lxr_useage to lxr_usage * Changed parameter for
+	  LXR::Index::purge() from $version -> $release * Replaced tabs
+	  with spaces in LXR::Index modules * Changed status_get SQL
+	  statement name to status_select to match naming convention
+
+	  NOTE that the change to the table name in MySql means that any
+	  existing databases will not work with this version of lxr. This
+	  is unavoidable if we wish to standardise the DBs
+
+2009-05-09 14:07  adrianissott
+
+	* lib/LXR/Index/Oracle.pm: Oracle Fix for bugs 2787781 and 2787771
+	  for
+
+	  Changes the interface to Oracle to match the documentation so
+	  that fileindexed returns whether the file has been indexed, not
+	  whether it needs indexing.
+
+	  Aligned the Oracle, Postgres and Mysql implementations of
+	  fileindexed, filereferenced, setfileindexed and
+	  setfilereferenced.
+
+2009-05-06 22:37  mbox
+
+	* lib/LXR/: Index.pm, Tagger.pm, Index/Mysql.pm, Index/Postgres.pm:
+	  Fix for bugs 2787781 and 2787771.
+
+	  Changes the interface to Mysql & Postgres to match the
+	  documentation so that fileindexed returns whether the file has
+	  been indexed, not whether it needs indexing.
+
+	  Aligned the Postgres and Mysql implementations of fileindexed,
+	  filereferenced, setfileindexed and setfilereferenced.
+
+	  NOTE: This commit will break any Index module that has not been
+	  updated.  Part II will fix these
+
+2009-05-06 22:34  mbox
+
+	* initdb-postgres: Make drop commands at start of script clean out
+	  dependencies
+
+2009-04-26 09:14  adrianissott
+
+	* lib/LXR/Index/: Mysql.pm, Oracle.pm, Postgres.pm: Feature 1691378
+	  (Rearchitect the DB backends) Part V * Re-ordered DBI
+	  implementations to be in API order used in LXR::Index * No code
+	  changes
+
+2009-04-25 20:40  adrianissott
+
+	* ident, lib/LXR/Index.pm, lib/LXR/Tagger.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Index/Oracle.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/Generic.pm: Feature
+	  1691378 (Rearchitect the DB backends) Part IV: * Renamed
+	  LXR::Index subroutines to be more understandable
+
+2009-04-25 20:21  adrianissott
+
+	* lib/magic.mime: Fix for bug 2781293 (Bug 1691407 fix caused perl
+	  files to be ignored by genxref)
+
+2009-04-22 15:29  mbox
+
+	* lib/LXR/Lang/: Perl.pm, Python.pm: Implement feature request
+	  2774495: Deprecate or Remove Unused LXR::Lang Modules
+
+	  Perl.pm & Python.pm are not used by the default configuration of
+	  LXR, with more functionality being provided by LXR:Lang::Generic.
+
+2009-04-22 15:16  mbox
+
+	* genxref, lib/magic.mime: Fix bug 1691407: genxref binary file
+	  detection flawed.
+
+	  Added magic.mime file in lib/ and make MMagic use it.
+
+2009-04-22 15:07  mbox
+
+	* INSTALL: Minor fixes to install instructions
+
+2009-04-21 20:03  adrianissott
+
+	* lib/LXR/: Files.pm, Index.pm, Lang.pm, Index/DBI.pm: Feature
+	  1691378 (Rearchitect the DB backends) Part III * Explicitly
+	  stating the LXR::Index by providing stub implementations (moved
+	  from LXR::Index::DBI) * Updated LXR::Files and LXR::Lang stub
+	  implementations to be consistent with the style used in
+	  LXR::Index * No functional changes
+
+2009-04-21 19:12  adrianissott
+
+	* search: Fix for bug 2752574 (The LXR general text search doesn't
+	  work with Swish on Windows)
+
+2009-04-21 16:54  mbox
+
+	* tests/: AllTests.pm, BKTest.pm, CVSTest.pm, ConfigTest.pm,
+	  PlainTest.pm, README, SecurityTest.pm, TestRunner.pl, lxr.conf,
+	  test-versions: Move all the tests to the lxr-tools module
+
+2009-04-21 16:07  mbox
+
+	* genxref: Revert change to remove path from #! path as this breaks
+	  on Unix
+
+2009-04-21 14:48  mbox
+
+	* INSTALL, RELEASING: Updated instructions for Apache 1.x & 2.x
+	  Refer to makerelease.pl script for releasing
+
+2009-04-19 16:52  adrianissott
+
+	* lib/LXR/: Index/DB.pm, Index/DBI.pm, Index/Mysql.pm,
+	  Index/Oracle.pm, Index/Postgres.pm, Lang/Generic.pm: Feature
+	  1691378 (Rearchitect the DB backends) Part II * Standardising the
+	  LXR::Index interface
+
+2009-04-19 16:12  adrianissott
+
+	* lib/LXR/Index/: DB.pm, Postgres.pm: Feature 1691378 (Rearchitect
+	  the DB backends) Part I * Removing unused subroutines relate()
+	  and getrelations()
+
+2009-04-19 10:18  adrianissott
+
+	* lib/LXR/Index/Postgres.pm: Fix for bug 2774061 (Using PostGreSql
+	  Results in Malformed HTML in Ident Pages) * The problem was that
+	  PostGreSql return the type with an extra space on the end (which
+	  hadn't been inserted into the db) so the LXR::Index::PostGreSql
+	  now removes trailing white space from a type when returning the
+	  index for a particular symbol
+
+2009-04-19 09:51  adrianissott
+
+	* lib/LXR/Index/: Mysql.pm, Oracle.pm, Postgres.pm: Fix for bug
+	  2773982 (Identifer Search Results Are Not Sorted When Shown) *
+	  MySql, Oracle and Postgres databases now sort the results in the
+	  same way. * Declarations are sorted by filename, line and then by
+	  type * References are sorted by filename and then by line
+
+2009-04-19 09:16  adrianissott
+
+	* initdb-oracle.sql: Fix for bug 2773972 (initdb-oracle.sql doesn't
+	  work with 10.2 of Oracle Express) * Changed invalid C++ style
+	  comment to SQL comment
+
+	  Also added a "quit" statement to the end of the initdb-oracle.sql
+	  script so that when it is be run from the command line it returns
+	  control to the command line rather than leaving it with sqlplus.
+
+2009-04-13 10:09  adrianissott
+
+	* lib/LXR/Lang/generic.conf: Fix for bug 2758373 (Invalid Perl
+	  Identifier References) * Removed 'atom'    => ('\$\W?',
+	  '') from perl lang spec as it was severly breaking the perl
+	  parsing.  * I'm not sure why it was there in the first place but
+	  having it there is definitely doing more harm than good.
+
+2009-04-12 16:55  adrianissott
+
+	* lib/LXR/Lang/: Generic.pm, generic.conf: Fix for bug 2755776
+	  (Perl Reserved Words Needs Updating) * Added reserved words
+	  derived from the perlfunc and perlsyn documentation for perl
+	  v5.10.0 * Updated the regular expression in LXR::Lang::Generic to
+	  allow reserved words / symbols to start with - and not be
+	  proceeded by $
+
+2009-04-12 16:10  adrianissott
+
+	* lib/LXR/: Lang/Generic.pm, Lang.pm: * Removed invalid dependency
+	  from LXR::Lang -> LXR::Lang::Generic introduced in fix for bug
+	  2752690 (C / C++ pre-processor keywords aren't marked as
+	  reserved) * Clarified LXR::Lang interface by giving a dummy
+	  implementation for all required subroutines
+
+2009-04-11 11:23  adrianissott
+
+	* lib/LXR/: Lang.pm, Lang/Cobol.pm, Lang/Generic.pm,
+	  Lang/generic.conf: Fix for bug 2752690 (C / C++ pre-processor
+	  keywords aren't marked as reserved): * Updated
+	  LXR::Lang::Generic::processcode()'s pattern to allow a # to start
+	  off a keyword * LXR::Lang::processinclude() now checks for
+	  reserved words * Added isreserved() subroutine to LXR::Lang and
+	  refactored derived modules to use it (e.g. LXR::Lang::Cobol) *
+	  Added pre-processor keywords to the C and C++ lists of reserved
+	  words * Fixed Make's reserved words to be an empty list not and
+	  empty hash
+
+2009-04-10 20:29  adrianissott
+
+	* tests/PlainTest.pm: Part II of Bug 2750080 (Running the Tests
+	  Outputs Warnings) - added test src files and updated
+	  PlainTest::test_getfile() to use them so that this test now works
+	  properly
+
+2009-04-10 20:13  adrianissott
+
+	* lib/LXR/Common.pm: Part I of the fix for Bug 2750080 (Running the
+	  Tests Outputs Warnings)
+
+2009-04-10 09:16  adrianissott
+
+	* tests/TestRunner.pl: Reverting the change to TestRunner.pl so it
+	  uses the -w switch instead of the -T switch as before
+
+2009-04-08 21:17  adrianissott
+
+	* lib/LXR/Config.pm: Fix for bug 2745362 (LXR::Config Is Too
+	  Strict) - LXR::Config now creates the tmpdir, glimpsedir and
+	  swishdirs as necessary when it is initialised.
+
+2009-04-08 20:49  adrianissott
+
+	* search, .cvsignore, diff, find, genxref, ident, source,
+	  tests/TestRunner.pl: Fix for bug 2745292 (LXR CGI Scripts Fail on
+	  Windows) - changed all occurrences of "#!/usr/bin/perl –T" to be
+	  "#!perl –T" and rely on the path to find the perl executable.
+
+2009-03-27 11:46  mbox
+
+	* templates/: html-head.html, html-ident.html,
+	  html-search-glimpse.html, html-search-swish.html, html-tail.html,
+	  valid-html401.png: Implemented focus in fields on load.  Added
+	  local copy of the valid-html logo to speed page loads.
+
+2009-03-26 17:15  mbox
+
+	* lib/LXR/Files.pm: [no log message]
+
+2009-03-26 17:13  mbox
+
+	* apache2-require.pl: Change paths to match install instructions
+
+2009-03-26 17:11  mbox
+
+	* INSTALL, apache2-require.pl: Fix problem in INSTALL instructions
+	  where Apache2 include path wasn't set up properly.  Create new
+	  script to set these up.
+
+2009-03-24 20:04  tag release-0-9-6
+
+2009-03-24 20:04  mbox
+
+	* lib/LXR/Files/CVS.pm: Fix bug [ 1111786 ] Failure to open file
+	  not detected
+
+	  Fix as per defect report - check return status from open() rather
+	  than filehandle
+
+2009-03-24 20:02  mbox
+
+	* tests/: BKTest.pm, README: Update to account for move of test
+	  repository to lxr-tools
+
+2009-03-23 23:06  mbox
+
+	* tests/bk-test-repository.tgz: Remove BitKeeper test repository -
+	  moving to the lxr-tools module with other test data
+
+2009-03-23 16:51  mbox
+
+	* genxref: Fix bug [ 1691391 ] genxref/swish-e/binary files is VERY
+	  inefficient
+
+	  Patched as per bug report - use filehandle to determine
+	  binary-ness, not the whole contents.
+
+2009-03-23 16:43  mbox
+
+	* lib/LXR/Common.pm: Fix bug [ 1720862 ] Filename with space
+	  reports does not exist
+
+	  Add whitespace to allowed list of characters in pathname.
+
+2009-03-23 16:41  mbox
+
+	* .htaccess-apache2: Remove DirectoryIndex command as this caused
+	  problems
+
+2009-03-23 15:49  mbox
+
+	* .htaccess, .htaccess-apache1, INSTALL: Created Apache 1.x version
+	  of .htaccess for use with ModPerl1
+
+	  Modified install instructions to match
+
+2009-03-23 15:25  mbox
+
+	* .htaccess-apache2: Updated to fix issues when running under
+	  Modperl2 & Apache2:
+
+	  - Change to RegistryPrefork so that working directory is the same
+	  as the script directory rather than /.  This makes the template
+	  inclusion work properly - Add DirectoryIndex to hide default
+	  directory listing - Remove old mod_perl1 directives
+
+2009-03-23 14:34  mbox
+
+	* .htaccess_cgi: Set the handler for lxr.css to be the default
+	  rather than a script.
+
+	  Before this change, lxr.css was interpreted as a script due to
+	  the ScriptAlias directive in httpd.conf.ew
+
+2009-03-23 13:29  mbox
+
+	* lib/LXR/Index/Mysql.pm: Fix bug [ 1645267 ] problem with MySQL
+	  syntax in delete statement
+
+	  Change MySQL delete statements as per bug report
+
+2009-03-23 12:32  mbox
+
+	* INSTALL: Fix bug 1716172: Typo in INSTALL
+
+	  Corrected the path information on line 112.
+
+2009-03-23 12:27  mbox
+
+	* initdb-mysql, lib/LXR/Index/Mysql.pm: Fix for bug 1209273:
+	  release a reserved word in MySQL 5.x
+
+	  Rename the releases.release column in the database to
+	  releases.rel, avoiding the problem.
+
+2007-04-14 22:33  mbox
+
+	* RELEASING, tests/AllTests.pm: Disable the CVS tests as these
+	  don't work yet.  Update the RELEASING document
+
+2006-12-21 09:33  jbglaw
+
+	* lib/LXR/Files/GIT.pm: Fix isdir()/isfile() for some cases.
+	  Hyperref'ed header files work now.
+
+2006-12-20 19:57  jbglaw
+
+	* lib/LXR/Common.pm: </html> is already inside the html template
+	  files, no need to output another one hardcoded from within the
+	  Perl files.
+
+2006-12-20 19:56  jbglaw
+
+	* templates/lxr.conf: Place two examples about how to get the tags
+	  out of a GIT repository as versions vor the `v' variable.
+
+2006-12-20 19:55  jbglaw
+
+	* templates/lxr.conf: Remove redundant whitespace from our lxr.conf
+	  template.
+
+2006-12-20 19:54  jbglaw
+
+	* initdb-postgres: Cleanly indent the initdb-postgres SQL script.
+
+2006-12-20 19:53  jbglaw
+
+	* INSTALL: Update installation instructions wrt. Apache2.
+
+2006-12-20 19:52  jbglaw
+
+	* templates/lxr.conf: Update sourceparams documentation.
+
+2006-12-20 19:51  jbglaw
+
+	* lib/LXR/Files/GIT.pm: Rework the GIT backend.
+
+2006-12-20 19:49  jbglaw
+
+	* lib/LXR/Files/BK.pm: Fix some more whitespace.
+
+2006-12-20 19:48  jbglaw
+
+	* lib/LXR/Files/BK.pm: Add \n to the end of the last line.
+
+2006-12-20 19:48  jbglaw
+
+	* lib/LXR/Common.pm: Remove redundant whitespace.
+
+2006-12-20 19:43  jbglaw
+
+	* lib/LXR/Common.pm: Call the ->isdir() method with $release.
+
+2006-06-06 21:33  mbox
+
+	* INSTALL: Update install instructions as we now support MySQL 5.x
+
+2006-06-05 10:15  mbox
+
+	* initdb-mysql: Fix for bug 1209273: "release" a reserved word in
+	  MySQL 5.x
+
+	  Quote the "releases" column in the table definition, as suggested
+	  by Laurence Passmore (lmop)
+
+2006-04-09 23:07  mbox
+
+	* lib/LXR/JavaClassList.pm, tests/README: Update documentation on
+	  Bitkeeper tests Remove redundant file
+
+2006-04-09 22:58  mbox
+
+	* tests/bk-test-repository.tgz: Remove all the test files for
+	  Bitkeeper and replace with a tarball that should be untarred by
+	  the tester before running the tests.
+
+	  The BkTest.pm test should really be updated to do this
+	  automatically, but since the license change I can no longer run
+	  Bitkeeper and therefore have no interest in updating these tests.
+
+2006-04-08 13:37  tag release-0-9-5
+
+2006-04-08 13:37  mbox
+
+	* search, lib/LXR/Files.pm, lib/LXR/Files/GIT.pm,
+	  lib/LXR/Lang/generic.conf, templates/lxr.conf: New: preliminary
+	  GIT support
+
+	  Reorganised the generic.conf entries, and add support for some
+	  more ectags stuff Fix to glimpse support
+
+2006-04-04 22:23  mbox
+
+	* lib/LXR/Common.pm, lib/LXR/Lang/Generic.pm, tests/CVSTest.pm,
+	  RELEASING, lib/LXR/Files/CVS.pm: ectags update for new language
+	  types (JBG)
+
+2005-11-02 23:39  mbox
+
+	* .cvsignore, INSTALL, diff, fixhashbang, genjavaclasses, genxref,
+	  source, lib/LXR/Common.pm, lib/LXR/Files.pm, lib/LXR/Files/BK.pm,
+	  lib/LXR/Files/Plain.pm, templates/lxr.conf, tests/AllTests.pm,
+	  tests/BKTest.pm, tests/ConfigTest.pm, tests/PlainTest.pm,
+	  tests/lxr.conf: Merge of the BK support from bk-dev-branch.
+
+	  This merge closes the bk-dev-branch.
+
+	  Adds support for BK repositories (somewhat incomplete).  As BK is
+	  no longer free, this is untestable by the maintainer and will
+	  therefore not be maintained.	It is released here to allow others
+	  to take it forward if they want.
+
+	  Also updates and add new testcases.
+
+2005-10-07 21:38  brondsem
+
+	* search: fix bug 1316021; untested since i no longer have a
+	  working setup, but I figured I should fix my old bad mistake
+
+2005-09-10 00:09  mbox
+
+	* lib/LXR/Config.pm, tests/ConfigTest.pm: Fix for [ 1277254 ] --url
+	  option needs better helpProduce better error messages if we
+	  can't find a configuration.
+
+2005-09-09 22:06  mbox
+
+	* lib/LXR/Common.pm, tests/SecurityTest.pm: Fix Bug 1230443: Two
+	  letter directories fail.Fix the various regexps in Common.pm
+
+2005-05-15 22:59  mbox
+
+	* lib/LXR/Common.pm: Correct pathname cleaning
+
+2005-05-15 22:55  mbox
+
+	* tests/SecurityTest.pm: Correct pathname cleanups when .. or . are
+	  in the path
+
+2005-05-05 22:01  tag release-0-9-4
+
+2005-05-05 22:01  mbox
+
+	* tests/: CVSTest.pm, SecurityTest.pm: Updates to testcode
+
+2005-05-05 21:59  mbox
+
+	* .htaccess: PerlTaintCheck doesn't work for some reason - so
+	  switch it off.
+
+2005-05-04 23:21  mbox
+
+	* .htaccess, lib/LXR/Files/CVS.pm, tests/AllTests.pm,
+	  tests/CVSTest.pm, tests/lxr.conf: Add test cases for Security and
+	  for some CVS bugs.Enable taint mode for mod_perl - should
+	  reduce security vulnerabilities
+
+2005-05-04 23:19  mbox
+
+	* lib/LXR/Common.pm, tests/SecurityTest.pm: Fix for security
+	  vulnerability:  malicious values in 'version' can reveal files
+	  outside thesource tree.Fixes bug [ 1194360 ] directory
+	  traversal
+
+2005-04-30 21:30  mbox
+
+	* templates/lxr.conf: tcl is not supported in generic.conf yet - so
+	  comment out.Fixes bug [ 1042310 ] No langid for language tcl
+
+2005-04-30 01:35  mbox
+
+	* lib/LXR/Index/Postgres.pm: Fix missing ${prefix} tags.
+
+2005-04-29 20:59  mbox
+
+	* tests/AllTests.pm: [no log message]
+
+2005-03-16 21:50  tag merge-to-mainline
+
+2005-03-16 21:50  mbox
+
+	* tests/PlainTest.pm: tests for the Plain.pm module
+
+2005-02-22 23:12  mbox
+
+	* tests/BKTest.pm, diff, genxref: Fix Files initialisation in
+	  genxrefFix diffUpdate tests and bk repository
+
+2005-02-21 08:25  mbox
+
+	* lib/LXR/Files/BK.pm: Sort the files & directories returned from
+	  getdir()
+
+2005-02-21 00:07  mbox
+
+	* lib/LXR/Common.pm, tests/ConfigTest.pm, tests/lxr.conf: Tests for
+	  new 'sourceparams' config directive, and fix for typo in usage
+
+2005-02-20 23:44  mbox
+
+	* lib/LXR/Common.pm, lib/LXR/Files.pm, lib/LXR/Files/BK.pm,
+	  templates/lxr.conf, tests/BKTest.pm: Add a disk-based cache for
+	  the results of the 'bk rset' command.This prevents this from
+	  taking too long on subsequent invocations - bk rset being a slow
+	  operation.As a disk-based cache this can get out of sync with
+	  the repository, there is currently no code to detect this.  The
+	  idea is that this would bemanually deleted before running
+	  genxref, which would have the sideeffect of creating an
+	  up-to-date cache.
+
+2005-02-20 21:42  mbox
+
+	* lib/LXR/Files/BK.pm: Fix off-by-one error in months
+
+2005-02-19 22:22  mbox
+
+	* tests/BKTest.pm: Tests for getauthor, getannotations
+
+2005-02-19 22:22  mbox
+
+	* lib/LXR/Files/BK.pm: Complete getauthor and getannotations
+	  functions.  Getannotations is a stub for now, since it's not
+	  clear what this should return.
+
+2005-02-14 23:04  mbox
+
+	* source: [no log message]
+
+2005-02-14 22:58  mbox
+
+	* source: Remove uses of toreal() except for with CVS module.These
+	  should probably be removed as well...
+
+2005-02-14 22:39  mbox
+
+	* lib/LXR/Files/BK.pm, tests/BKTest.pm: Implement getfilesize
+
+2005-02-14 00:55  mbox
+
+	* lib/LXR/Files/BK.pm, tests/BKTest.pm: Implement isfile()
+
+2005-02-14 00:50  mbox
+
+	* lib/LXR/Files.pm: Change to warn instead of die-ing when
+	  unimplement function is called
+
+2005-02-14 00:45  mbox
+
+	* lib/LXR/Files/BK.pm, tests/BKTest.pm: Implement getfiletime()
+	  function.Does not implement it for directories yet
+
+2005-02-13 23:55  mbox
+
+	* lib/LXR/Files/BK.pm, tests/BKTest.pm: Implement isdir() function
+
+2005-02-13 23:37  mbox
+
+	* lib/LXR/Files.pm: Log parameters for unimplemented functions
+
+2005-02-13 23:07  mbox
+
+	* tests/BKTest.pm, lib/LXR/Files/BK.pm, INSTALL: genxref now works
+	  against the test BK repository.
+
+2005-02-13 19:54  mbox
+
+	* .cvsignore: [no log message]
+
+2005-02-13 19:35  mbox
+
+	* tests/AllTests.pm, tests/BKTest.pm, tests/lxr.conf, fixhashbang,
+	  genjavaclasses, lib/LXR/Files.pm, lib/LXR/Files/BK.pm,
+	  lib/LXR/Files/Plain.pm: Updated implementation of BitKeeper
+	  interface.  Now uses bk rset to getall the details of the tree.
+	  Can correctly access various versions of the files across moves,
+	  deletes etc.
+
+2005-01-05 17:13  mbox
+
+	* INSTALL: Fix bug 103178: Document that MySQL 4.x is needed
+
+2004-12-12 02:41  mbox
+
+	* lib/LXR/Files/BK.pm, tests/BKTest.pm: BK::getdir starting to come
+	  together - code builds an in-memory hash of the entire source
+	  tree per version, as there appears to be no good wayto get the
+	  directory structure at a release point otherwise.Tests for
+	  building the tree from the output of bk -r prs -r$release are
+	  passing - no tests yet for correctly interfacing with BK.
+
+2004-12-04 23:31  mbox
+
+	* lib/LXR/Files.pm, lib/LXR/Files/BK.pm, tests/AllTests.pm,
+	  tests/BKTest.pm, tests/ConfigTest.pm: Start of work on BitKeeper
+	  support - add new Files access mode for BK
+
+2004-12-04 23:21  mbox
+
+	* tests/TestRunner.pl: New script to run all LXR testcode
+
+2004-10-26 17:08  brondsem
+
+	* diff: update $PATH for diff (gnu diff is more likely to be in
+	  /usr/local/bin so look there first)
+
+2004-10-25 20:18  brondsem
+
+	* initdb-oracle.sql: update with new tables/columns
+
+2004-10-19 19:19  brondsem
+
+	* lib/LXR/Lang/generic.conf: fix "shell" capitalization to match
+	  that used in lxr.conf
+
+2004-10-18 22:19  brondsem
+
+	* lib/LXR/Index/Oracle.pm: oops, retract local change
+
+2004-10-18 20:45  brondsem
+
+	* lib/LXR/Index/: Mysql.pm, Postgres.pm: fix order of delete
+	  statements
+
+2004-10-18 20:42  brondsem
+
+	* lib/LXR/Index/Oracle.pm: merge many old structure changes from
+	  Mysql.pm
+
+2004-10-18 20:22  brondsem
+
+	* search: handle errors a bit better; also, rearrange piping in
+	  swishsearch for iPlanet
+
+2004-10-18 19:09  brondsem
+
+	* lib/LXR/Index/Oracle.pm: some oracle fixes
+
+2004-10-11 19:39  brondsem
+
+	* INSTALL: explain icons for unlucky people who can't use Apache
+
+2004-09-06 21:55  mbox
+
+	* tests/README: Describe how to run the automatic tests
+
+2004-09-06 21:54  mbox
+
+	* tests/ConfigTest.pm: Fix test to work correctly
+
+2004-09-02 18:50  tag release-0-9-3
+
+2004-09-02 18:50  brondsem
+
+	* lib/LXR/Files/CVS.pm: iPlanet on solaris.. what a fun non-gnu
+	  platform... anyway, this keeps error messages from getting output
+	  and creating malformed headers
+
+2004-09-02 15:26  brondsem
+
+	* diff, find, ident, search, source: fix a bug I made a while back;
+	  explain each "use" line
+
+2004-08-10 16:14  brondsem
+
+	* lib/LXR/Lang/Cobol.pm, lib/LXR/Lang/generic.conf,
+	  templates/lxr.conf: add cobol support
+
+2004-08-10 16:13  brondsem
+
+	* lib/LXR/Lang/Generic.pm, lib/LXR/Lang/Java.pm, templates/lxr.css:
+	  highlight reserved words; different colors for comments and
+	  strings
+
+2004-07-27 08:05  mbox
+
+	* lib/LXR/Index/: Mysql.pm, Oracle.pm, Postgres.pm: Fix logic of
+	  dbprefix test so that a null prefix works properly for older
+	  installations.
+
+2004-07-26 20:53  brondsem
+
+	* search: use same template variables between swish-e & glimpse;
+	  use parenthesis to avoid the swish-e syntax problem instead of
+	  providing a tip;
+
+2004-07-26 20:47  brondsem
+
+	* search, lib/LXR/Common.pm, templates/html-search-glimpse.html,
+	  templates/html-search-swish.html: combine file name search and
+	  freetext search
+
+2004-07-21 20:44  brondsem
+
+	* Local.pm, diff, find, genxref, ident, search, source,
+	  lib/LXR/Common.pm, lib/LXR/Config.pm, lib/LXR/Files.pm,
+	  lib/LXR/Index.pm, lib/LXR/Lang.pm, lib/LXR/SimpleParse.pm,
+	  lib/LXR/Tagger.pm, lib/LXR/Files/CVS.pm, lib/LXR/Files/Plain.pm,
+	  lib/LXR/Index/DB.pm, lib/LXR/Index/DBI.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Index/Oracle.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/Generic.pm,
+	  lib/LXR/Lang/Java.pm, lib/LXR/Lang/Perl.pm,
+	  lib/LXR/Lang/Python.pm, lib/LXR/Lang/generic.conf,
+	  templates/lxr.conf: perltidy with options: -ce -pt=2 -nolq -nsfs
+
+2004-07-21 14:08  brondsem
+
+	* lib/LXR/Files/CVS.pm: sort CVS revisions intelligently
+
+2004-07-20 20:40  brondsem
+
+	* lib/LXR/Files/CVS.pm: remember gnu_diff setting
+
+2004-07-20 18:58  brondsem
+
+	* lib/LXR/Lang/Generic.pm: exact matching against reserved words,
+	  not substring
+
+2004-07-20 18:17  brondsem
+
+	* lib/LXR/Files/CVS.pm: that was weird.  proper commit this time.
+
+2004-07-20 18:02  brondsem
+
+	* lib/LXR/Files/CVS.pm: improved handling when there are no
+	  annotations
+
+2004-07-20 17:30  brondsem
+
+	* lib/LXR/Files/CVS.pm: non-GNU 'diff' doesn't work for getting
+	  annotations; handle this nicely by checking and then showing none
+
+2004-07-20 15:34  brondsem
+
+	* INSTALL: note about CVS not working w/ glimpse.  consistent blank
+	  lines between sections
+
+2004-07-20 15:31  brondsem
+
+	* INSTALL, initdb, initdb-mysql, initdb-oracle.sql,
+	  initdb-postgres, lib/LXR/Index/Mysql.pm, lib/LXR/Index/Oracle.pm,
+	  lib/LXR/Index/Postgres.pm, templates/lxr.conf: prefix tables with
+	  lxr_ (configurable).	existing users should set dbprefix to ''
+	  since their tables have no prefix
+
+	  fix ordering of delete statements fix some oracle syntax
+
+2004-07-20 15:28  brondsem
+
+	* lib/LXR/Lang/: ectags.conf, generic.conf: index synonyms
+
+2004-07-19 20:19  brondsem
+
+	* templates/lxr.conf: remove glimpsedir from global section
+
+2004-07-19 20:03  brondsem
+
+	* INSTALL, find, genxref, search, templates/lxr.conf: consolidate
+	  swishindex & swishsearch variables into swishbin
+
+2004-07-19 19:50  brondsem
+
+	* Local.pm, diff, find, genxref, ident, search, source,
+	  lib/LXR/Common.pm, lib/LXR/Config.pm, lib/LXR/Files.pm,
+	  lib/LXR/Index.pm, lib/LXR/Lang.pm, lib/LXR/SimpleParse.pm,
+	  lib/LXR/Tagger.pm, lib/LXR/Files/CVS.pm, lib/LXR/Files/Plain.pm,
+	  lib/LXR/Index/DB.pm, lib/LXR/Index/DBI.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Index/Oracle.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/Generic.pm,
+	  lib/LXR/Lang/Java.pm, lib/LXR/Lang/Perl.pm,
+	  lib/LXR/Lang/Python.pm: formatting (with eclipse EPIC plugin
+	  which uses PerlTidy. options used: line width 100, cuddle else,
+	  use tabs, tab-width 4)
+
+2004-07-19 18:16  brondsem
+
+	* .htaccess_cgi, INSTALL: apache configuration for cgi
+
+2004-07-19 18:05  brondsem
+
+	* search: remove full prefix from filepath
+
+2004-07-19 18:05  brondsem
+
+	* lib/LXR/Lang/generic.conf: specify shell mapping
+
+2004-07-19 17:56  brondsem
+
+	* INSTALL, find, genxref, templates/lxr.conf: fixes for glimpse
+
+2004-07-19 17:33  brondsem
+
+	* lib/LXR/Lang/Generic.pm: set a safe $PATH
+
+2004-07-19 13:55  brondsem
+
+	* lib/LXR/Index/Postgres.pm: fix curly brace formatting
+
+2004-07-15 20:42  brondsem
+
+	* lib/LXR/Index/: Mysql.pm, Oracle.pm, Postgres.pm: useage v. usage
+	  spelling difference; misc fixes for 'purge' statements
+
+2004-07-15 20:40  brondsem
+
+	* initdb-oracle.sql: fix EOLs
+
+2004-07-15 20:29  brondsem
+
+	* genxref, lib/LXR/Index/Mysql.pm, lib/LXR/Index/Oracle.pm,
+	  lib/LXR/Index/Postgres.pm: add option to force full indexing
+
+2004-07-15 20:28  brondsem
+
+	* lib/LXR/Lang/Generic.pm: we need to do untainting here too
+
+2004-07-15 20:25  brondsem
+
+	* lib/LXR/Lang/: ectags.conf, ectags.conf.documentation: pull out
+	  comments into a seperate file so ctags doesn't display warnings
+
+2004-07-15 20:20  brondsem
+
+	* lib/LXR/Config.pm: make stricter url check work properly for
+	  genxref
+
+2004-07-15 20:16  brondsem
+
+	* lib/LXR/Index/Postgres.pm: add setindexed and setreferenced
+
+2004-07-15 15:29  brondsem
+
+	* diff, find, ident, search, source: add -T switch for taint
+	  checking in CGI mode
+
+2004-07-15 15:18  brondsem
+
+	* INSTALL: full name of MMagic module
+
+2004-07-15 15:08  brondsem
+
+	* lib/LXR/Files/Plain.pm: don't die on invalid dir; simply return
+	  empty so the user gets an error message
+
+2004-07-15 15:00  brondsem
+
+	* source: show attic notice on dir not found, just like we do for
+	  file not found
+
+2004-07-15 14:55  brondsem
+
+	* lib/LXR/Config.pm: fix bug where substring match of url happens
+	  too early and wrong config is used
+
+2004-07-15 14:41  brondsem
+
+	* diff, find, ident, search, source, lib/LXR/Common.pm,
+	  lib/LXR/Config.pm, lib/LXR/Files/CVS.pm,
+	  templates/html-find.html, templates/html-ident.html,
+	  templates/html-search-glimpse.html,
+	  templates/html-search-swish.html: allow all special characters
+	  through http parms so we we can do rexeps.  but using taint
+	  checking now and handle quotes properly in forms
+
+2004-07-15 14:12  brondsem
+
+	* INSTALL: update, mostly for swish-e and cgi
+
+2004-07-14 15:00  brondsem
+
+	* genxref, swish-e.conf: configure swish-e a little better
+
+2004-07-14 14:50  brondsem
+
+	* .cvsignore: update template files list
+
+2004-07-14 14:49  brondsem
+
+	* search, templates/html-search-glimpse.html,
+	  templates/html-search-swish.html, templates/html-search.html,
+	  templates/lxr.conf: use templates for search page
+
+2004-07-14 14:43  brondsem
+
+	* find: minor cleanup
+
+2004-07-14 14:42  brondsem
+
+	* Local.pm: better choice of which javadoc comment to use
+
+2004-07-14 14:27  brondsem
+
+	* lib/LXR/Index/Oracle.pm: fix line endings
+
+2004-07-13 19:16  brondsem
+
+	* source: don't show CVS link on raw pages
+
+2004-07-13 13:39  brondsem
+
+	* .htaccess, lib/LXR/Common.pm: perl script doesn't print header
+	  (mod_perl does); this lets it run with cgi instead of mod_perl if
+	  desired
+
+2004-07-13 13:35  brondsem
+
+	* lib/LXR/Lang/: ectags.conf, generic.conf: fix shell comment
+	  terminator; more SQL regex tweaking (isn't this fun?)
+
+2004-07-12 17:13  mbox
+
+	* lib/LXR/Common.pm: Switch wwwdebug off in distribution version
+
+2004-07-12 14:39  mbox
+
+	* find: Provide error message if file find not configured
+
+2004-07-12 14:35  mbox
+
+	* search: Provide error message if no freetext search is configured
+
+2004-07-12 13:15  mbox
+
+	* INSTALL: Update list of prerequisites to reflect new use of
+	  MMagic module
+
+2004-07-08 13:58  brondsem
+
+	* templates/html-find.html: show result count at top
+
+2004-07-08 13:41  brondsem
+
+	* find, templates/html-find.html, templates/lxr.conf: use a
+	  template for find
+
+2004-07-07 20:46  brondsem
+
+	* lib/LXR/Lang/: ectags.conf, generic.conf: futher regexp tweaks
+
+2004-07-07 20:31  brondsem
+
+	* find: option for basic and regexp search; option for
+	  case-sensitivity
+
+2004-07-07 20:29  brondsem
+
+	* search: if we get an error message, display it and don't count it
+	  as a hit
+
+2004-07-06 13:54  brondsem
+
+	* search: filenames with spaces
+
+2004-07-06 13:50  brondsem
+
+	* search: properly handle filenames with spaces in them
+
+2004-07-01 20:41  brondsem
+
+	* lib/LXR/Lang.pm, lib/LXR/Lang/generic.conf,
+	  lib/LXR/Lang/ectags.conf, templates/lxr.conf: add language
+	  support for VB, shell scripts, and SQL
+
+2004-07-01 14:24  brondsem
+
+	* ident, search: show # of results
+
+2004-07-01 13:57  brondsem
+
+	* lib/LXR/Files/CVS.pm: better tag name handling (primarily for
+	  when viewing a directory)
+
+2004-06-30 20:55  brondsem
+
+	* genxref: run gensearch first so we can remember what files are
+	  binary and skip them
+
+2004-06-30 20:33  brondsem
+
+	* lib/LXR/Files/CVS.pm: $% is a variable, we must escape it or this
+	  messes up good filenames
+
+2004-06-30 19:49  brondsem
+
+	* lib/LXR/Common.pm, lib/LXR/Files/CVS.pm, source,
+	  templates/html-head.html: for CVS files, by default don't show
+	  files that are dead (on the currently selected release), but do
+	  have the option to see them
+
+2004-06-30 19:48  brondsem
+
+	* templates/html-dir.html: italics are hard on the eyes and
+	  unnecessary
+
+2004-06-30 19:19  brondsem
+
+	* Local.pm: further javadoc tweaking
+
+2004-06-29 20:58  brondsem
+
+	* lib/LXR/Files/: CVS.pm, Plain.pm: prohibit all access to files in
+	  ignored directories
+
+2004-06-29 20:41  brondsem
+
+	* lib/LXR/Files/CVS.pm, lib/LXR/Files/Plain.pm, templates/lxr.conf:
+	  option to ignore certain directories (e.g. CVSROOT)
+
+2004-06-29 18:06  brondsem
+
+	* genxref: error if --allversions won't do anything
+
+2004-06-29 17:45  brondsem
+
+	* Local.pm: tweak javadoc parsing
+
+2004-06-29 15:45  brondsem
+
+	* source, templates/lxr.conf: option to have links to CVSweb for
+	  each file
+
+2004-06-29 13:32  brondsem
+
+	* Local.pm: change keyword replacement so they keywords aren't
+	  actually in the source, else they get replace and mess everything
+	  up
+
+2004-06-29 13:23  brondsem
+
+	* Local.pm, source: directory descriptions
+
+2004-06-28 20:34  brondsem
+
+	* Local.pm: find descriptions in javadoc comments
+
+2004-06-28 18:42  brondsem
+
+	* Local.pm, source: fix broken code for pulling descriptions from
+	  files
+
+2004-06-28 18:35  brondsem
+
+	* find: more perl detail in help
+
+2004-06-28 14:21  brondsem
+
+	* find, search: more user-friendly error messages
+
+2004-06-28 14:05  brondsem
+
+	* find: remove broken help link; put tips on page; count results
+
+2004-06-28 13:54  brondsem
+
+	* templates/html-tail.html: remove debug output of loaded modules
+
+2004-06-28 13:52  brondsem
+
+	* templates/html-head.html: remove broken image and link
+
+2004-06-28 13:48  brondsem
+
+	* source: use apache-provided icons
+
+2004-06-28 13:17  brondsem
+
+	* find, genxref: support filename searchs for swish-e; ignore
+	  binary files (swish-e only) for full-text indexing; simpler
+	  forking/piping to feed swish-e indexer (works in Solaris now)
+
+2004-04-21 23:09  mbox
+
+	* .htaccess: Force the type of the output to html to cope with
+	  occasional reports that the output is served as text/plain,
+	  causing standards compliant browsers (Netscape, Mozilla etc) to
+	  display the markup
+
+	  Fixes bug 749886 IE views ok, Netscape gets html code seen
+
+2004-04-21 22:52  mbox
+
+	* lib/LXR/: Tagger.pm, Index/Mysql.pm: Fix bug where a file that
+	  fails to index is marked as indexed for future runs.	Now file is
+	  only marked as indexed/referenced after a successful completion
+	  of the pass.
+
+	  Fixes bug 676739 incomplete information if run is aborted
+
+2003-06-05 18:18  mbox
+
+	* INSTALL: Fix bug [ 735124 ] rcs also needed
+
+	  Document the fact that cvs and rcs are needed.
+
+2003-06-05 16:55  mbox
+
+	* find: Fix bug 703803	search script glimpsedir path construction
+	  spotty.
+
+	  Change the find path to $glimpsedir/$release to match search.
+
+2003-06-05 15:41  mbox
+
+	* templates/lxr.conf: Example entry for new baseurl_aliases entry
+
+2003-06-05 15:39  mbox
+
+	* lib/LXR/Config.pm: Apply patch [ 608981 ] Support baseurl_aliases
+	  in lxr.conf from surazal.
+
+	  Now the lxr.conf file can contain baseurl_aliases sections which
+	  allows one configuration to be accessed at multiple urls.
+
+2003-05-02 23:04  mbox
+
+	* lib/LXR/Files/CVS.pm: Apply patch 594351 - fix potential security
+	  flaws in CVS file opening.
+
+2003-05-02 22:58  mbox
+
+	* initdb-mysql: Fix bad SQL syntax
+
+2003-03-22 01:19  mbox
+
+	* templates/: html-head.html, html-tail.html: Applied patch 629763:
+	  Tiny fix in default HTML templates.
+
+	  Close a <td> and remove redundant whitespace in link
+
+2003-03-22 01:16  mbox
+
+	* templates/html-ident.html: Applied patch 589546: HTML fix in the
+	  indent view.
+
+	  Remove duplicate References section from the template, as
+	  references are now generated by the html-ident-refs.html
+	  template.
+
+2003-03-22 01:00  mbox
+
+	* lib/LXR/SimpleParse.pm: Apply patch 629550: tabwidth=0 breaks
+	  genxref.  Make sure the tabwidth read from a vi modeline is never
+	  0.
+
+2003-03-22 00:24  mbox
+
+	* INSTALL: Fix bug 700771: Install dependencies not doced.  Added
+	  details on the DBD and DBI drivers required.
+
+2003-03-21 23:54  mbox
+
+	* initdb-postgres, lib/LXR/Tagger.pm, lib/LXR/Index/Mysql.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/generic.conf,
+	  templates/html-ident.html, tests/lxr.conf: This branch is for
+	  experimental work on making LXR able to cope with an evolving
+	  source base.	The aim is that re-indexing the same file will
+	  remove previous entries created for that file, keeping the
+	  database clean.:wq
+
+2002-07-29 01:23  tag release-0-9-2
+
+2002-07-29 01:23  mbox
+
+	* source: Apply patch [ 455555 ] date/time ISO8601.  This makes
+	  source display times in ISO format.
+
+2002-07-29 01:17  mbox
+
+	* genxref, search, lib/LXR/Common.pm, templates/lxr.conf: Applied
+	  patch [ 571608 ] Adding Glimpse Indexing into genxref from
+	  andrewbeck.
+
+	  Also updated to use 'glimpsedir' to store the glimpse database
+	  files - example now in lxr.conf
+
+2002-07-29 01:06  mbox
+
+	* initdb-mysql: Fix error message if db doesn't exist.	Patch from
+	  MK - #570826
+
+2002-07-29 01:03  mbox
+
+	* INSTALL: Apply patch from magsilva to correct documentation.
+
+2002-07-29 00:58  mbox
+
+	* lib/LXR/Lang/Generic.pm: Fix from bug 523647 from David Houlder.
+
+2002-07-29 00:50  mbox
+
+	* lib/LXR/Common.pm: Fix for bug 554063 - add a title for sourcedir
+	  pages
+
+2002-03-18 14:55  mbox
+
+	* Local.pm, diff, find, ident, search, source, lib/LXR/Common.pm,
+	  lib/LXR/Lang.pm, lib/LXR/Lang/Perl.pm, templates/html-dir.html,
+	  templates/html-head.html, templates/html-ident.html,
+	  templates/html-search.html, templates/html-tail.html: Apply patch
+	  530997 from Ville Skyttä to improve the HTML produced.
+
+2002-03-18 14:44  mbox
+
+	* lib/LXR/Common.pm: Check that a configuration is found, otherwise
+	  produce a fatal error
+
+2002-03-18 14:18  mbox
+
+	* genxref: Add error checking to initialisation
+
+2002-03-07 15:44  mbox
+
+	* ident, templates/html-ident-refs.html, templates/lxr.conf:
+	  Implement separate templates for the declarations and the
+	  references in the ident display.  This helps speed up getting the
+	  results to the client browser, since the declarations can be sent
+	  before the references query is completed.  Fixes bug 526807
+
+2002-03-04 15:11  mbox
+
+	* tests/: AllTests.pm, ConfigTest.pm, lxr.conf, test-versions: Add
+	  automatic test framework and first tests to LXR. This depends on
+	  the Test::Unit suite from http://sf.net/projects/perlunit for the
+	  basic framework.  Currently an "AllTests" module is defined that
+	  should run all the tests currently available, as well as a
+	  ConfigTest module that makes a start on testing the
+	  LXR::Config.pm module.
+
+	  Additional tests are planned and this should grow into a
+	  complete, easy to run and maintain test suite that lets us catch
+	  regressions.
+
+	  In future I plan to add a test to this suite for each bug
+	  reported, before fixing it.  This (a) proves the bug exists and
+	  (b) makes it easy to see when it has been fixed.  And it catches
+	  regressions when bugs come back.
+
+	  To use this, you will need to: 1) Install Class::Inner from CPAN
+	  2) Install Error from CPAN 3) Download the latest CVS version of
+	  Test::Unit from the URL above 4) Build and install Test::Unit
+	  from the CVS sources
+
+2002-02-26 16:18  mbox
+
+	* CREDITS.txt, INSTALL, initdb-oracle.sql, lib/LXR/Index/DBI.pm,
+	  lib/LXR/Index/Oracle.pm, templates/lxr.conf: New database backend
+	  for Oracle, from Jens Heimann.
+
+2002-02-26 16:07  mbox
+
+	* lib/LXR/Common.pm: [no log message]
+
+2002-02-26 15:59  mbox
+
+	* lib/LXR/: Common.pm, Config.pm: Check that a configuration has
+	  been found, die with error if not.  Add dump of current config to
+	  the error log when fatal() called
+
+2002-02-26 15:57  mbox
+
+	* lib/LXR/Files/Plain.pm: Add mode specifications to all opens, to
+	  prevent filenames being interpreted as modes
+
+2002-02-26 15:56  mbox
+
+	* lib/LXR/Lang/: Generic.pm, generic.conf: Add Package type for
+	  Perl Added version check for ctags
+
+2002-02-05 10:34  mbox
+
+	* lib/LXR/Lang.pm: Fix problem with Lang.pm and non-existent files
+	  by checking the return from getfilehandle.
+
+2002-02-03 11:29  mbox
+
+	* CHANGELOG: Remove Changelog as the cvs2cl.pl script can
+	  reconstruct it from CVS for release.
+
+2002-02-03 08:22  tag release-0-9-1
+
+2002-02-03 08:22  mbox
+
+	* lib/LXR/Files/: CVS.pm, Plain.pm: Fix tmpfile duplication a
+	  better way, make both file access methods honour the setting of
+	  $config->tmpdir
+
+2002-02-03 08:12  mbox
+
+	* lib/LXR/Files/Plain.pm: Fix bug in tmp filename generation so
+	  that if two tmpfiles are generated in the same second they don't
+	  use the same filename.  Fix from Alexander Schuettelkopf.
+
+2002-02-03 07:14  mbox
+
+	* CHANGELOG: [no log message]
+
+2002-02-03 05:31  mbox
+
+	* find, search, templates/lxr.conf: Change dbdir config variable to
+	  glimpsedir
+
+2002-01-23 15:52  mbox
+
+	* INSTALL, genxref, search, templates/lxr.conf: Add ability to use
+	  swish-e as a free-text search engine, rather than Glimpse.
+	  Swish-e is fully free software, unlike Glimpse.
+
+	  Patch from Arne.
+
+2002-01-23 15:48  mbox
+
+	* lib/LXR/Index/Postgres.pm: Make sure all sql statements are
+	  undef'ed to prevent warnings from Pg.pm
+
+2002-01-23 15:14  mbox
+
+	* CREDITS.txt, INSTALL: Updated INSTALL document from Guido Sohne.
+
+2002-01-23 14:59  mbox
+
+	* lib/LXR/Lang.pm, templates/lxr.conf: Add mapping from interpreter
+	  names to languages.  If the file extension does not select a
+	  language, then the first line of the file is checked for a #! If
+	  one is found, then the interpreter name is matched against the
+	  'interpreters' map in lxr.conf, and the relevant language module
+	  loaded.
+
+2002-01-23 08:16  mbox
+
+	* templates/lxr.conf: Fix bug #506845: Missing variable in lxr.conf
+
+	  Added $dbdir to the lxr.conf template.
+
+2002-01-23 08:12  mbox
+
+	* lib/LXR/Lang.pm: Fix bug 506627: Excessive memory usage.  Rather
+	  than read the whole file into memory to determine if it is a
+	  script, get a filehandle to it and retrieve the first line.  This
+	  may still mean the whole file ends up in memory "under the hood",
+	  depending on the implementation of the individual backends, but
+	  with Plain.pm it doesn't.
+
+2002-01-19 07:23  mbox
+
+	* BUGS, CHANGELOG: [no log message]
+
+2002-01-19 07:20  mbox
+
+	* lib/LXR/Lang/generic.conf: Fix emacs modeline
+
+2001-12-06 14:36  mbox
+
+	* lib/LXR/Lang/Generic.pm: Fix error message
+
+2001-11-28 13:04  mbox
+
+	* .htaccess, CREDITS.txt: Updated CREDITS.  Added lib to the INC
+	  path from the .htaccess file.  This should solve the Can't find
+	  errors that occur under mod_perl
+
+2001-11-28 13:01  mbox
+
+	* lib/LXR/Lang.pm: Add error output if require fails.
+
+2001-11-28 12:59  mbox
+
+	* lib/LXR/Lang/Generic.pm: Apply speedup patch from Arne.
+
+	  Makes Generic.pm only read the config file once, and then share
+	  the info between instances.
+
+2001-11-28 12:59  mbox
+
+	* initdb-postgres, lib/LXR/Index/Postgres.pm: Applied Postgres
+	  fixes from Kristoffer Gleditsch <toffer@ping.uio.no>
+
+2001-11-20 15:34  mbox
+
+	* ident: Remove pre-CSS & template code
+
+2001-11-18 03:31  mbox
+
+	* ident, initdb-mysql, initdb-postgres, lib/LXR/Common.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Index/Postgres.pm,
+	  lib/LXR/Lang/Generic.pm, lib/LXR/Lang/generic.conf,
+	  templates/html-ident.html, templates/lxr.conf: Fix bug 476695 -
+	  Java interfaces display as docs.  Changes the type field in the
+	  indexes table to be a (langid, typeid) tuple, and adds another
+	  table to look up the (langid, typeid) -> string mapping.  This
+	  means that each language module can manage its own string table
+	  and the right identifier type can easily be displayed.
+
+	  This also means that each identifier is tagged with the language
+	  it occurs in, which could be used for filtering displayed results
+	  when browsing.  This has not been implemented.
+
+	  This change is database incompatible - you will need to drop and
+	  recreate the lxr database.  MySQL has been tested, Postgres has
+	  not though the changes have been made.
+
+	  Also add some limited support for Makefile in generic.conf.
+
+2001-11-17 04:00  mbox
+
+	* lib/LXR/Lang/Generic.pm: Fix bug with referencing files due to
+	  omitting a parameter to SimpleParse::init
+
+2001-11-17 03:48  mbox
+
+	* templates/html-head.html: Remove reference to "Cross referencing
+	  Linux" and replaced with more generic header line.  Still to do:
+	  Create a LXR logo and replace the pengmini.gif with it
+
+2001-11-17 03:06  mbox
+
+	* lib/LXR/Common.pm: Fix bug with configurable tabwidth and files
+	  that have no language associated with them.
+
+	  Remove the stat-ing of all the included modules when generating a
+	  Last-Modified header.  This should speed up HTML generation since
+	  there are a lot of modules and they change very rarely.
+
+2001-11-14 15:41  mbox
+
+	* lib/LXR/Index/Mysql.pm: Make Mysql insert statements less fragile
+	  if fields are moved/renamed in db.  Fixes bug #426646
+
+2001-11-14 15:27  mbox
+
+	* lib/LXR/Lang/Java.pm, lib/LXR/Lang/generic.conf,
+	  templates/lxr.conf: Adds proper import/package hyperlinking for
+	  Java.  Fixes bug #447979
+
+	  Also fixes problem with the example lxr.conf and the new tabwidth
+	  code
+
+2001-11-14 15:03  mbox
+
+	* lib/LXR/: Common.pm, Lang.pm, SimpleParse.pm, Lang/Generic.pm,
+	  Lang/generic.conf: Make tabwidth to use for display configurable
+	  on a per-language basis from the lxr.conf file.  As before, this
+	  is still overridden by an emacs "tab-width" line.
+
+2001-10-31 13:21  mbox
+
+	* lib/LXR/Common.pm: Quick temporary fix for bug 476695
+
+2001-10-23 15:23  mbox
+
+	* source: Restored "use lib do..." line at start.  This appears to
+	  be working properly and allows mod_perl to find the LXR files
+	  without any other setup
+
+2001-10-23 14:30  tag release-0-9
+
+2001-10-23 14:30  mbox
+
+	* lib/LXR/Tagger.pm: Remove obsolete code
+
+2001-10-23 14:05  mbox
+
+	* templates/html-tail.html: Updated valid HTML logo to point to
+	  W3C's validator and the HTML 4.01 logo
+
+2001-10-17 23:52  mbox
+
+	* lib/LXR/Index/Mysql.pm: Fix typo in if() expression
+
+2001-10-17 06:52  pergj
+
+	* source: Fix accidentially added libpath.
+
+2001-10-16 20:38  pergj
+
+	* diff, find, ident, search, source, lib/LXR/Common.pm: Clean up
+	  after httpinit
+
+2001-10-16 20:25  pergj
+
+	* lib/LXR/Index/Mysql.pm, templates/lxr.conf: Database password and
+	  user can now be specified in lxr.conf
+
+2001-09-28 14:31  mbox
+
+	* CREDITS.txt: Credit the right person :-)
+
+2001-09-28 14:22  mbox
+
+	* templates/html-head.html: Fix HTML to be 4.01 Transitional
+	  compliant
+
+2001-09-28 13:48  mbox
+
+	* templates/lxr.css: Adding missing file for CSS support
+
+2001-09-27 16:12  mbox
+
+	* .cvsignore, diff, find, ident, search, source, lib/LXR/Common.pm,
+	  lib/LXR/Lang.pm, lib/LXR/Lang/Perl.pm, templates/html-dir.html,
+	  templates/html-head.html, templates/html-ident.html,
+	  templates/lxr.conf: Apply patch 458027 from Pavel Hlavnicka
+
+	  Adds stylesheet (CSS) support to ident, source and diff.
+
+	  Output style is now controllable from via the lxr.css stylesheet
+	  (example provided in templates).  Ident output now generated via
+	  a template rather than hard coded.
+
+	  Minor additional fixes by me result in the output of ident &
+	  source both validating as HTML 4.01 Transitional.
+
+2001-09-27 15:59  mbox
+
+	* lib/LXR/Lang/generic.conf: Fix typo
+
+2001-09-27 15:24  mbox
+
+	* lib/LXR/Lang/generic.conf: Patched to add support for PHP (thanks
+	  to tarken@users.sf.net)
+
+2001-09-27 15:02  mbox
+
+	* CREDITS.txt: Added a CREDITS file to acknowledge and thank all
+	  those who have helped create the lxr.
+
+2001-09-26 14:47  mbox
+
+	* initdb-mysql, initdb-postgres: Dramatically speed up (>50 times)
+	  the speed of incremental indexing by creating an index to allow
+	  the fileid to be looked up fast from the filename.
+
+	  Ideally this index would include the revision as well, but this
+	  is not possible in MySQL because of limits (500 chars) on the
+	  index key.
+
+	  Tested on MySQL, but not on postgres.
+
+	  Fixes bug 465131
+
+2001-09-26 14:42  mbox
+
+	* genxref: Replace use of direct access of range variable v with
+	  the correct varrange accessor
+
+2001-08-16 00:36  mbox
+
+	* .cvsignore: Ignore the template & conf files of the user
+
+2001-08-15 16:19  mbox
+
+	* lib/LXR/Lang/: C.pm, Java.pm: Remove C.pm and Java.pm.  Java.pm
+	  was badly broken anyway, and C.pm is subsumed by Generic.pm.
+	  Perl.pm & Python.pm left for now...
+
+2001-08-15 15:50  tag release-0-8
+
+2001-08-15 15:50  mbox
+
+	* LICENSE, Local.pm, genxref, lib/LXR/Common.pm, lib/LXR/Config.pm,
+	  lib/LXR/Files.pm, lib/LXR/Index.pm, lib/LXR/Lang.pm,
+	  lib/LXR/SimpleParse.pm, lib/LXR/Tagger.pm, lib/LXR/Files/CVS.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/DBI.pm, lib/LXR/Index/Mysql.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/C.pm,
+	  lib/LXR/Lang/Generic.pm, lib/LXR/Lang/Java.pm,
+	  lib/LXR/Lang/Perl.pm, lib/LXR/Lang/Python.pm: Add GNU Copyright
+	  notices to all files, and added a copy of the GPL in the LICENSE
+	  file
+
+2001-08-15 15:27  mbox
+
+	* lib/LXR/Tagger.pm: Fix memory leak in genxref by undef'ing
+	  variables
+
+2001-08-14 14:44  mbox
+
+	* lib/LXR/Lang/Generic.pm: Close filehandle for config file when
+	  we're finished with it
+
+2001-08-14 14:18  mbox
+
+	* lib/LXR/: Index/Mysql.pm, Index/Postgres.pm, Lang/C.pm: Remove
+	  unused Index::removesymbol method
+
+2001-08-14 13:48  mbox
+
+	* genxref: Fixed bug 450660: genxref locks up.	Use a lexical
+	  variable for the loop index when iterating over versions
+
+2001-08-04 19:09  mbox
+
+	* lib/LXR/Index/Mysql.pm: Move the database handle and the sql
+	  statements into member variables rather than as global (package)
+	  variables.  Add a DESTROY block to clean things up when the
+	  object dies.	This fixes the Mysql warnings bug.
+
+2001-08-04 18:53  mbox
+
+	* INSTALL, lxr.conf.template, templ-lxr-dir, templ-lxr-head,
+	  templ-lxr-search, templ-lxr-tail, template-dir, template-head,
+	  template-source-head, template-sourcedir-head, template-tail,
+	  templates/html-dir.html, templates/html-head.html,
+	  templates/html-search.html, templates/html-tail.html,
+	  templates/lxr.conf: Apply patch [ #432667 ] template usability
+	  patch which moves all the templates to a template directory and
+	  renames them sensibly.
+
+2001-08-04 18:27  mbox
+
+	* lib/LXR/Lang/C.pm: Applied patch [ #446603 ] ectags deprecated
+	  --lang option
+
+2001-08-04 17:57  mbox
+
+	* template-head, template-source-head, template-sourcedir-head:
+	  Update the templates to point to the sourceforge website rather
+	  than the lxr.linux.no one.
+
+2001-08-04 17:54  mbox
+
+	* Local.pm, source: Remove redundant use declaration
+
+2001-08-04 17:53  mbox
+
+	* lxr.conf.template: Added configuration for which files use which
+	  Lang module.	Set to use Generic.pm for all languages, replacing
+	  C.pm, Java.pm and Perl.pm.  This fixes the C++ problems and the
+	  Java browsing now works.  Added configuration for what files are
+	  considered an image.
+
+2001-08-04 17:45  mbox
+
+	* lib/LXR/Lang.pm: Determination of the language for a particular
+	  file is now controlled by the lxr.conf file.	Added
+	  processinclude to the class so that all languages have include
+	  processing.
+
+2001-08-04 17:42  mbox
+
+	* lib/LXR/Index.pm: Improvement to the error reporting when a db
+	  can't be found
+
+2001-08-04 17:41  mbox
+
+	* lib/LXR/Common.pm: Change the determination of whether a file is
+	  an image or not to a be configurable regexp rather than
+	  hardcoding.
+
+2001-08-04 17:39  mbox
+
+	* lib/LXR/Lang/: Generic.pm, generic.conf: Update of the language
+	  info file.  Make referencefile() work - although this is
+	  currently hardcoded as to what it assumes might be an identifier,
+	  rather than on a per-language basis.	Currently the identifier
+	  must start with a letter and then be alphanumeric + _ No longer
+	  hyperlink a reserved word in the current language, since with
+	  multi-language projects a reserved word from one language can be
+	  a valid symbol in another.
+
+2001-08-04 16:22  mbox
+
+	* genxref: Fix the allversions problem.  For Plain.pm, the use of
+	  $files->getdir() in the recursive loop wasn't working, since at
+	  that $files->point no version was specified.
+
+	  The fix is to iterate over the versions at the top level, using
+	  the range variable from the config file to specify which versions
+	  are to be indexed if the --allversions option (or none) is given.
+	   Because the value of "range" can be a closure, this should allow
+	  the CVS users to dynamically discover the set of versions in a
+	  repository.
+
+2001-08-02 11:45  pok
+
+	* lib/LXR/Files/CVS.pm: I hate global variables.  %cvs was not
+	  reset when a new file was parsed, leaving old data in the hash.
+
+2001-08-01 10:59  pok
+
+	* genxref: Changed the behaviour of genxref back to prevoius
+	  behaviour, where each file is queried for its versions.
+
+2001-08-01 08:08  pok
+
+	* lib/LXR/Files/CVS.pm: typo in sub filerev.  caused wrong versions
+	  to be checked out when using a symbolic releasetag containing
+	  digits.
+
+2001-07-30 21:22  pergj
+
+	* search: Applied patch #438564:  Bug fix for bug 438492 (Glimpse
+	  returns the wrong results)
+
+2001-07-30 20:30  pergj
+
+	* lib/LXR/Files/CVS.pm: Better error messages when rcs is not
+	  installed.
+
+2001-07-26 10:21  pok
+
+	* lib/LXR/Common.pm: Trivial fix to display .png images.
+
+2001-07-26 08:49  pok
+
+	* initdb, initdb-mysql, initdb-postgres, lxr.conf.template,
+	  lib/LXR/Config.pm, lib/LXR/Lang.pm, lib/LXR/Tagger.pm,
+	  lib/LXR/Files/CVS.pm, lib/LXR/Index/Postgres.pm: Updated
+	  definition of releases table, added new method of specifying
+	  range variables, fixed #!-parsing, bugfixes in postgres module,
+	  and massive changes to CVS.pm.  All this in order to get indexing
+	  of CVS trees to work.
+
+2001-07-03 15:42  mbox
+
+	* genxref: Patch from jdoje to make --allversions work and to
+	  provide help.
+
+2001-07-03 14:46  mbox
+
+	* lib/LXR/Lang/: Generic.pm, generic.conf: More work on the generic
+	  language support.  More things are now handled in a language
+	  dependant way, configured from generic.conf.
+
+2001-06-17 08:35  mbox
+
+	* lib/LXR/Lang/: Generic.pm, generic.conf: Initial versions of
+	  generic language support based on ectags.  The Generic.pm module
+	  should be able to cope with any language that ectags can cope
+	  with with only small alterations to the generic.conf file.
+
+	  This module is not yet hooked up in Lang.pm, so it's not used by
+	  genxref.
+
+2001-05-31 14:45  mbox
+
+	* INSTALL, lib/LXR/Common.pm, lib/LXR/Index.pm,
+	  lib/LXR/Index/Mysql.pm: Removes the popup of new browsing windows
+	  when selecting identifiers/searches.	Updates for the INSTALL
+	  guide.  Make an explicit error if we can't find the right DB,
+	  rather than trying to fall back to DBM and ending up with an
+	  obscure message.  Added more finish() statements to MySQL.pm in
+	  an attempt to remove the warning about closing handle before
+	  disconnect - not yet cured.
+
+2001-05-23 05:33  mbox
+
+	* initdb-mysql: Fix missing ; in initdb-mysql
+
+2001-05-23 01:08  mbox
+
+	* lib/LXR/Index/Mysql.pm: Changed the useage join to be more
+	  efficient on MySQL.  Also added a finish() call to close a handle
+	  after use, which may help with mem leaks.
+
+2001-05-22 15:11  mbox
+
+	* initdb-mysql: Restore indexes in MySQL schema to speed the ident
+	  function
+
+2001-01-07 19:37  pergj
+
+	* lib/LXR/Common.pm: Patch from Hendrik Ruijter, .hpp files are now
+	  handled as C-language files
+
+2000-10-31 12:52  argggh
+
+	* .htaccess, Local.pm, diff, find, genxref, ident, search, source,
+	  lib/LXR/Common.pm, lib/LXR/Index.pm, lib/LXR/Tagger.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/C.pm: [no log message]
+
+2000-09-04 19:26  pergj
+
+	* find, genxref, ident, initdb-mysql, search, template-source-head,
+	  lib/LXR/Common.pm, lib/LXR/Config.pm, lib/LXR/Index/Mysql.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Lang/C.pm: Reserved c-keywords
+	  are now removed from the database Fixed a problem with error
+	  reporting find and search will now run, but won't work correctly
+	  mysql backend is no longer case insensitive
+
+2000-08-17 18:36  pergj
+
+	* genxref, lib/LXR/SimpleParse.pm, lib/LXR/Tagger.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Lang/C.pm: Now seems to work
+	  using the MySQL backend and plain files.
+
+2000-07-26 19:12  pergj
+
+	* lib/LXR/Index/DBI.pm: Fixed typo
+
+2000-07-26 07:50  pergj
+
+	* lib/LXR/: Tagger.pm, Index/DBI.pm, Index/Postgres.pm, Lang/C.pm:
+	  Added debugging output from Garry Lawrence Murphy
+
+2000-01-05 07:54  pergj
+
+	* notes, lib/LXR/Config.pm: Added a simple error check.
+
+1999-12-25 21:58  pergj
+
+	* genxref, ident, initdb-mysql, initdb-postgres, lib/LXR/Lang.pm,
+	  lib/LXR/SimpleParse.pm, lib/LXR/Tagger.pm, lib/LXR/Index/DBI.pm,
+	  lib/LXR/Index/Mysql.pm, lib/LXR/Index/Postgres.pm,
+	  lib/LXR/Lang/C.pm: Backends for different database systems are
+	  now in separate files.  I have mostly been working on the mysql
+	  backend. Some memory leaks have also been fixed. I think there
+	  are still some left. The genxref process should not grow as much
+	  as it does now.
+
+1999-11-24 14:48  argggh
+
+	* lib/LXR/Files/CVS.pm: Minor cleanup in CVS code.
+
+1999-09-24 20:46  pergj
+
+	* INSTALL, genxref, lib/LXR/Files/Plain.pm: A little more docs, and
+	  fixes for annotations in Plain.pm
+
+1999-09-22 10:32  argggh
+
+	* fixhashbang, source, lib/LXR/Common.pm, lib/LXR/Lang.pm: Minor
+	  changes.
+
+1999-09-18 10:27  argggh
+
+	* lib/: SimpleParse.pm, LXR/Common.pm, LXR/SimpleParse.pm,
+	  LXR/Lang/C.pm: Moved SimpleParse.
+
+1999-09-18 10:20  argggh
+
+	* source, lib/LXR/Common.pm, lib/LXR/Lang.pm, lib/LXR/Files/CVS.pm,
+	  lib/LXR/Lang/Perl.pm: Annotation stuff; Perl fixes.
+
+1999-09-17 16:33  argggh
+
+	* fixhashbang, genxref, ident, source, lib/LXR/Files/CVS.pm: CVS
+	  annotations.
+
+1999-09-17 09:37  argggh
+
+	* genxref, ident, initdb, source, lib/SimpleParse.pm,
+	  lib/LXR/SimpleParse.pm, lib/LXR/Common.pm, lib/LXR/Config.pm,
+	  lib/LXR/Lang.pm, lib/LXR/Tagger.pm, lib/LXR/Index/DBI.pm,
+	  lib/LXR/Lang/C.pm, lib/LXR/Lang/Java.pm, lib/LXR/Lang/Perl.pm,
+	  lib/LXR/Lang/Python.pm: Various changes.  Usage statistics
+	  getting there.
+
+1999-08-19 22:13  argggh
+
+	* initdb, lib/LXR/Index/DBI.pm: Some DBI fixes.
+
+1999-08-19 14:05  argggh
+
+	* source, lib/LXR/Common.pm, lib/LXR/Lang.pm: Minor fixes.
+
+1999-08-17 18:35  argggh
+
+	* genxref, ident, lib/LXR/Common.pm, lib/LXR/Lang.pm,
+	  lib/LXR/Tagger.pm, lib/LXR/Index/DB.pm: More Perl changes.
+
+1999-08-07 18:15  argggh
+
+	* source, lib/SimpleParse.pm, lib/LXR/SimpleParse.pm,
+	  lib/LXR/Common.pm, lib/LXR/Config.pm, lib/LXR/Index.pm,
+	  lib/LXR/Lang.pm: POD stuff, comment handling generalization.
+
+1999-08-04 09:04  argggh
+
+	* lib/LXR/: Common.pm, Config.pm, Lang.pm, Files/CVS.pm: Perl
+	  support stuff.
+
+1999-06-20 12:10  argggh
+
+	* lib/LXR/Config.pm: Fixed LXR::Config properly.
+
+1999-06-17 08:39  pergj
+
+	* lib/LXR/Config.pm: Fixed bug related to invoking genxref as "perl
+	  genxref"
+
+1999-06-16 12:24  pergj
+
+	* lib/LXR/Config.pm: Fixed error handling
+
+1999-06-16 09:17  pergj
+
+	* HACKING, INSTALL, lxr.conf.template: Added some documentation
+
+1999-06-01 17:09  toffer
+
+	* lib/LXR/Lang.pm: Testing commitinfo
+
+1999-06-01 16:49  toffer
+
+	* initdb, lib/LXR/Lang.pm: More python.
+
+1999-06-01 11:52  toffer
+
+	* lib/LXR/Lang.pm: Fixed conflicts
+
+1999-06-01 08:07  pergj
+
+	* initdb, source, lib/LXR/Common.pm, lib/LXR/Config.pm,
+	  lib/LXR/Lang.pm, lib/LXR/Tagger.pm, lib/LXR/Files/Plain.pm,
+	  lib/LXR/Index/DBI.pm: Fixed previous commit
+
+1999-06-01 06:44  pergj
+
+	* initdb, source, lib/LXR/Config.pm, lib/LXR/Tagger.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DBI.pm: Testing new
+	  datastructure on a separate branch
+
+1999-05-31 19:23  toffer
+
+	* lib/LXR/: Common.pm, Lang.pm, Tagger.pm: The
+	  python-crossreferencing is producing links (which is useless
+	  right now, but still...)
+
+1999-05-29 23:34  argggh
+
+	* genxref, lxr.conf.template, lib/LXR/Common.pm, lib/LXR/Config.pm,
+	  lib/LXR/Files/CVS.pm, lib/LXR/Index/DBI.pm: allversions support
+	  added for CVS backends.
+
+1999-05-29 19:38  argggh
+
+	* lib/: SimpleParse.pm, LXR/SimpleParse.pm, LXR/Lang.pm: Fixed
+	  sublte bug in SimpleParse
+
+1999-05-29 18:57  toffer
+
+	* initdb, lib/LXR/Lang.pm, lib/LXR/Tagger.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm: Started working on
+	  Python support.
+
+1999-05-28 11:59  pergj
+
+	* lxr.conf-new, lxr.conf.template, lib/LXR/Config.pm: Moved
+	  configuration to a template
+
+1999-05-27 14:44  toffer
+
+	* lib/LXR/Files.pm: Plain files will now at least have a chance of
+	  working
+
+1999-05-25 21:39  argggh
+
+	* diff, source, lib/LXR/Common.pm, lib/LXR/Lang.pm,
+	  lib/LXR/Files/CVS.pm, lib/LXR/Index/DBI.pm: diff works again.
+
+1999-05-25 19:33  argggh
+
+	* diff, ident, lib/LXR/Index/DBI.pm: ident works again.
+
+1999-05-24 21:53  argggh
+
+	* genxref, initdb, lxr.conf-new, source, lib/SimpleParse.pm,
+	  lib/LXR/SimpleParse.pm, lib/LXR/Common.pm, lib/LXR/Lang.pm,
+	  lib/LXR/Files/CVS.pm, lib/LXR/Files/Plain.pm,
+	  lib/LXR/Index/DB.pm, lib/LXR/Index/DBI.pm: Cleaned up some more.
+	  CVS-support getting stable.
+
+1999-05-22 14:41  argggh
+
+	* genxref, source, lib/LXR/Tagger.pm, lib/LXR/Files/CVS.pm,
+	  lib/LXR/Index/DBI.pm: Did some more CVS work.  genxref seems to
+	  work with CVS files now.
+
+1999-05-22 10:51  argggh
+
+	* source, lib/LXR/Files.pm, lib/LXR/Files/CVS.pm: Minor changes.
+
+1999-05-21 13:16  argggh
+
+	* lxr.conf-new, source, lib/LXR/Common.pm, lib/LXR/Files/CVS.pm:
+	  Bulk of CVS support for files implemented.
+
+1999-05-20 22:37  argggh
+
+	* lxr.conf-new, lxr.conf.template, lib/LXR/Files.pm,
+	  lib/LXR/Files/CVS.pm: Started CVS support.
+
+1999-05-17 23:43  argggh
+
+	* initdb, lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/DBI.pm: Minor fixes.
+
+1999-05-16 23:48  argggh
+
+	* Local.pm, lxr.conf-new, source, templ-lxr-tail,
+	  lib/SimpleParse.pm, lib/LXR/SimpleParse.pm, lib/LXR/Common.pm,
+	  lib/LXR/Config.pm, lib/LXR/Files.pm, lib/LXR/Index.pm,
+	  lib/LXR/Lang.pm, lib/LXR/Tagger.pm, lib/LXR/Files/Plain.pm,
+	  lib/LXR/Index/DB.pm, lib/LXR/Index/DBI.pm: More cleanups.
+
+1999-05-16 16:49  argggh
+
+	* genxref, lxr.conf-new, source, lib/LXR/Common.pm,
+	  lib/LXR/Config.pm, lib/LXR/Lang.pm, lib/LXR/Tagger.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm: More code cleanups.
+
+1999-05-16 09:53  argggh
+
+	* Local.pm, source, lib/LXR/Common.pm, lib/LXR/Config.pm: More code
+	  cleanups.
+
+1999-05-15 18:40  pergj
+
+	* lib/LXR/Config.pm: Logging of cvs messages should now be in place
+
+1999-05-15 14:13  argggh
+
+	* templ-lxr-dir, templ-lxr-head, templ-lxr-search, templ-lxr-tail:
+	  Added the traditional LXR templates to the repository.
+
+1999-05-15 14:11  argggh
+
+	* initdb, lxr.conf-new, source, lib/SimpleParse.pm,
+	  lib/LXR/Common.pm, lib/LXR/SimpleParse.pm, lib/LXR/Config.pm,
+	  lib/LXR/Files/Plain.pm: Did some profiling, reduced the time to
+	  process drivers/block/floppy.c by more than half.
+
+1999-05-14 20:27  argggh
+
+	* lib/LXR/Files.pm: [no log message]
+
+1999-05-14 17:31  argggh
+
+	* Local.pm, lxr.conf-new, source, lib/LXR/Config.pm,
+	  lib/LXR/Files/Plain.pm: More backend integration...
+
+1999-05-14 12:45  argggh
+
+	* diff, genxref, lxr.conf-new, source, lib/SimpleParse.pm,
+	  lib/LXR/Common.pm, lib/LXR/SimpleParse.pm, lib/LXR/Config.pm,
+	  lib/LXR/Index.pm, lib/LXR/Tagger.pm, lib/LXR/Files/Plain.pm,
+	  lib/LXR/Index/DBI.pm: Integrated the new backends a bit more.
+
+1999-05-13 22:57  argggh
+
+	* Local.pm, genxref, lxr.conf-new, source, lib/LXR/Common.pm,
+	  lib/LXR/Config.pm, lib/LXR/Tagger.pm: New configuration file
+	  layout
+
+1999-05-12 06:44  pergj
+
+	* source, lib/LXR/Common.pm, lib/LXR/Files/Plain.pm: Things should
+	  at least compile
+
+1999-05-11 20:50  pergj
+
+	* Local.pm, genxref, lxr.conf, lxr.conf.template, source,
+	  lib/LXR/Common.pm, lib/LXR/Config.pm, lib/LXR/Index.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm: Removed some obscure
+	  perl-bugs It is better to use join than .= Started working on
+	  using the new file scheme in source I do not know if this even
+	  compiles at the moment.
+
+1999-05-11 16:32  pergj
+
+	* genxref, lib/LXR/Index.pm: Forgot to add Index.pm
+
+1999-04-09 10:35  pergj
+
+	* .htaccess, Local.pm, diff, find, genxref, ident, lxr.conf,
+	  search, source, template-head, template-source-head,
+	  template-sourcedir-head, lib/SimpleParse.pm, lib/LXR/Common.pm,
+	  lib/LXR/SimpleParse.pm, lib/LXR/Config.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/DBI.pm: My changes from the easter
+
+1999-04-09 10:18  tag start
+
+1999-04-09 10:18  pergj
+
+	* .htaccess, Local.pm, diff, find, genjavaclasses, genxref, ident,
+	  initdb, lxr.conf, notes, search, source, template-dir,
+	  template-head, template-source-head, template-sourcedir-head,
+	  template-tail, lib/SimpleParse.pm, lib/LXR/SimpleParse.pm,
+	  lib/LXR/Common.pm, lib/LXR/Config.pm, lib/LXR/JavaClassList.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/DBI.pm: Imported sources
+
+1999-04-09 10:18  pergj
+
+	* .htaccess, Local.pm, diff, find, genjavaclasses, genxref, ident,
+	  initdb, lxr.conf, notes, search, source, template-dir,
+	  template-head, template-source-head, template-sourcedir-head,
+	  template-tail, lib/SimpleParse.pm, lib/LXR/SimpleParse.pm,
+	  lib/LXR/Common.pm, lib/LXR/Config.pm, lib/LXR/JavaClassList.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Index/DB.pm,
+	  lib/LXR/Index/DBI.pm: Initial revision
+
