@@ -452,7 +452,9 @@ sub printhttp {
 		#FIXME - need more types here
 		my %type = (
 			'gif'  => 'image/gif',
-			'html' => 'text/html'
+			'html' => 'text/html',
+			'jpg'  => 'image/jpeg',
+			'png'  => 'image/png'
 		);
 
 		if ($pathname =~ /\.([^.]+)$/ && $type{$1}) {
