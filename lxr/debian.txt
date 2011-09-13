@@ -1,0 +1,6 @@
+# Packages required on Debian/Ubuntu
+
+aptitude install libswish-api-common-perl swish-e
+aptitude install libparse-exuberantctags-perl
+aptitude install libfile-mmagic-perl
+aptitude install libapache2-mod-perl2
