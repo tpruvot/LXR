@@ -29,7 +29,8 @@ use LXR::Tagger;
 use LXR::Common;
 
 my %option;
-GetOptions(\%option, "help!", "url=s", "version=s", "allurls!", "allversions!", "reindex=s", "reindexall!");
+GetOptions(\%option, "help!", "url=s", "version=s", "allurls!", "allversions!",
+			"purge=s", "reindex=s", "reindexall!");
 
 if ($option{'help'}) {
 
@@ -50,7 +51,8 @@ Valid options are:
   --allurls          Generate tokens for all URL configuration blocks.
   --version=VERSION  Generate tokens for the given version of the code.
   --allversions      Generate tokens for all versions of the code (default).
-  --reindex=VERSION  Purge VERSION
+  --purge=VERSION    Purge VERSION data from database
+  --reindex=VERSION  Purge and reindex VERSION
   --reindexall       Purges existing index data
   
 Report bugs at http://sourceforge.net/projects/lxr/.
@@ -80,7 +82,10 @@ our %binaryfiles;
 
 my @versions;
 
-if ($option{'reindex'}) {
+if ($option{'purge'}) {
+	@versions = $option{'purge'};
+
+} elsif ($option{'reindex'}) {
 	@versions = $option{'reindex'};
 
 } elsif ($option{'allversions'} || !$option{'version'}) {
@@ -93,13 +98,15 @@ if ($option{'reindex'}) {
 }
 
 foreach my $version (@versions) {
-	if ($option{'reindex'} || $option{'reindexall'}) {
+	if ($option{'purge'} || $option{'reindex'} || $option{'reindexall'}) {
 		print("Purging version $version \n");
 		$index->purge($version);
 	}
-	gensearch($version);
-	genindex('/', $version);
-	genrefs('/', $version);
+	if (!$option{'purge'}) {
+		gensearch($version);
+		genindex('/', $version);
+		genrefs('/', $version);
+	}
 	$index->commit;
 }
 
