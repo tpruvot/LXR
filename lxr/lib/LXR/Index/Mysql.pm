@@ -68,12 +68,13 @@ sub new {
       $self->{dbh}->prepare("delete from ${prefix}symbols where symname = ?");
 
     $self->{indexes_select} =
-      $self->{dbh}->prepare("select f.filename, i.line, d.declaration, i.relsym "
-          . "from ${prefix}symbols s, ${prefix}indexes i, ${prefix}files f, ${prefix}releases r, ${prefix}declarations d "
-          . "where s.symid = i.symid and i.fileid = f.fileid "
-          . "and f.fileid = r.fileid "
-          . "and i.langid = d.langid and i.type = d.declid "
-          . "and s.symname = ? and r.releaseid = ? "
+      $self->{dbh}->prepare("SELECT f.filename, i.line, d.declaration, i.relsym "
+          . "FROM ${prefix}symbols s "
+          . "INNER JOIN ${prefix}indexes i      ON i.symid  = s.symid "
+          . "INNER JOIN ${prefix}declarations d ON (d.declid = i.type AND d.langid = i.langid) "
+          . "INNER JOIN ${prefix}files f        ON f.fileid = i.fileid "
+          . "INNER JOIN ${prefix}releases r     ON r.fileid = f.fileid "
+          . "WHERE s.symname = ? and r.releaseid = ? "
           . "order by f.filename, i.line, d.declaration");
     $self->{indexes_insert} =
       $self->{dbh}->prepare(
@@ -95,12 +96,12 @@ sub new {
     $self->{usage_insert} =
       $self->{dbh}->prepare("insert into ${prefix}usage (fileid, line, symid) values (?, ?, ?)");
     $self->{usage_select} =
-      $self->{dbh}->prepare("select f.filename, u.line "
-          . "from ${prefix}symbols s, ${prefix}files f, ${prefix}releases r, ${prefix}usage u "
-          . "where s.symid = u.symid "
-          . "and f.fileid = u.fileid "
-          . "and u.fileid = r.fileid "
-          . "and s.symname = ? and  r.releaseid = ? "
+      $self->{dbh}->prepare("SELECT f.filename, u.line "
+          . "FROM ${prefix}symbols s "
+          . "INNER JOIN ${prefix}usage u    ON u.symid  = s.symid "
+          . "INNER JOIN ${prefix}files f    ON f.fileid = u.fileid "
+          . "INNER JOIN ${prefix}releases r ON r.fileid = u.fileid "
+          . "WHERE s.symname = ? and  r.releaseid = ? "
           . "order by f.filename, u.line");
     $self->{decl_select} =
       $self->{dbh}->prepare(
