@@ -192,7 +192,7 @@ sub printdiff {
 
 	my $leftwidth = $$HTTP{'param'}{'.diffleftwidth'}
 					|| $config->{'diffleftwidth'}
-					|| 50;
+					|| 80;
 	print("<pre class=\"file\">\n");
 	foreach $i (0 .. $len) {
 		my $o = htmlsub($orig[$i], $leftwidth);

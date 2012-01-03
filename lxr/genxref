@@ -30,6 +30,7 @@ use LXR::Common;
 
 my %option;
 GetOptions(\%option, "help!", "url=s", "version=s", "allurls!", "allversions!",
+			"genindex-only!", "genrefs-only!",
 			"purge=s", "reindex=s", "reindexall!");
 
 if ($option{'help'}) {
@@ -102,11 +103,15 @@ foreach my $version (@versions) {
 		print("Purging version $version \n");
 		$index->purge($version);
 	}
-	if (!$option{'purge'}) {
+	if (!$option{'purge'} && !$option{'genindex-only'} && !$option{'genrefs-only'}) {
 		gensearch($version);
 		genindex('/', $version);
 		genrefs('/', $version);
 	}
+
+	genindex('/', $version) if $option{'genindex-only'};
+	genrefs('/', $version)  if $option{'genrefs-only'};
+
 	$index->commit;
 }
 
@@ -200,12 +205,15 @@ sub gensearch {
 		my $filelist = new IO::File $config->swishdir . "/$releaseid.filenames", "w"
 		  or die "can't open $releaseid.filenames for writing";
 
-		# execute swish, as a pipe we can write to
+		if (!$config->swishcfg) {
+			$config->swishcfg = "swish-e.conf";
+		}
 
+		# execute swish, as a pipe we can write to
 		open($swish,
 			    "| "
 			  . $config->swishbin
-			  . " -S prog -i stdin -v 1 -c swish-e.conf -f "
+			  . " -S prog -i stdin -v 1 -c ".$config->swishcfg." -f "
 			  . $config->swishdir . "/"
 			  . $releaseid
 			  . ".index")
