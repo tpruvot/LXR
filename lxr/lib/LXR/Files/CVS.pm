@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: CVS.pm,v 1.37 2011/12/21 17:27:16 ajlittoz Exp $
+# $Id: CVS.pm,v 1.38 2012/01/25 17:29:34 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Files::CVS;
 
-$CVSID = '$Id: CVS.pm,v 1.37 2011/12/21 17:27:16 ajlittoz Exp $ ';
+$CVSID = '$Id: CVS.pm,v 1.38 2012/01/25 17:29:34 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
@@ -57,6 +57,11 @@ sub filerev {
 	if ($releaseid =~ /rev_([\d\.]+)/) {
 		return $1;
 	} elsif ($releaseid =~ /^([\d\.]+)$/) {
+		# Import branches are causing problem,
+		# force initial version.
+		if ($releaseid =~ m/^1\.1\.\d*\[13579]/) {
+			return '1.1';
+		}
 		return $1;
 	} else {
 		$self->parsecvs($filename);
@@ -105,15 +110,26 @@ sub getannotations {
 	my $rev = $self->filerev($filename, $releaseid);
 	return () unless defined($rev);
 
+	# In CVS, changes are kept relative in reverse chronologival
+	# order, starting from latest version 'head'.
 	my $hrev = $cvs{'header'}{'head'};
 	my $lrev;
 	my @anno;
-	my $headfh = $self->getfilehandle($filename, $releaseid);
+	#	In case, $releaseid is on a branch off the main trunk
+	#	we must stop reconstruction at the branch point.
+	$rev =~ s/(\d+\.\d+)//; # remove base ancestor
+	my $arev = $1;			# ancestor revision on main trunk
+	#	All we need is the number of lines in $filename.
+	#	Unhappily, we have to read the file.
+	my $headfh = $self->getfilehandle($filename, $hrev);
 	my @head   = $headfh->getlines;
+	#	Discard line content to guard against a number which could
+	#	be mistaken for a line number and cause havoc later.
+	@head = ('') x scalar(@head);
 
 	while (1) {
-		if ($rev eq $hrev) {
-			@head = 0 .. $#head;
+		if ($arev eq $hrev) {	# found the ancestor, number the lines
+			@head = 0 .. $#head if @head;
 		}
 
 		$lrev = $hrev;
@@ -131,7 +147,6 @@ sub getannotations {
 				$off -= $2;
 			} elsif ($dir =~ /^d(\d+)\s+(\d+)/) {
 				map { $anno[$_] = $lrev if $_ ne ''; } splice(@head, $1 - $off - 1, $2);
-
 				$off += $2;
 			} else {
 				warn("Oops! Out of sync!");
@@ -139,11 +154,50 @@ sub getannotations {
 		}
 	}
 
-	if (@anno) {
+	#	We have reached the trunk root. If @head is not empty,
+	#	these lines where inserted at the very beginning.
+	#	Mark them.
+	#	ajl: commented out the test, so that annotations are always
+	#	     edited; otherwise, initial text (revision 1.1) bears no
+	#	     annotation (as it should since there no ancestor).
+# 	if (@anno) {
 		map { $anno[$_] = $lrev if $_ ne ''; } @head;
+# 	}
+
+	#	If the requested release is on a branch, we must
+	#	follow the branch up to the release or the next
+	#	branching point.
+	while ($rev ne '') {			# Target file is on a branch
+		$lrev = $arev;
+		$rev =~ m/(\.\d+)/;			# Get branch number
+		$hrev = $arev . $1 . '.1';	# First commit
+		$rev =~ s/(\.\d+\.\d+)//;	# Get branch root
+		$arev .= $1;				# Destination revision or branch point
+
+		while (1) {
+			my @diff = $self->getdiff($filename, $lrev, $hrev);
+			my $off  = 0;
+
+			while (@diff) {
+				my $dir = shift(@diff);
+
+				if ($dir =~ /^a(\d+)\s+(\d+)/) {
+					splice(@diff, 0, $2);
+					splice(@anno, $1 + $off, 0, ($hrev) x $2);
+					$off += $2;
+				} elsif ($dir =~ /^d(\d+)\s+(\d+)/) {
+					splice(@anno, $1 + $off - 1, $2);
+					$off -= $2;
+				} else {
+					warn("Oops! Out of sync!");
+				}
+			}
+			last if $arev eq $hrev;	# Are we done on this branch?
+			$lrev = $hrev;
+			$hrev = $cvs{'branch'}{$hrev}{'next'};
+		}
 	}
 
-	#	print(STDERR "** Anno: ".scalar(@anno).join("\n", '', @anno, ''));
 	return @anno;
 }
 
@@ -370,7 +424,7 @@ sub allreleases {
 	$self->parsecvs($filename);
 
 	# no header symbols for a directory, so we use the default and the current release
-	if (defined %{ $cvs{'header'}{'symbols'} }) {
+	if (exists $cvs{'header'}{'symbols'}) {
 		return sort keys %{ $cvs{'header'}{'symbols'} };
 	} else {
 		my @releases;
@@ -440,7 +494,48 @@ sub parsecvs {
 	$cvs{'header'}{'symbols'} = { $cvs{'header'}{'symbols'} =~ /(\S+?):(\S+)/g };
 
 	my ($orel, $nrel, $rev);
+
+		#	Scan the 'symbols' section to patch the map
+		#	between symbols/tags and revision numbers.
+		# 	Pay special attention to branch points.
 	while (($orel, $rev) = each %{ $cvs{'header'}{'symbols'} }) {
+		# $orel is symbol/tag
+		# $rev is corresponding revision number
+
+		#	Check if it is a branch tag (contributed by Blade)
+		#	Branch numbers have a 0 in the second rightmost position
+		#	(from CVS manual).
+		if ($rev =~ m/\.0\./) {		# simplified test
+			(my $branchprefix = $rev) =~ s/\.0//;
+			#	Search the rcs file for all versions on the branch
+			my @revlist = ($file =~ m/\n($branchprefix\.\d+)\n/gs);
+			if (scalar(@revlist) == 0) {
+				# No version found with the prefix,
+				# no commit ever on this branch.
+				# Keep only the original release number
+				$branchprefix =~ s/\.\d+$//;
+				@revlist = ($branchprefix);
+			}
+			# Keep only the latest revision on the branch
+			# and replace the branch number
+			$rev = $revlist[-1];
+			$cvs{'header'}{'symbols'}{$orel} = $rev;
+		}
+
+		#	Discard the import branches by nailing them to the root
+		#	Import branches have an odd number after 1.1
+		#	(from CVS manual).
+		if ($rev =~ m/^1\.1\.\d*[13579](\.)?/) {
+			if ($1 ne '') {
+				$cvs{'header'}{'symbols'}{$orel} = '1.1';
+			} else {
+				delete $cvs{'header'}{'symbols'}{$orel};
+				next;
+			}
+		}
+
+		#	Next try an user-configurable transformation on symbol
+		#	(will be undef if parameter does not exist)
 		$nrel = $config->cvsversion($orel);
 		next unless defined($nrel);
 

@@ -1,34 +1,50 @@
 /*
- *	$Id: lxr.css,v 1.6 2011/12/26 08:16:56 ajlittoz Exp $
+ *	$Id: lxr.css,v 1.9 2012/01/25 21:03:01 ajlittoz Exp $
  */
 
-/*******************/
-/* Font definition */
-/*******************/
-  body
-, a.dirfile
-, a.dirfolder
+/* Some definitions are grouped together to allow modification
+ * of attributes for related classes in a single location
+ */
+
+/* The following is for debugging templates and style sheets */
+/* td{border: solid thin red} p{border:solid thin blue} */
+
+/********************/
+/* Font definitions */
+/********************/
+  BODY
+, A.dirfile		/* filenames in directory view */
+, A.dirfolder
 { font-family: Baskerville, Times, "Times New Roman", serif
 }
+
   .main
 , .banner
-, .modes
-, .modes-sel
-, /*.modes*/ button
-/*, .modes-sel button*/
-, .varlink
-, .var-sel
 , .dirrow1
 , .dirrow2
+, .modes		/* mode switches */
+, .modes-sel
+, BUTTON
+, .varlink		/* 'variables' switches */
+, .var-sel
+, .treelink		/* tree' switches */
+, .tree-sel
 , .lxrdesc
-, select
+, SELECT
+, TD.identline
+, TD.searchline
 { font-family: "Gill Sans", Helvetica, Arial, sans
+}
+
+  PRE
+, .filecontent
+{ font-family: monospace
 }
 
 /*****************/
 /* global styles */
 /*****************/
-  body
+  BODY
 { color: #000000
 ; background-color: white
 }
@@ -39,22 +55,27 @@
 }
 
 /* general link behavior */
-  a
+  A
 { text-decoration: none
 }
-  a:hover
+  A:hover
 { text-decoration: underline
 }
-  a:visited
+  A:visited
 {
 }
 
 /* side cells of tables */
-  td.leftmost
+  TD.leftmost
 { text-align: left
 }
-  td.rightmost
+  TD.rightmost
 { text-align: right
+}
+
+  .compact
+{ padding: 0
+; margin: 0
 }
 
 /***********************/
@@ -66,15 +87,19 @@
 ; border: none
 ; width: 100%
 }
-  .header td
-, .footer td
+  .header TD
+, .footer TD
 { padding: 0
 }
 
-/*  .header .leftmost
-,*/ .footer .rightmost
+  .header .leftmost
+, .footer .rightmost
 { width: 1%
 ; white-space: nowrap
+}
+
+  .header.compact TD.treelink
+{ width: 30%
 }
 
   .main
@@ -83,12 +108,12 @@
 ; font-weight: bold
 }
 
-  h1.main
+  H1.main
 { font-size: 18pt
 ; color: black
 }
 
-  h2.main
+  H2.main
 { font-size: 14pt
 }
 
@@ -99,151 +124,196 @@
 ; text-align: center
 }
 
-  .filecontent
-{ font-family: monospace
-}
-
-  .footer p
-, .footer address
+  .footer P
+, .footer ADDRESS
 { padding: 0
 ; margin: 0
 }
 
-/****************************************/
-/* menus, "variables" */
-/****************************************/
-  .modes
-, .varlink
-{ font-size: 10pt
-; color: blue
+  TD.rightmost.compact
+{ width: 24%
 }
 
-  a.modes
-, a.varlink
-{ text-decoration: none
-; color: blue
+  .rightmost.compact FORM
+{ display: inline-block
 }
-  a.modes:visited
-, a.varlink:visited
+
+  .rightmost.compact BUTTON
+{ width: 9em
+/* ; display: inline-block */
+}
+
+/************************/
+/* links to other trees */
+/************************/
+  .treelink
+, SPAN.tree-sel
+{ font-size: 10pt
+}
+
+  A.treelink
+, A.treelink:visited
+{ color: silver
+; background-color: #ffdddd
+; font-weight: bold
+; padding: 0 5pt
+; border: thin solid red
+}
+
+  .treelink.compact *
+{ display: inline-block
+; width: 64px
+; padding: 0 2pt
+; text-align: center
+}
+
+ A.treelink
+{ text-decoration: none
+}
+
+  A.treelink:hover
+{ background-color: #ffdddd
+; text-decoration: none
+; color: red
+}
+
+  SPAN.tree-sel
+{ font-style: italic
+; font-weight: bold
+; color: white
+; background-color: red
+; padding: 0 5pt
+; border: thin solid white
+}
+
+/**********************/
+/* menus, "variables" */
+/**********************/
+  .modes
+, .varlink
+, SPAN.modes-sel
+, SPAN.var-sel
+{ font-size: 10pt
+}
+
+  .modes
+, .varlink
+, A.modes
+, A.varlink
+, A.modes:visited
+, A.varlink:visited
+, .modes BUTTON
+, SELECT
+, OPTION.varlink
+/* , .vars BUTTON */
 { color: blue
 }
 
-  a.modes:hover
-, a.varlink:hover 
+  .modes BUTTON
+, OPTION.varlink
+, OPTION.var-sel
+/* , .vars BUTTON */
+{ background-color: #eeeeee
+}
+
+  A.modes
+, A.varlink
+{ text-decoration: none
+}
+  A.modes:hover
+, A.varlink:hover 
 { background-color: #ddffcc
 ; text-decoration: none
 }
+
 /* currently selected mode/variable */
-  span.modes-sel
-, span.var-sel  /* selected one */
+  SPAN.modes-sel
+, SPAN.var-sel
 { font-style: italic
 ; font-weight: bold
-; font-size: 10pt
 ; background-color: #cceeff
 }
 
-  form.modes
-, form.modes-sel
-, form.vars
+  FORM.modes
+, FORM.modes-sel
+, FORM.vars
 { margin: 1px
 ; padding: 1px
 }
-  .modes-sel button
+  .modes-sel BUTTON
 { font-style: italic
 /* ; font-size: 9pt */
-; font-weight: bold
+/*; font-weight: bold*/
 ; background-color: #cceeff
 }
-  .modes button
+  .modes BUTTON
 { font-style: normal
 /* ; font-size: 8pt */
-; color: blue
-; background-color: #eeeeee
 }
 
-  .vars button
-{ /*font-style: normal*/
-/*;*/ font-size: 11pt
-/*; color: blue
-; background-color: #eeeeee*/
+  .vars BUTTON
+{ /*font-style: normal
+;*/ font-size: 11pt
 }
-  select
-{ color: blue
-; background-color: white
+  SELECT
+{ background-color: white
 }
-  option.varlink
-{ color: blue
-; background-color: #eeeeee
-}
-  option.var-sel
+  OPTION.var-sel
 { color: black
-; background-color: #eeeeee
 ; font-weight: bold
 ; font-style: italic
 }
 
-  form.diff-form
-{ display: inline
+/******************/
+/* directory view */
+/******************/
+/** directory listing header **/
+  .dirheader
+{ background-color: #aaddff
+; color: #000000
 }
 
-/************************************/
-/*			directory view			*/
-/************************************/
-
-/* description extracted from README(.txt) file */
-  .lxrdesc
-{ color: #666666
-; font-style: italic
-}
-
-/* link to file or folder in the source view */
-  a.dirfile
-, a.dirfolder
-{ font-size: 12pt
-}
-  a.dirfile
-{ color: black
-}
-  a.dirfolder
-{ color: navy
-}
-
-/* directory listing area */
+/** directory listing area **/
   .dircontent
 { width: 100%
 ; border: none
 }
 
   .dircontent TH
-{ border-right:	 1pt solid white
-; border-left:	 none
+{ border-right: 1pt solid white
+; border-left: none
 ; border-top: none
 ; border-bottom: 1pt solid blue
 ; text-align: center
 }
 
-/* directory listing header */
-  .dirheader
-{ background-color: #aaddff
-; color: #000000
-}
-
-/* directory listing data */
 /* "odd" lines (three at once) */
   .dirrow1
-{ background-color: #ffffff
+{ background-color: white
 ; font-size: 10pt
 }
-
 /* "even" lines (three at once) */
   .dirrow2
 { background-color: #eeeeee
 ; font-size: 10pt
 }
 
-  .dirrow1 td
-, .dirrow2 td
+  .dirrow1 TD
+, .dirrow2 TD
 { border-right: thin solid #999999
+}
+
+/** individual cell formatting **/
+/* link to file or folder */
+  A.dirfile
+, A.dirfolder
+{ font-size: 12pt
+}
+  A.dirfile
+{ color: black
+}
+  A.dirfolder
+{ color: navy
 }
 
   .diricon
@@ -254,77 +324,95 @@
 ; white-space: nowrap
 }
 
-  td.dirname
+  .diricon IMG
+{ border: none
+}
+
+  TD.dirname
 { text-align: left
 ; padding: 0 1pt 0 2pt
 }
 
-  td.dirsize
+  TD.dirsize
 { text-align: right
 ; padding: 0 1pt 0 2pt
 }
 
-  td.dirtime
+  TD.dirtime
 { text-align: right
 ; padding: 0 1pt 0 5pt
 }
 
-  td.dirdesc
+  TD.dirdesc
 { text-align: left
 ; padding-left: 5pt
 }
 
-/********************************/
-/*			file view			*/
-/********************************/
+  TD.dirdesc P
+{ padding: 0
+; margin: 0
+}
+
+/* description extracted from README(.txt) file */
+  .lxrdesc
+{ color: #666666
+; font-style: italic
+}
+
+/*************/
+/* file view */
+/*************/
+/* most recent addition to file */
+  .annot-cur
+{ background-color: #ffcc88
+}
 
 /* the line number */
-.fline
+  .fline
 { background-color: silver
 }
 
-/* link - the line number - underlined by default */
-a.fline
+/* link - the line number */
+  A.fline
 { text-decoration: none
 }
 
 /* link to other site (http, ftp and mailto) */
-a.offshore {
+  A.offshore {
 }
 
 /* link to the include file */
-a.include
+  A.include
 { color: #669966
 }
 
 /* link - identifier search */
-.fid
+  .fid
 { color: #669966
 }
 
 /* general file font etc. */
-pre.file {
+  pre.filecontent {
 }
 
+/* Syntactic highlighting*/
 /* comments */
-.comment
+  .comment
 { color: #808080
 }
-
 /* strings */
-.string
+  .string
 { color: #0000CC
 }
-
 /* reserved words */
-.reserved
+  .reserved
 { color: #800000
 }
 
-/************************************/
-/*		indent. search results		*/
-/*		and free-text search		*/
-/************************************/
+/*************************/
+/* ident. search results */
+/* and free-text search  */
+/*************************/
 
   TABLE.identdef
 , TABLE.identref
@@ -335,6 +423,7 @@ pre.file {
 }
 
   .searchref TH
+, .identref TH
 { /*border-right: none
 ; border-left: none
 ; border-top: 1pt solid black
@@ -384,13 +473,14 @@ pre.file {
 { color: gray
 }
 
-  a.identline
-, a.searchline
+  A.identline
+, A.searchline
 { text-align: right
 ; min-width: 2.5em
 ; margin: 0 1pt
 ; display: inline-block
 ; border: none
+; font-size: 10pt
 }
 
   TR.identline
@@ -424,9 +514,9 @@ pre.file {
 ; */color: blue
 }
 
-/********************************/
-/*			diff view			*/
-/********************************/
+/*************/
+/* diff view */
+/*************/
 
 /* reference to the file (in header) */
 .diff-fref {
@@ -434,7 +524,9 @@ pre.file {
 
 /* marks like '!!', '<<' etc. */
 .diff-mark
-{ color: red
+{ background-color: red
+; color: white
+; font-weight: bold
 }
 
 /* background of differing lines */
@@ -447,4 +539,3 @@ pre.file {
   .diff-right
 { background-color: #ddffdd
 }
-

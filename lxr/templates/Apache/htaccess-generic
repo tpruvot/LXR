@@ -1,0 +1,83 @@
+#
+#	Web server configuration for LXR root directory
+#
+#	$Id: htaccess-generic,v 1.2 2012/01/29 07:36:40 ajlittoz Exp $
+#
+#	Content of this file is independent of the location of
+#	the LXR root directory.
+#	Need for user-customization should be very limited.
+#	Eventually, access to LXR root directory can be relaxed.
+#	Default is very restrictive.
+#
+
+
+# Enable CGI script execution and use of symlinks
+Options ExecCGI FollowSymlinks
+
+Order deny,allow
+
+
+# =================================================
+#
+# -----------    Access restrictions    -----------
+#
+
+# Do not allow to list directories content
+# NOTE: remove - sign when debugging LXR installation so that you
+#		can see what's really in the directories.
+Options -Indexes
+
+# Forbid direct access to any file in LXR root and its subdirectories
+<FilesMatch ".">
+	Deny from all
+</FilesMatch>
+
+# But allow access to style sheets
+<FilesMatch "\.css$">
+	Allow from all
+</FilesMatch>
+# and graphic files (for icons)
+<FilesMatch "\.(bmp|gif|icon?|jpe?g|png|svg|tiff?)$">
+	Allow from all
+</FilesMatch>
+
+
+# =================================================
+#
+# ----------- LXR scripts configuration -----------
+#
+#
+<Files ~ (search|source|ident|diff|cgi-bin)$>
+	Allow from all
+	#	Access granted to everybody
+
+	# *** mod_perl use ***
+	<IfModule mod_perl.c>
+		SetHandler perl-script
+
+		# Configuration parameters changed between mod_perl versions:
+		<IfDefine MODPERL2>
+			PerlOptions +ParseHeaders
+		# Apache can dispatch execution according to 2 modes.
+		# mod_perl initialization differs slightly:
+			<IfModule prefork.c>
+				PerlHandler ModPerl::RegistryPrefork
+			</IfModule>
+			<IfModule worker.c>
+				PerlHandler Apache::Registry
+			</IfModule>
+		</IfDefine>
+
+		<IfDefine !MODPERL2>
+			PerlSendHeader On
+			PerlHandler Apache::Registry
+		</IfDefine>
+
+	</IfModule>
+
+	# *** CGI use ***
+	<IfModule !mod_perl.c>
+		SetHandler cgi-script
+	</IfModule>
+
+</Files>

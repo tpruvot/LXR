@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Generic.pm,v 1.30 2011/12/17 14:03:16 ajlittoz Exp $
+# $Id: Generic.pm,v 1.32 2012/01/26 17:22:58 ajlittoz Exp $
 #
 # Implements generic support for any language that ectags can parse.
 # This may not be ideal support, but it should at least work until
@@ -22,7 +22,7 @@
 
 package LXR::Lang::Generic;
 
-$CVSID = '$Id: Generic.pm,v 1.30 2011/12/17 14:03:16 ajlittoz Exp $ ';
+$CVSID = '$Id: Generic.pm,v 1.32 2012/01/26 17:22:58 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -53,7 +53,6 @@ sub new {
 	#	default must also cover C and C++ reserved words and Perl -variables
 	$$self{'langmap'}{$lang}{'identdef'} = '[-\w~\#][\w]*'
 		unless defined $self->langinfo('identdef');
-
 	return $self;
 }
 
@@ -137,10 +136,17 @@ sub parsespec {
 	return @spec;
 }
 
+# Tell if a flag is present in generic.conf language description
+sub flagged {
+	my ($self, $flag) = @_;
+	my @flags = $self->langinfo('flags');
+	for (@flags) {
+		return 1 if $_ eq $flag;
+	}
+	return 0;
+}
+
 # Process an include directive
-# If no 'include' specification in generic.conf, proceed as in Lang.pm
-# TODO: is there a way to call the base method so that there is no
-#		maintenance issue? (parallel modifications in 2 locations)
 # 'include' pattern must provide exactly 5 capture buffers:
 #	$1	directive name
 #	$2	spacer
@@ -162,13 +168,9 @@ sub processinclude {
 	my $rsep;		# right separator
 	my $m;			# matching pattern
 	my $s;			# substitution string
+	my $link;		# link to include file
 
 	my $incspec = $self->langinfo('include');
-	unless (defined $incspec) {
-		$self->SUPER::processinclude ($frag, $dir);
-		return;
-	}
-
 	if (defined $incspec) {
 		my $patdir = $incspec->{'directive'};
 		$source =~ s/^$patdir//s;	# remove directive
@@ -209,29 +211,53 @@ sub processinclude {
 				$path =~ s@$m@$s@;
 			}
 		}
-	}
-	else {
-	$source =~ s/^					# reminder: no initial space in the grammar
-				([\w\#]\s*[\w]*)	# reserved keyword for include construct
-				(\s+)				# space
-				(?|	(\")(.+?)(\")	# C syntax
-				|	(\0<)(.+?)(\0>)	# C alternate syntax
-				|	()([\w:]+)(\b)	# Perl and others
-				)
-				//sx ;
+	} else {
+# NOTE: 5.10 syntax block replaced by following lines
+# 		$source =~ s/^					# reminder: no initial space in the grammar
+# 					([\w\#]\s*[\w]*)	# reserved keyword for include construct
+# 					(\s+)				# space
+# 					(?|	(\")(.+?)(\")	# C syntax
+# 					|	(\0<)(.+?)(\0>)	# C alternate syntax
+# 					)
+# 					//sx ;
+		$source =~ s/^					# reminder: no initial space in the grammar
+					([\w\#]\s*[\w]*)	# reserved keyword for include construct
+					(\s+)				# space
+					(	(\")(.+?)(\")	# C syntax
+					|	(\0<)(.+?)(\0>)	# C alternate syntax
+					)
+					//sx ;
 		$dirname = $1;
 		$spacer  = $2;
-		$lsep    = $3;
-		$file    = $4;
-		$path    = $4;
-		$rsep    = $5;
+# Following block valid with 5.10 syntax above only
+# 		$lsep    = $3;
+# 		$file    = $4;
+# 		$path    = $4;
+# 		$rsep    = $5;
+		$lsep    = $4 . $7;
+		$file    = $5 . $8;
+		$path    = $file;
+		$rsep    = $6 . $9;
+	}
+	$link = &LXR::Common::incref($file, "include" ,$path ,$dir);
+	if (defined($link)) {
+		while ($file =~ m!/!) {
+			$link =~ s!^([^>]+>)([^/]*/)+?([^/<]+<)!$1$3!;
+			$file =~ s!/[^/]*$!!;
+			$path =~ s!/[^/]+$!!;
+			$link = &LXR::Common::incdirref($file, "include" ,$path ,$dir)
+					. "/"
+					. $link ;
+		}
+	} else {
+		$link = $file;
 	}
 	$$frag =	( $self->isreserved($dirname)
 				? "<span class='reserved'>$dirname</span>"
 				: $dirname
 				)
 			.	$spacer . $lsep
-			.	&LXR::Common::incref($file, "include" ,$path ,$dir)
+			.	$link
 			.	$rsep
 			. $source;		# tail if any (e.g. in Perl)
 }
@@ -282,9 +308,18 @@ sub isreserved {
 	my ($self, $frag) = @_;
 
 	$frag =~ s/\s//g ;        # for those who write # include
-	foreach my $word (@{$self->langinfo('reserved')})
-	{
-		return 1 if $frag eq $word;
+	if ($self->flagged('case_insensitive')) {
+		$frag = uc($frag);
+		foreach my $word (@{$self->langinfo('reserved')})
+		{
+			$word = uc($word);
+			return 1 if $frag eq $word;
+		}
+	} else {
+		foreach my $word (@{$self->langinfo('reserved')})
+		{
+			return 1 if $frag eq $word;
+		}
 	}
 	return 0;
 }

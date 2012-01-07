@@ -1,0 +1,101 @@
+#!/bin/sh
+# $Id: lighttpd-init,v 1.1 2012/01/29 14:11:32 ajlittoz Exp $
+#
+# lighttpd     Startup script for the lighttpd server
+#
+# chkconfig: - 85 15
+# description: Lightning fast webserver with light system requirements
+#
+# processname: lighttpd
+# config: /etc/lighttpd/lighttpd.conf
+# config: /etc/sysconfig/lighttpd
+# pidfile: /var/run/lighttpd.pid
+#
+# Note: pidfile is assumed to be created
+# by lighttpd (config: server.pid-file).
+# If not, uncomment 'pidof' line.
+#
+### BEGIN INIT INFO
+# Provides: lighttpd
+# Short-Description: start and stop lighttpd HTTP Server
+# Description: The lighttpd HTTP Server is an fast HTTP server 
+### END INIT INFO
+
+# Source function library
+. /etc/rc.d/init.d/functions
+
+if [ -f /etc/sysconfig/lighttpd ]; then
+        . /etc/sysconfig/lighttpd
+fi
+
+if [ -z "$LIGHTTPD_CONF_PATH" ]; then
+        LIGHTTPD_CONF_PATH="/etc/lighttpd/lighttpd.conf" 
+fi
+
+prog="lighttpd" 
+lighttpd="/usr/sbin/lighttpd" 
+pidfile=${PIDFILE-/var/run/lighttpd/lighttpd.pid}
+lockfile=${LOCKFILE-/var/lock/subsys/lighttpd}
+RETVAL=0
+
+start() {
+        echo -n $"Starting $prog: " 
+        daemon --pidfile=${pidfile} $lighttpd -f $LIGHTTPD_CONF_PATH
+        RETVAL=$?
+        echo
+        [ $RETVAL -eq 0 ] && touch ${lockfile}
+        return $RETVAL
+}
+
+stop() {
+        echo -n $"Stopping $prog: " 
+        killproc -p ${pidfile} $lighttpd
+        RETVAL=$?
+        echo
+        [ $RETVAL -eq 0 ] && rm -f ${lockfile}
+        return $RETVAL
+}
+
+reload() {
+        echo -n $"Reloading $prog: " 
+        killproc -p ${pidfile} $lighttpd -HUP
+        RETVAL=$?
+        echo
+        return $RETVAL
+}
+
+# See how we were called.
+case "$1" in
+        start)
+                start
+                ;;
+        stop)
+                stop
+                ;;
+        status)
+                status  -p ${pidfile} $httpd
+                RETVAL=$?
+                ;;
+        restart)
+                stop
+                start
+                ;;
+        condrestart|try-restart)
+                if [ -f ${lockfile} ]; then
+                        stop
+                        start
+                fi
+                ;;
+        force-reload|reload)
+                reload
+                ;;
+        status)
+                status $lighttpd
+                RETVAL=$?
+                ;;
+        *)
+                echo $"Usage: $0 {start|stop|restart|condrestart|try-restart|force-reload|reload|status|help}" 
+                RETVAL=1
+esac
+
+exit $RETVAL

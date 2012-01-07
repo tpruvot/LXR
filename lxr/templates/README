@@ -1,0 +1,6 @@
+Contains templates for displaying information about the source tree.
+
+Can be customised to fit your taste, but store the modified template
+somewhere else (normally in the lxrconf.d).
+
+Read the User's Manual about the available features.

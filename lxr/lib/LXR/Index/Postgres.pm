@@ -1,6 +1,6 @@
 # -*- tab-width: 4 perl-indent-level: 4-*- ###############################
 #
-# $Id: Postgres.pm,v 1.33 2009/05/14 21:13:07 mbox Exp $
+# $Id: Postgres.pm,v 1.34 2012/01/25 17:29:34 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Index::Postgres;
 
-$CVSID = '$Id: Postgres.pm,v 1.33 2009/05/14 21:13:07 mbox Exp $ ';
+$CVSID = '$Id: Postgres.pm,v 1.34 2012/01/25 17:29:34 ajlittoz Exp $ ';
 
 use strict;
 use DBI;
@@ -131,6 +131,21 @@ sub new {
           . "where fileid in "
           . "  (select fileid from ${prefix}releases where releaseid = ?)");
 
+    $self->{purge_declarations} =
+      $self->{dbh}->prepare("truncate table ${prefix}declarations");
+    $self->{purge_files} =
+      $self->{dbh}->prepare("truncate table ${prefix}files");
+    $self->{purge_indexes} =
+      $self->{dbh}->prepare("truncate table ${prefix}indexes");
+    $self->{purge_releases} =
+      $self->{dbh}->prepare("truncate table ${prefix}releases");
+    $self->{purge_status} =
+      $self->{dbh}->prepare("truncate table ${prefix}status");
+    $self->{purge_symbols} =
+      $self->{dbh}->prepare("truncate table ${prefix}symbols");
+    $self->{purge_usage} =
+      $self->{dbh}->prepare("truncate table ${prefix}usage");
+
     return $self;
 }
 
@@ -161,6 +176,13 @@ sub DESTROY {
     $self->{delete_status}   = undef;
     $self->{delete_releases} = undef;
     $self->{delete_files}    = undef;
+    $self->{purge_declarations} = undef;
+    $self->{purge_files}     = undef;
+    $self->{purge_indexes}   = undef;
+    $self->{purge_releases}  = undef;
+    $self->{purge_status}    = undef;
+    $self->{purge_symbols}   = undef;
+    $self->{purge_usage}     = undef;
 
     if ($self->{dbh}) {
         $self->{dbh}->commit() or die "Commit failed: $DBI::errstr";
@@ -188,7 +210,6 @@ sub fileid {
         $files{"$filename\t$revision"} = $fileid;
 #        $self->{files_select}->finish();
     }
-
     return $fileid;
 }
 
@@ -275,7 +296,7 @@ sub symdeclarations {
 
         push(@ret, [@row]);
     }
-    $self->{indexes_select }->finish();
+    $self->{indexes_select}->finish();
 
     return @ret;
 }
@@ -333,6 +354,7 @@ sub symid {
         }
         $symcache{$symname} = $symid;
     }
+
     return $symid;
 }
 
@@ -389,5 +411,17 @@ sub commit {
 	$self->{dbh}->begin_work;
 }
 
+sub purgeall {
+    my ($self) = @_;
+
+    # special sub for a clean '--allversions' indexation with VCSes
+    $self->{purge_declarations}->execute();
+    $self->{purge_files}->execute();
+    $self->{purge_indexes}->execute();
+    $self->{purge_releases}->execute();
+    $self->{purge_status}->execute();
+    $self->{purge_symbols}->execute();
+    $self->{purge_usage}->execute();
+}
 
 1;

@@ -1,0 +1,12 @@
+
+AFAIK, there's know way to embed comments into ectags.conf
+
+VB regexps modified from http://www.rutherfurd.net/weblog/2003/04/
+The two variable lines are a bad hack to match array variables but not match functions/subs
+
+We define SQL2 with regexps because the built-in SQL parsing doesn't work right
+Unfortunately this indexes supposed identifiers in comments so we have to make the regexps
+as restrictive as possible.
+Often we get invalid field matches because comments include datatype keywords like 'date',
+so the field regexp has an ugly hack that you can't have any words between the beginning of
+a line and the identifier before the datatype

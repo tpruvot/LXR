@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*- mode: perl -*-
 ###############################################
 #
-# $Id: Local.pm,v 1.25 2011/12/21 19:35:54 ajlittoz Exp $
+# $Id: Local.pm,v 1.1 2012/01/23 08:55:02 ajlittoz Exp $
 #
 # Local.pm -- Subroutines that need to be customized for each installation
 #
@@ -29,7 +29,7 @@
 
 package Local;
 
-$CVSID = '$Id: Local.pm,v 1.25 2011/12/21 19:35:54 ajlittoz Exp $ ';
+$CVSID = '$Id: Local.pm,v 1.1 2012/01/23 08:55:02 ajlittoz Exp $ ';
 
 use strict;
 

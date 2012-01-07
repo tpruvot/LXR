@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Index.pm,v 1.17 2009/05/14 21:13:07 mbox Exp $
+# $Id: Index.pm,v 1.18 2012/01/25 17:29:34 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Index;
 
-$CVSID = '$Id: Index.pm,v 1.17 2009/05/14 21:13:07 mbox Exp $ ';
+$CVSID = '$Id: Index.pm,v 1.18 2012/01/25 17:29:34 ajlittoz Exp $ ';
 
 use LXR::Common;
 use strict;
@@ -161,6 +161,12 @@ sub emptycache {
 sub purge {
     my ($self, $releaseid) = @_;
     warn  __PACKAGE__."::purge not implemented. Parameters @_";
+    return;
+}
+
+sub purgeall {
+    my ($self) = @_;
+    warn  __PACKAGE__."::purgeall not implemented.";
     return;
 }
 

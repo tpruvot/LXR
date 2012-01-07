@@ -1,6 +1,6 @@
 # -*- tab-width: 4 perl-indent-level: 4-*- ###############################
 #
-# $Id: Oracle.pm,v 1.22 2009/05/14 21:13:07 mbox Exp $
+# $Id: Oracle.pm,v 1.23 2012/01/25 17:29:34 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Index::Oracle;
 
-$CVSID = '$Id: Oracle.pm,v 1.22 2009/05/14 21:13:07 mbox Exp $ ';
+$CVSID = '$Id: Oracle.pm,v 1.23 2012/01/25 17:29:34 ajlittoz Exp $ ';
 
 use strict;
 use DBI;
@@ -85,10 +85,8 @@ sub new {
 
     $self->{status_select} =
       $self->{dbh}->prepare("select status from ${prefix}status where fileid = ?");
-
     $self->{status_insert} = $self->{dbh}->prepare
       ("insert into ${prefix}status (fileid, status) values (?, ?)");
-
     $self->{status_update} =
       $self->{dbh}->prepare("update ${prefix}status set status = ? where fileid = ? and status <= ?");
 
@@ -128,6 +126,21 @@ sub new {
           . "where fileid in "
           . "  (select fileid from ${prefix}releases where releaseid = ?)");
 
+    $self->{purge_declarations} =
+      $self->{dbh}->prepare("truncate table ${prefix}declarations");
+    $self->{purge_files} =
+      $self->{dbh}->prepare("truncate table ${prefix}files");
+    $self->{purge_indexes} =
+      $self->{dbh}->prepare("truncate table ${prefix}indexes");
+    $self->{purge_releases} =
+      $self->{dbh}->prepare("truncate table ${prefix}releases");
+    $self->{purge_status} =
+      $self->{dbh}->prepare("truncate table ${prefix}status");
+    $self->{purge_symbols} =
+      $self->{dbh}->prepare("truncate table ${prefix}symbols");
+    $self->{purge_usage} =
+      $self->{dbh}->prepare("truncate table ${prefix}usage");
+
     return $self;
 }
 
@@ -151,6 +164,13 @@ sub DESTROY {
     $self->{delete_status}   = undef;
     $self->{delete_releases} = undef;
     $self->{delete_files}    = undef;
+    $self->{purge_declarations} = undef;
+    $self->{purge_files}     = undef;
+    $self->{purge_indexes}   = undef;
+    $self->{purge_releases}  = undef;
+    $self->{purge_status}    = undef;
+    $self->{purge_symbols}   = undef;
+    $self->{purge_usage}     = undef;
 
     if ($self->{dbh}) {
         $self->{dbh}->disconnect() or die "Disconnect failed: $DBI::errstr";
@@ -375,6 +395,19 @@ sub purge {
     $self->{delete_status}->execute($releaseid);
     $self->{delete_releases}->execute($releaseid);
     $self->{delete_files}->execute($releaseid);
+}
+
+sub purgeall {
+    my ($self) = @_;
+
+    # special sub for a clean '--allversions' indexation with VCSes
+    $self->{purge_declarations}->execute();
+    $self->{purge_files}->execute();
+    $self->{purge_indexes}->execute();
+    $self->{purge_releases}->execute();
+    $self->{purge_status}->execute();
+    $self->{purge_symbols}->execute();
+    $self->{purge_usage}->execute();
 }
 
 1;
