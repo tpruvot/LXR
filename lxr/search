@@ -267,6 +267,8 @@ sub printresults {
 									}
 					)
 				);
+		}
+		$lastfile = $file;
 	}
 	return $ret;
 }

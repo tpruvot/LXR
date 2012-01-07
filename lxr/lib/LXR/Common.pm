@@ -111,7 +111,7 @@ sub tmpcounter {
 sub nonvarargs {
 	my @args;
 
-	foreach my $param (keys $HTTP->{'param'}) {
+	foreach my $param (%{keys $HTTP->{'param'}}) {
 		next unless $param =~ m!^_!;
 		my $val = $HTTP->{'param'}->{$param};
 		if (length($val)) {
@@ -345,7 +345,7 @@ sub httpinit {
 	}
 
 	# override the 'variables' value if necessary
-	foreach my $param (keys $HTTP->{'param'}) {
+	foreach my $param (keys %{$HTTP->{'param'}}) {
 		my $var = $param;
 		next unless $var =~ s!^\$!!;
 		if (exists($config->{'variables'}->{$var})) {
