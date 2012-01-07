@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Generic.pm,v 1.29 2011/03/27 09:51:25 ajlittoz Exp $
+# $Id: Generic.pm,v 1.30 2011/12/17 14:03:16 ajlittoz Exp $
 #
 # Implements generic support for any language that ectags can parse.
 # This may not be ideal support, but it should at least work until
@@ -22,7 +22,7 @@
 
 package LXR::Lang::Generic;
 
-$CVSID = '$Id: Generic.pm,v 1.29 2011/03/27 09:51:25 ajlittoz Exp $ ';
+$CVSID = '$Id: Generic.pm,v 1.30 2011/12/17 14:03:16 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -58,8 +58,9 @@ sub new {
 }
 
 # This is only executed once, saving the overhead of processing the
-# config file each time.  Because it is only done once, we also use
-# this to check the version of ctags.
+# config file each time.
+#ajl111217 - Moved ctags version checking to genxref since testing here
+#	caused problems on sourceforge
 sub read_config {
 	open(CONF, $config->genericconf) || die "Can't open " . $config->genericconf . ", $!";
 
@@ -79,15 +80,6 @@ sub read_config {
 		foreach my $type (keys %$typemap) {
 			$typemap->{$type} = $index->decid($langmap->{$lang}{'langid'}, $typemap->{$type});
 		}
-	}
-
-	my $ctags = $config->ectagsbin;
-
-	$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin:/usr/sbin';
-	my $version = `$ctags --version`;
-	$version =~ /Exuberant ctags +(\d+)/i;
-	if ($1 < 5) {
-		die "Exuberant ctags version 5 or above required, found $version\n";
 	}
 }
 
@@ -172,6 +164,11 @@ sub processinclude {
 	my $s;			# substitution string
 
 	my $incspec = $self->langinfo('include');
+	unless (defined $incspec) {
+		$self->SUPER::processinclude ($frag, $dir);
+		return;
+	}
+
 	if (defined $incspec) {
 		my $patdir = $incspec->{'directive'};
 		$source =~ s/^$patdir//s;	# remove directive

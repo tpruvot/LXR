@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 # -*- tab-width: 4 -*-"
+# $Id: genxref,v 1.49 2011/12/27 19:34:22 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +30,15 @@ use LXR::Tagger;
 use LXR::Common;
 
 my %option;
-GetOptions(\%option, "help!", "url=s", "version=s", "allurls!", "allversions!", "reindexall!");
+GetOptions	(\%option
+			, "help!"
+			, "url=s"
+			, "version=s"
+			, "allurls!"
+			, "allversions!"
+			, "reindexall!"
+			, "checkonly!"
+			);
 
 if ($option{'help'}) {
 
@@ -51,28 +60,223 @@ Valid options are:
   --version=VERSION  Generate tokens for the given version of the code.
   --allversions      Generate tokens for all versions of the code (default).
   --reindexall       Purges existing index data
+  --checkonly        Verify tools version and stop
   
 Report bugs at http://sourceforge.net/projects/lxr/.
 END_HELP
 	exit 0;
 }
 
+# Some ANSI escape sequences to highlight error messages in output
+my $CSI = "\x1b[";	# CSI = esc [
+my $VTbold = "${CSI}1m";
+my $VTnorm = "${CSI}0m";
+my $VTred = "${VTbold}${CSI}31m";
+my $VTyellow = "${VTbold}${CSI}33m";
+my $VTgreen = "${VTbold}${CSI}32m";
+
+my $failure = 0;	# Cumulative failure indicator
+
+printf "Checking Perl version ... %vd ", $^V;
+if ($^V gt v5.10.0) {
+	print "${VTgreen} OK ${VTnorm}\n";
+} else {
+	print "${VTred}FAIL${VTnorm}\n";
+	$failure = 1;
+}
+
 # TODO: implement --allurls
 die("Option --allurls not implemented.  Use --url instead.\n")
   if $option{'allurls'};
 
-die("URL must be specified. Try \"genxref --help\".\n")
-  unless $option{'url'};
+if ($option{'checkonly'} && !$option{'url'}) {
+	print "${VTyellow}No URL specified - Continuing in checking mode${VTnorm}\n";
+} else {
+	die("${VTred}URL must be specified.${VTnorm} Try \"genxref --help\".\n")
+		unless $option{'url'};
+}
 
-$config = new LXR::Config($option{'url'});
+if ($option{'url'}) {
+	$config = new LXR::Config($option{'url'});
+}
 
-die("No matching configuration") unless $config->sourceroot;
+# Check tools version
+
+my $tool;
+my $toolloc;
+my $version;
+
+if ($config && $config->{'ectagsbin'}) {
+	$tool = $config->{'ectagsbin'};
+	$toolloc = `which ctags`;
+	$toolloc =~ s/\n$//s;
+	if ($tool ne $toolloc) {
+		print "${VTyellow}'ectagsbin' not equal to `which ctags`${VTnorm}\n";
+		print "If this is a non-system copy, ignore this warning\n";
+	}
+} else {
+	print("${VTyellow}Parameter 'ectagsbin' not defined - trying to find ctags${VTnorm}\n");
+	$toolloc = `which ctags`;
+	$toolloc =~ s/\n$//s;
+	if (!$toolloc) {
+		print "${VTred}ctags not found, `which ctags` returned a null string\n";
+		print "genxref can't index source-tree without ctags\n";
+		print "Find its location or install it and fix 'ectagsbin'\n";
+		$failure = 1;
+		goto END_TEST_CTAGS;
+	}
+	$config->{'ectagsbin'} = $toolloc;
+	$tool = $toolloc;
+	print "'ectagsbin' temporarily adjusted to ${VTyellow}$toolloc${VTnorm}\n";
+	print "Manually update lxr.conf for permanent setting\n";
+}
+print("Checking ctags version ... ");
+$version = `$tool --version`;
+$version =~ /Exuberant ctags +((\d+\.)*\d+)/i;
+print "$1 ";
+$version =~ /(\d+)/;
+if ($1 < 5) {
+	print "${VTred}FAIL${VTnorm}\n";
+	die "Exuberant ctags version 5 or above required, found $version\n";
+} else {
+	print "${VTgreen} OK ${VTnorm}\n";
+}
+END_TEST_CTAGS:
+
+if ($config && $config->{'glimpsebin'}) {
+	$tool = $config->{'glimpsebin'};
+	$toolloc = `which glimpse`;
+	$toolloc =~ s/\n$//s;
+	if ($tool ne $toolloc) {
+		print "${VTyellow}'glimpsebin' not equal to `which glimpse`${VTnorm}\n";
+		print "If this is a non-system copy, ignore this warning\n";
+	}
+} else {
+	print("${VTyellow}Parameter 'glimpsebin' not defined - trying to find glimpse${VTnorm}\n");
+	$toolloc = `which glimpse`;
+	$toolloc =~ s/\n$//s;
+	if (!$toolloc) {
+		print "${VTred}glimpse not found${VTnorm}, `which glimpse` returned a null string\n";
+		goto END_TEST_GLIMPSE;
+	}
+	$config->{'glimpsebin'} = $toolloc;
+	$tool = $toolloc;
+	print "'glimpsebin' temporarily adjusted to ${VTyellow}$toolloc${VTnorm}\n";
+	print "Manually update lxr.conf for permanent setting\n";
+}
+print("Checking glimpse version ... ");
+$version = `$tool -V`;
+if ($version eq '') {
+	print "?? ";
+	print "${VTred}FAIL${VTnorm}";
+	$failure = 1
+} else {
+	$version =~ /.*glimpse .*?((\d+\.)*\d+)/i;
+	print "${VTyellow}$1${VTnorm} ";
+# 	if ($1 < 5) {
+# 		print "${VTred}FAIL${VTnorm}\n";
+# 		print "Glimpse version xx or above required, found $version\n";
+# } else {
+# 	print "${VTgreen} OK ${VTnorm}\n";
+}
+print "\n";
+END_TEST_GLIMPSE:
+
+$version = '';
+if ($config && $config->{'glimpseindex'}) {
+	$tool = $config->{'glimpseindex'};
+	$toolloc = `which glimpseindex`;
+	$toolloc =~ s/\n$//s;
+	if ($tool ne $toolloc) {
+		print "${VTyellow}'glimpseindex' not equal to `which glimpseindex`${VTnorm}\n";
+		print "If this is a non-system copy, ignore this warning\n";
+	}
+} else {
+	print("${VTyellow}Parameter 'glimpseindex' not defined - trying to find glimpseindex${VTnorm}\n");
+	$toolloc = `which glimpseindex`;
+	$toolloc =~ s/\n$//s;
+	if (!$toolloc) {
+		print "${VTred}glimpseindex not found${VTnorm}, `which glimpseindex` returned a null string\n";
+		goto END_TEST_GLIMPSEINDEX;
+	}
+	$config->{'glimpseindex'} = $toolloc;
+	$tool = $toolloc;
+	print "'glimpseindex' temporarily adjusted to ${VTyellow}$toolloc${VTnorm}\n";
+	print "Manually update lxr.conf for permanent setting\n";
+}
+print("Checking glimpseindex version ... ");
+$version = `$tool -V`;
+if ($version eq '') {
+	print "?? ";
+	print "${VTred}FAIL${VTnorm}";
+	$failure = 1
+} else {
+	$version =~ /.*glimpseindex .*?((\d+\.)*\d+)/i;
+	print "${VTyellow}$1${VTnorm} ";
+# 	if ($1 < 5) {
+# 		print "${VTred}FAIL${VTnorm}\n";
+# 		print "Glimpse version xx or above required, found $version\n";
+# } else {
+# 	print "${VTgreen} OK ${VTnorm}\n";
+}
+print "\n";
+END_TEST_GLIMPSEINDEX:
+
+if ($config && $config->{'swishbin'}) {
+	$tool = $config->{'swishbin'};
+	$toolloc = `which swhish-e`;
+	$toolloc =~ s/\n$//s;
+	if ($tool ne $toolloc) {
+		print "${VTyellow}'swishbin' not equal to `which swish-e`${VTnorm}\n";
+		print "If this is a non-system copy, ignore this warning\n";
+	}
+} else {
+	print("${VTyellow}Parameter 'swishbin' not defined - trying to find swish-e${VTnorm}\n");
+	$toolloc = `which swish-e`;
+	$toolloc =~ s/\n$//s;
+	if (!$toolloc) {
+		print "${VTred}swish-e not found${VTnorm}, `which swish-e` returned a null string\n";
+		goto END_TEST_SWISHE;
+	}
+	$config->{'swishbin'} = $toolloc;
+	$tool = $toolloc;
+	print "'swishbin' temporarily adjusted to ${VTyellow}$toolloc${VTnorm}\n";
+	print "Manually update lxr.conf for permanent setting\n";
+}
+print("Checking swishe version ... ");
+$version = `$tool -V`;
+if ($version eq '') {
+	print "?? ";
+	print "${VTred}FAIL${VTnorm}";
+	$failure = 1
+} else {
+	$version =~ /.*swish-e .*?((\d+\.)*\d+)/i;
+	print("${VTyellow}$1${VTnorm}");
+# 	if ($1 < 5) {
+# 		print "${VTred}FAIL${VTnorm}\n";
+# 		die "Glimpse version xx or above required, found $version\n";
+# } else {
+# 	print "${VTgreen} OK ${VTnorm}\n";
+}
+print "\n";
+END_TEST_SWISHE:
+
+die("${VTred}No matching configuration${VTnorm}") unless $config->{'sourceroot'};
 
 $files = new LXR::Files($config->sourceroot, $config->sourceparams);
-die "Can't create file access object " . $config->sourceroot
+die "${VTred}Can't create file access object ${VTnorm}" . $config->sourceroot
   if !defined($files);
 $index = new LXR::Index($config->dbname, O_RDWR | O_CREAT);
-die "Can't create Index " . $config->dbname if !defined($index);
+die "${VTred}Can't create Index ${VTnorm}" . $config->dbname if !defined($index);
+
+# End of general checks
+if ($failure) {
+	die "${VTred}Aborting due to previous errors${VTnorm}";
+}
+if ($option{'checkonly'}) {
+	print "${VTyellow}genxref stopped without indexing by --checkonly option${VTnorm}\n";
+	exit;
+}
 
 our $filetype = new File::MMagic(-f 'lib/magic.mime'? ('lib/magic.mime') : ());
 our %binaryfiles;
@@ -82,7 +286,7 @@ my @versions;
 if ($option{'allversions'} || !$option{'version'}) {
 	@versions = $config->varrange('v');
 	die
-	  "Option --allversions cannot be used because no versions found automatically.  Use --version=VERSION or fix lxr.conf.\n"
+	  "${VTred}Option --allversions cannot be used because no versions found automatically.${VTnorm}  Use --version=VERSION or fix lxr.conf.\n"
 	  if scalar @versions <= 0;
 } else {
 	@versions = $option{'version'};
@@ -182,9 +386,10 @@ sub gensearch {
 
 	if ($config->swishdir and $config->swishbin) {
 		my $swish = new IO::Handle;
-		die $config->swishdir . " does not exist" unless -d $config->swishdir;
+		die ${VTred} . $config->swishdir . " does not exist${VTnorm}"
+			unless -d $config->swishdir;
 		my $filelist = new IO::File $config->swishdir . "/$releaseid.filenames", "w"
-		  or die "can't open $releaseid.filenames for writing";
+		  or die "${VTred}can't open $releaseid.filenames for writing${VTnorm}";
 
 		# execute swish, as a pipe we can write to
 
@@ -195,7 +400,7 @@ sub gensearch {
 			  . $config->swishdir . "/"
 			  . $releaseid
 			  . ".index")
-		  or die "Couldn't exec " . $config->swishbin . ": $!\n";
+		  or die ${VTred} . "Couldn't exec " . $config->swishbin . ":${VTnorm $!}\n";
 
 		feedswish("/", $releaseid, $swish, $filelist);
 

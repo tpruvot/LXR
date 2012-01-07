@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: CVS.pm,v 1.36 2009/05/10 11:54:29 adrianissott Exp $
+# $Id: CVS.pm,v 1.37 2011/12/21 17:27:16 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Files::CVS;
 
-$CVSID = '$Id: CVS.pm,v 1.36 2009/05/10 11:54:29 adrianissott Exp $ ';
+$CVSID = '$Id: CVS.pm,v 1.37 2011/12/21 17:27:16 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
@@ -276,7 +276,7 @@ sub getdir {
 				  && $self->dirempty($pathname . $node . '/', $releaseid);
 			}
 		} elsif ($node =~ /(.*),v$/) {
-			if (!$$LXR::Common::HTTP{'param'}{'showattic'}) {
+			if (!$$LXR::Common::HTTP{'param'}{'_showattic'}) {
 
   # you can't just check for 'Attic' because for certain versions the file is alive even if in Attic
 				$self->parsecvs($pathname . substr($node, 0, length($node) - 2))
@@ -307,7 +307,7 @@ sub toreal {
 
 	return $real if -d $real;
 
-	if (!$$LXR::Common::HTTP{'param'}{'showattic'}) {
+	if (!$$LXR::Common::HTTP{'param'}{'_showattic'}) {
 
   # you can't just check for 'Attic' because for certain versions the file is alive even if in Attic
 		$self->parsecvs($pathname);

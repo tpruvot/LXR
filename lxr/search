@@ -1,5 +1,5 @@
-#!perl -T
-# $Id: search,v 1.35 2011/04/08 19:13:51 ajlittoz Exp $
+#!/usr/bin/perl -T
+# $Id: search,v 1.37 2011/12/21 19:35:54 ajlittoz Exp $
 
 # search --	Freetext search
 #
@@ -23,14 +23,15 @@
 
 ######################################################################
 
-$CVSID = '$Id: search,v 1.35 2011/04/08 19:13:51 ajlittoz Exp $ ';
+$CVSID = '$Id: search,v 1.37 2011/12/21 19:35:54 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
 
-use LXR::Common qw(:html);
+use LXR::Common;
 use LXR::Config;
+use LXR::Template;
 
 my $maxhits = 1000;
 
@@ -81,9 +82,9 @@ sub glimpsesearch {
 	unless (open(GLIMPSE, "-|")) {
 		open(STDERR, ">&STDOUT");
 		$! = '';
-		exec($config->glimpsebin, "-i", "-H" , $config->glimpsedir . "/" . $releaseid,
+		exec($config->glimpsebin, "-F (\\,[^v\\~]|[^\\,][^\\~])\$", "-i", "-H" , $config->glimpsedir . "/" . $releaseid,
 			'-y', '-n', $searchtext);
-		print("Glimpse subprocess died unexpextedly: $!\n");
+		print(STDERR "Glimpse subprocess died unexpextedly: $!\n");
 		exit;
 	}
 
@@ -130,10 +131,10 @@ sub glimpsesearch {
 		my $glimpseresponse = join("<br>", @glimpselines);
 		my $glimpseresponse =~ s/$glimpsebin/Reason/;
 		my $glimpseresponse =~ s/glimpse: error in searching index//;
-		print("<b>Search failed</b><br>\n$glimpseresponse");
+		print("<p class='error'>Search failed</p>\n<p>$glimpseresponse</p>\n");
 		return;
 	} else {
-		print("Unexpected returnvalue $retval from Glimpse\n");
+		print("<p class='error'>Unexpected return value $retval from Glimpse (usually means <i>syntax error</i></p>\n");
 		return;
 	}
 }
@@ -144,9 +145,9 @@ sub swishsearch {
 	$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin:/usr/sbin';
   my $swishIndex = $config->swishdir . "/" . $releaseid . ".index";
 	if (!-e $swishIndex) {
-		print "<p align='center'><i>";
+		print "<p class='error'>";
 		print "Version '$releaseid' has not been indexed and is unavailable for searching.";
-		print "</i></p>";
+		print "</p>";
 		return;
 	}
 	
@@ -171,75 +172,121 @@ sub swishsearch {
 		}
 		return @ret;
 	} else {
-		print("<b><font color='red'>Search failed: internal error</font></b><br>\n@result");
+		print( "<p class='error'>Search failed: internal error</p><br>\n<p>"
+				. join("<br>", @result)
+				. "<\p>\n");
 		return;
 	}
 }
 
 sub printresults {
 	my $templ   = shift;
+	my $searchtext = shift;
 	my @results = @_;
-	my $ret     = '';
+	my $ret;
+	my ($file, $lastfile);
 
 	foreach (@results) {
 
 		# filename, glimpse and swish-e searches provide different data for each result
 		if (!ref) {
-			my $file = $_;
-			$ret .= expandtemplate(
-				$templ,
-				(
-					text    => sub { return '' },
-					fileref => sub { fileref("$file", "find-file", "/$file") },
-				)
-			);
+			$file = $_;
+			my $fileonce = $file if $lastfile ne $file;
+			$ret .= expandtemplate
+				( $templ
+				,	( 'text'    => sub { return '' }
+					, 'file'    => sub { fileref("$file", "searchfile", "/$file") }
+					, 'fileonce'=> sub { if ($fileonce) {
+											return fileref("$fileonce", "searchfile", "/$file")
+										} else {
+											return "&nbsp;"
+										}
+									}
+					, 'line'    => sub { return '' }
+					, 'fileref' => sub { fileref("$file", "searchfile", "/$file") }
+					, 'tdfile'  => sub { if ($fileonce) {
+											return "searchfile"
+										} else {
+											return "searchfilevoid"
+										}
+									}
+					)
+				);
 		} elsif ($config->glimpsebin) {
 			my (@params) = @$_;
-			my $file     = $params[0];
+			$file     = $params[0];
+			my $fileonce = $file if $lastfile ne $file;
 			my $line     = $params[1];
 			my $text     = $params[2];
-			$ret .= expandtemplate(
-				$templ,
-				(
-					text    => sub { return $text },
-					fileref => sub { fileref("$file, line $line", "find-file", "/$file", $line) },
-				)
-			);
+# May not work always because glimpse pattern are different form Perl's
+# but when it works highlights the occurence of searchtext
+			$text =~ s!($searchtext)!<span class="searchtext">$1</span>!g;
+
+			$ret .= expandtemplate
+				( $templ
+				,	( 'text'    => sub { return "<pre class='searchtext'>$text</pre>" }
+					, 'file'    => sub { fileref("$file", "searchfile", "/$file") }
+					, 'fileonce'=> sub { if ($fileonce) {
+											return fileref("$fileonce", "searchfile", "/$file")
+										} else {
+											return "&nbsp;"
+										}
+									}
+					, 'line'    => sub { fileref("$line", "searchline", "/$file", "$line") }
+					, 'fileref' => sub { fileref("$file, line $line", "searchfile", "/$file", "$line") }
+					, 'tdfile'  => sub { if ($fileonce) {
+											return "searchfile"
+										} else {
+											return "searchfilevoid"
+										}
+									}
+					)
+				);
 		} else {
 			my (@params) = @$_;
-			my $file     = $params[0];
+			$file     = $params[0];
+			my $fileonce = $file if $lastfile ne $file;
 			my $score    = $params[1];
-			$ret .= expandtemplate(
-				$templ,
-				(
-					text   => sub { return $score },
-					fileref => sub { fileref("$file", "find-file", "/$file") },
-				)
-			);
-		}
+			$ret .= expandtemplate
+				( $templ
+				,	( 'text'    => sub { return $score }
+					, 'file'    => sub { fileref("$file", "searchfile", "/$file") }
+					, 'fileonce'=> sub { if ($fileonce) {
+											return fileref("$fileonce", "searchfile", "/$file")
+										} else {
+											return "&nbsp;"
+										}
+									}
+					, 'line'    => sub { return '' }
+					, 'fileref' => sub { fileref("$file", "searchfile", "/$file") }
+					, 'tdfile'  => sub { if ($fileonce) {
+											return "searchfile"
+										} else {
+											return "searchfilevoid"
+										}
+									}
+					)
+				);
 	}
 	return $ret;
 }
 
 sub search {
 	my $templ;
+	my $errorsig = "<!-- ! -->";
 
-	if ($config->htmlsearch) {
-		unless (open(TEMPL, $config->htmlsearch)) {
-			warning("Template " . $config->htmlsearch . " does not exist.");
-		} else {
-			local ($/) = undef;
-			$templ = <TEMPL>;
-			close(TEMPL);
-		}
-	} else {
-		die "'htmlsearch' template not configured";
+	$templ = gettemplate	( 'htmlsearch'
+							, $errorsig
+							, "<h2 class\"error\">Free-text search not available without 'htmlsearch' template</h2>\n"
+							);
+		if ($templ =~ m/^$errorsig/) {
+			die "'htmlsearch' template not configured";
 	}
 
-	my $searchtext    = $HTTP->{'param'}->{'string'};
-	my $filetext      = $HTTP->{'param'}->{'filestring'};
-	my $advanced      = $HTTP->{'param'}->{'advanced'};
-	my $casesensitive = $HTTP->{'param'}->{'casesensitive'};
+	my $searchtext    = $HTTP->{'param'}->{'_string'};
+	my $filetext      = $HTTP->{'param'}->{'_filestring'};
+	my $advanced      = $HTTP->{'param'}->{'_advanced'};
+	my $casesensitive = $HTTP->{'param'}->{'_casesensitive'};
 
 	my @results;
 	if ($searchtext ne "") {
@@ -285,30 +332,31 @@ sub search {
 		close($FILELISTING);
 	}
 
-	print expandtemplate(
-		$templ,
-		(
-			variables          => sub { varinputs(@_) },
-			searchtext         => sub { $_ = $searchtext; s/</&lt;/g; s/>/&gt;/g; return $_; },
-			searchtext_escaped => sub { $_ = $searchtext; s/\"/&quot;/g; s/</&lt;/g; s/>/&gt;/g; return $_; },
-			filetext_escaped   => sub { $_ = $filetext; s/\"/&quot;/g; return $_; },
-			advancedchecked      => sub { return $advanced      ? "checked" : "" },
-			casesensitivechecked => sub { return $casesensitive ? "checked" : "" },
-			maxhits_message      => sub {
+	print expandtemplate
+		( $templ
+		,	( 'variables'          => sub { varinputs(0, @_) }
+			, 'variablesbutv'      => sub { varinputs(1, @_) }
+			, 'variablev'          => sub { varinputs(2, @_) }
+			, 'searchtext'         => sub { $_ = $searchtext; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; return $_; }
+			, 'searchtext_escaped' => sub { $_ = $searchtext; s/\"/&quot;/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; return $_; }
+			, 'filetext_escaped'   => sub { $_ = $filetext; s/\"/&quot;/g; return $_; }
+			, 'advancedchecked'      => sub { return $advanced      ? "checked" : "" }
+			, 'casesensitivechecked' => sub { return $casesensitive ? "checked" : "" }
+			, 'maxhits_message'      => sub {
 				return @results == $maxhits
 				  ? "<b>Too many hits, displaying first $maxhits</b><br>"
 				  : "";
-			},
+				}
 
-			results     => sub { printresults(@_, @results) },
-			resultcount => sub { return scalar @results },
-		)
-	);
+			, 'results'     => sub { printresults(@_, $searchtext, @results) }
+			, 'resultcount' => sub { return scalar @results }
+			)
+		);
 }
 httpinit;
-&makeheader('search');
+makeheader('search');
 &search;
-&makefooter('search');
+makefooter('search');
 
 httpclean;
 

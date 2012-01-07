@@ -1,4 +1,219 @@
-2011-06-11 13:00  tag release-0-9-10
+2011-12-28 12:45  tag release-0-10
+
+2011-12-28 12:45  ajlittoz
+
+	* templates/: html-tail.html, vcss: Add a copy of "valid CSS"
+	  picture to avoid useless traffic; templates/html-tail.html
+	  modified
+
+2011-12-27 19:34  ajlittoz
+
+	* genxref: Genxref: tests modified to give more information on
+	  tools version
+
+2011-12-27 19:33  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: fix bug 3466117, sub
+	  varbtnaction processed 'search' target differently from 'source',
+	  'diff' and 'ident'; target for 'search' is modified to look like
+	  a href="..."> (tail of an <a> link)
+
+2011-12-26 18:52  ajlittoz
+
+	* LXRlogo32.ico, LXRlogo64.jpeg, templates/html-head.html: Adding
+	  LXR icons to templates: LXRlogo32.ico and LXRlogo64.jpeg to
+	  html-head(-btn).shtml
+
+2011-12-26 18:45  ajlittoz
+
+	* CHANGES, INSTALL, LXRversion.pm: LXRversion.pm, CHANGES, INSTALL:
+	  preparing 0.10 release
+
+2011-12-26 17:44  ajlittoz
+
+	* templates/diff-head-btn.html: templates/diff-head-btn.html:
+	  template no longer needed with the redesigned state transition
+	  mechanism
+
+2011-12-26 13:25  ajlittoz
+
+	* genxref: genxref: added more tests for tools
+
+2011-12-26 09:54  ajlittoz
+
+	* lib/LXR/Markup.pm: Markup.pm: resolution of bug #3465547 caused
+	  by change in sub idref (for reliable HTML-state transition using
+	  optional "typed" variable-arguments).  @itag skeleton extraction
+	  is now based on a very specific identifier instead of relying on
+	  an expected content return from idref
+
+2011-12-26 08:19  ajlittoz
+
+	* genxref: genxref: new option --checkonly to globally check the
+	  version requirements for tools so that the error messages are not
+	  postponed nor cluttered in the indexing output
+
+2011-12-26 08:16  ajlittoz
+
+	* templates/: html-search-glimpse.html, lxr.conf, lxr.css:
+	  templates: modified html-search-glimpse.html, lxr.css and more
+	  important lxr.conf to reflect new features
+
+2011-12-23 20:16  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: generic.conf: add JavaScript and
+	  Python support
+
+2011-12-23 20:05  ajlittoz
+
+	* templates/: html-search-glimpse.html, html-search-swish.html:
+	  templates/html-search-*.shtml: have both templates look alike and
+	  small cosmetic changes
+
+2011-12-23 20:01  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: handling of 'host_names' parameter
+	  incorrect, never recognised the parameter due to wrong test for
+	  existence
+
+2011-12-23 17:59  ajlittoz
+
+	* lib/LXR/Common.pm, lib/LXR/Template.pm,
+	  templates/html-head-btn.html: Button and menu interface
+	  Common.pm: some modifications to the function returning <a>
+	  links; added a "force variable value" feature in http init (for
+	  clean state transition) Template.pm: added many $substitution
+	  function and restructured the template expansion architecture
+	  templates/html-head-btn.html: new template for header with
+	  buttons and menus
+
+2011-12-22 13:09  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: added a sanity check on parameter
+	  'virtroot' (a single starting / and no trailing /) with a
+	  temporary (i.e. internal) modification of this parameter value.
+
+2011-12-22 12:52  ajlittoz
+
+	* INSTALL: INSTALL: instructions updated to reflect 0.10 release
+	  Suppressed any topic beyond fresh installation. Advanced
+	  configuration and customisation is only available on the web site
+	  or in the user's manual.
+
+2011-12-21 20:46  ajlittoz
+
+	* source: source: implement new feature allowing custom icons in
+	  directory listing
+
+2011-12-21 20:38  ajlittoz
+
+	* initdb-config.sh: initdb-config.sh: forgot to protect the $ from
+	  the shell with \
+
+2011-12-21 20:33  ajlittoz
+
+	* initdb-config.sh: initdb-config.sh: corrected a typo in
+	  $Revision$
+
+2011-12-21 20:29  ajlittoz
+
+	* initdb-config, initdb-config.sh: initdb-config.sh: renamed with a
+	  .sh extension Added $Id substitution variable to automatically
+	  annotate source with revision number
+
+2011-12-21 20:15  ajlittoz
+
+	* genxref: genxref: add a test for the existence of config
+	  parameter 'ectagsbin' so that sub indexfile in Generic.pm does
+	  not error-out silently (leaving the DB without updated identifier
+	  definitions) If 'ectags' not defined, try to locate it with
+	  `which ctags`. If that fails, abort the task with a
+	  self-explanatory message.
+
+2011-12-21 19:49  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: add new config parameter
+	  'host_names' management Removed bareword usage in hashes
+	  selectors
+
+2011-12-21 19:35  ajlittoz
+
+	* Local.pm, diff, ident, search, source, lib/LXR/Common.pm: Change
+	  the relevant modules to use the new templates and new packages
+	  (Template.pm & Markup.pm)
+
+2011-12-21 18:18  ajlittoz
+
+	* templates/: html-dir.html, html-fatal.html, html-head.html,
+	  html-ident.html, html-search-glimpse.html, html-tail.html,
+	  html-ident-refs.html: New design for the HTML templates
+	  html-ident-refs.html now incorporated in html-ident.html (And
+	  html-search-swish.html lagging a bit)
+
+2011-12-21 18:10  ajlittoz
+
+	* lib/LXR/Markup.pm: Template.pm: new package from splitting
+	  Common.pm becoming too large Contains all subs for markup of
+	  files
+
+2011-12-21 17:27  ajlittoz
+
+	* lib/LXR/Files/CVS.pm, diff, ident, search, source,
+	  lib/LXR/Common.pm, lib/LXR/Template.pm: diff, ident, search,
+	  source, Common.pm, Template.pm, CVS.pm: eliminate possible
+	  collision between LXR-internal URL parameters and user "variable"
+	  name
+
+	  LXR-internal parameters are now prefixed with an underscore;
+	  variable names can be arbitrary as long as they don't start with
+	  an underscore (or dollar, which will be used to override user
+	  variable value).  This new rule/restriction will be added to the
+	  documentation.
+
+2011-12-19 13:16  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: added sub gettemplate to have
+	  consistent error management and simplify template retrieval
+	  Corrected also an error in template fallback for header and
+	  footer (wrong test for existence)
+
+2011-12-17 14:32  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: new package from splitting
+	  Common.pm becoming too large Contains all subs for template
+	  management.
+
+	  Source text fully commented in the style of the upcoming 1.0
+	  version.
+
+2011-12-17 14:30  ajlittoz
+
+	* lib/LXR/Template.pm: [no log message]
+
+2011-12-17 14:18  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: new package from splitting
+	  Common.pm becoming too large Contains all subs for template
+	  management.
+
+	  Source text fully commented in the style of the upcoming 1.0
+	  version.
+
+2011-12-17 14:03  ajlittoz
+
+	* genxref, lib/LXR/Lang/Generic.pm: genxref, Generic.pm: moved
+	  ctags version checking from Generic.pm to genxref because that
+	  check caused problems on SourceForge where it is forbidden to
+	  launch arbitrary programs from Web Service.
+
+	  And it is where that test belongs since ctags is only used during
+	  the indexing phase (under genxref responsability)
+
+2011-10-03 08:50  ajlittoz
+
+	* initdb-config, initdb-mysql-template, initdb-oracle-template.sql,
+	  initdb-postgres-template: Script and templates to facilitate
+	  multi-database configuration
 
 2011-06-11 13:00  ajlittoz
 

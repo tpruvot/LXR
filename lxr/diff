@@ -1,5 +1,5 @@
-#!perl -T
-# $Id: diff,v 1.20 2011/05/07 12:55:19 ajlittoz Exp $
+#!/usr/bin/perl -T
+# $Id: diff,v 1.22 2011/12/21 19:35:54 ajlittoz Exp $
 
 # diff --	Display diff output with markup.
 #
@@ -23,13 +23,15 @@
 
 ######################################################################
 
-$CVSID = '$Id: diff,v 1.20 2011/05/07 12:55:19 ajlittoz Exp $ ';
+$CVSID = '$Id: diff,v 1.22 2011/12/21 19:35:54 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
 
-use LXR::Common qw(:html);
+use LXR::Common;
+use LXR::Markup;
+use LXR::Template;
 use Local;
 use FileHandle;
 
@@ -108,7 +110,7 @@ sub printdiff {
 	unless (open(DIFF, "-|")) {
 		open(STDERR, ">&STDOUT");
 		exec('diff', '-U0', $origtemp, $difftemp);
-		print "*** Diff subprocess died unexpextedly: $!\n";
+		print STDERR "*** Diff subprocess died unexpextedly: $!\n";
 		exit;
 	}
 
@@ -148,7 +150,7 @@ sub printdiff {
 
 	print(
 		"<h1>Diff markup</h1>\n",
-		"<h3>Differences between ",
+		"<h2>Differences between ",
 
 		fileref(
 			"$origname (" . $config->vardescription($diffvar) . " $origval)",
@@ -160,7 +162,7 @@ sub printdiff {
 			"$diffname (" . $config->vardescription($diffvar) . " $diffval)",
 			"diff-fref", $diffname, undef, "$diffvar=$diffval"
 		),
-		"</h3><hr>\n"
+		"</h2><hr>\n"
 	);
 
 	my $origh = new FileHandle($origtemp);
@@ -190,7 +192,7 @@ sub printdiff {
 	my @orig = split(/\n/, $orig);
 	my @new  = split(/\n/, $new);
 
-	my $leftwidth = $$HTTP{'param'}{'.diffleftwidth'}
+	my $leftwidth = $$HTTP{'param'}{'_diffleftwidth'}
 					|| $config->{'diffleftwidth'}
 					|| 50;
 	print("<pre class=\"file\">\n");
@@ -227,7 +229,7 @@ sub printdiff {
 httpinit;
 
 makeheader('diff');
-printdiff($$HTTP{'param'}{'diffvar'}, $$HTTP{'param'}{'diffval'});
+printdiff($$HTTP{'param'}{'_diffvar'}, $$HTTP{'param'}{'_diffval'});
 makefooter('diff');
 
 httpclean;

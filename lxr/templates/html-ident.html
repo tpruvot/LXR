@@ -1,32 +1,99 @@
+<!--$Id: html-ident.html,v 1.8 2011/12/21 18:18:16 ajlittoz Exp $ -->
+
+<!--				html-ident.html
+		A template to search for identifiers and
+		display the results of the search	-->
+
+<!-- ajlittoz <ajlittoz@users.sf.net>	-->
+
+<!--
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+-->
+<h1>Identifier search</h1>
+<p>
 Type the full name of an identifier to summarize 
 (a function name, variable name, typedef, etc).
 <br>
 Matches are case-sensitive.
 Check "Definitions only" to find only definitions of the symbol
 (unchecked, all references).
-<br><br>
-<form method="get" action="ident">
-	$variables
-	<b>Identifier: </b>
-	<input id="focus" type="text" name="i" value="$identifier_escaped" size="15">
-	<input	type="checkbox"
-			id="identdefonly"
-			name="identdefonly"
-			value="1" $checked
-	>
-	<label for="identdefonly">Definitions only</label>
-	<input type="hidden" name="remember" value="1">
-	&nbsp;&nbsp;<input type="submit" value="Find">
-</form>     
-<span class="search-ident">$identifier</span>
-<table>    
-	<tr>
-		<td colspan='2'><b>Declarations:</b></td>
-	</tr>
-$refs{<tr>
-		<td>$fileref</td>
-		<td>$type</td>
-		<td>$rel</td>
-	</tr>}
-</table>
+</p>
 
+<form method="get" action="ident">
+	<p>
+  $variables
+	<label>
+  <b>Identifier: </b>
+		<input	id="focus"
+				type="text"
+				name="_i"
+				value="$identifier_escaped"
+				size="15"
+		>
+	</label>
+	<label>
+		<input	type="checkbox"
+				name="_identdefonly"
+				value="1" $checked
+		>
+  &nbsp;&nbsp;Definitions only
+	</label>
+	<input type="hidden" name="_remember" value="1">
+	&nbsp;&nbsp;<input type="submit" value="Find">
+	</p>
+</form>  
+   
+<h2>Results for <span class="identident">$identifier</span></h2>
+$defs{
+	<h3>Definitions</h3>
+	<table class="identdef"> 
+		<tr>
+			<th>Type</th>
+			<th>Member of</th>
+			<th class="identfile">File</th>
+			<th class="identline">Line</th>
+		</tr>
+  $refs{
+		<tr>
+			<td class="identtype">$type</td>
+			<td class="identrel">$rel</td>
+			<td class="identfile">$file</td>
+			<td class="identline">$line</td>
+		</tr>
+  }
+	</table>
+	<p>
+$occurs declarations in $filehits files.
+	</p>
+}
+
+$uses{
+	<h3>References:</h3>
+	<table class="identref">
+		<tr>
+			<th class="identfile">File</th>
+			<th class="identline">Line</th>
+		</tr>
+  $refs{
+		<tr>
+			<td class="identfile">$fileonce</td>
+			<td class="identline">$lines</td>
+		</tr>
+  }
+	</table>
+	<p>
+$occurs references in $filehits files.
+	</p>
+}

@@ -18,6 +18,6 @@ require Exporter;
 our @ISA = qw(Exporter);
 our @EXPORT = qw($LXRversion);
 
-our $LXRversion = "0.9.10";
+our $LXRversion = "0.10";
 
 1;

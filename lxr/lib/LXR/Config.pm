@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Config.pm,v 1.37 2011/06/10 17:08:11 ajlittoz Exp $
+# $Id: Config.pm,v 1.40 2011/12/23 20:01:19 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.37 2011/06/10 17:08:11 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.40 2011/12/23 20:01:19 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -63,7 +63,8 @@ sub _initialize {
 		$url =~ s/:80$//;
 	}
 
-	$url =~ s|^http://([^/]*):443/|https://$1/|;
+	$url =~ s!^//!http://!;		# allow a shortened form in genxref
+	$url =~ s!^http://([^/]*):443/!https://$1/!;
 	$url .= '/' unless $url =~ m#/$#;    # append / if necessary
 
 	unless ($confpath) {
@@ -88,19 +89,52 @@ sub _initialize {
 	if (scalar(@config) > 0) {
 		%$self = (%$self, %{ $config[0] });
 	}
-  CANDIDATE: foreach $config (@config) {
-		if ($config->{baseurl}) {
-			my @aliases;
-			if ($config->{baseurl_aliases}) {
-				@aliases = @{ $config->{baseurl_aliases} };
+
+	$url =~ m!(.*?://.*?)/!;	# host name and port used to access server
+	my $host = $1;
+	my $script_path;
+	if ($url) {
+		($script_path = $url) =~ s!^.*?://[^/]*!!; # remove host and port
+	} else {
+		$script_path = $ENV{'SCRIPT_NAME'};
+	}
+	$script_path =~ s!/[^/]*$!!;	# path to script
+	$script_path =~ s!^/*!/!;		# ensure a single starting /
+  CANDIDATE: foreach $config (@config[1..$#config]) {
+		my @hostnames;
+		if (exists($config->{'host_names'})) {
+			@hostnames = @{$config->{'host_names'}};
+		} elsif (exists($self->{'host_names'})) {
+			@hostnames = @{$self->{'host_names'}};
+		};
+		my $virtroot = $config->{'virtroot'};
+		my $hits = $virtroot =~ s!/+$!!;	# ensure no ending /
+		$hits += $virtroot =~ s!^/+!/!;		# and a single starting /
+		if ($hits > 0) { $config->{'virtroot'} = $virtroot }
+		if (scalar(@hostnames)>0) {
+			foreach my $rt (@hostnames) {
+				$rt =~ s!/*$!!;		# remove trailing /
+				$rt =~ s!^//!http://!; # allow for a shortened form
+				if	(	$host eq $rt
+					&&	$script_path eq $virtroot
+					) {
+					$config->{'baseurl'} = $rt . $script_path;
+					%$self = (%$self, %$config);
+					last CANDIDATE;
+				}
 			}
-			my $root = $config->{baseurl};
+		} else { # elsif ($config->{'baseurl'}) {
+			my @aliases;
+			if ($config->{'baseurl_aliases'}) {
+				@aliases = @{ $config->{'baseurl_aliases'} };
+			}
+			my $root = $config->{'baseurl'};
 			push @aliases, $root;
 			foreach my $rt (@aliases) {
 				$rt .= '/' unless $rt =~ m#/$#;    # append / if necessary
 				my $r = quotemeta($rt);
 				if ($url =~ /^$r/) {
-					$config->{baseurl} = $rt;
+					$config->{'baseurl'} = $rt;
 					%$self = (%$self, %$config);
 					last CANDIDATE;
 				}
@@ -110,12 +144,11 @@ sub _initialize {
 
 	$$self{'encoding'} = "iso-8859-1" unless (exists $self->{'encoding'});
 
-	if(!exists $self->{baseurl}) {
+	if(!exists $self->{'baseurl'}) {
 		if("genxref" ne ($0 =~ /([^\/]*)$/)) {
-			$$self{'configerror'} = "nobaseurl";
 			return 1;
 		}
-		elsif($url =~ m!http://.+\.!) {
+		elsif($url =~ m!https?://.+\.!) {
 			die "Can't find config for $url: make sure there is a 'baseurl' line that matches in lxr.conf\n";
 		} else {	
 			# wasn't a url, so probably genxref with a bad --url parameter
@@ -123,19 +156,19 @@ sub _initialize {
 			 	"the --url parameter should be a URL (e.g. http://example.com/lxr) and must match a baseurl line in lxr.conf\n";
 		}
 	}
-	
-	# Set-up various directories as necessary
-  _ensuredirexists($self->{tmpdir});
 
-  if (exists $self->{glimpsebin} and exists $self->{swishbin}) {
+	# Set-up various directories as necessary
+  _ensuredirexists($self->{'tmpdir'});
+
+  if (exists $self->{'glimpsebin'} and exists $self->{'swishbin'}) {
     die "Both Glimpse and Swish have been specified in $confpath.\n".
         "Please choose one or other of them by commenting out either glimpsebin or swishbin.\n";
-  } elsif (exists $self->{glimpsebin}) {    
-    die "Please specifiy glimpsedir in $confpath\n" if !exists $self->{glimpsedir};    
-    _ensuredirexists($self->{glimpsedir});
-  } elsif (exists $self->{swishbin}) {    
-    die "Please specifiy glimpsedir in $confpath\n" if !exists $self->{swishdir};    
-    _ensuredirexists($self->{swishdir});
+  } elsif (exists $self->{'glimpsebin'}) {    
+    die "Please specifiy glimpsedir in $confpath\n" if !exists $self->{'glimpsedir'};    
+    _ensuredirexists($self->{'glimpsedir'});
+  } elsif (exists $self->{'swishbin'}) {    
+    die "Please specifiy glimpsedir in $confpath\n" if !exists $self->{'swishdir'};    
+    _ensuredirexists($self->{'swishdir'});
   } else {
     die "Neither Glimpse nor Swish have been specified in $confpath.\n".
         "Please choose one or other of them by specifing a value for either glimpsebin or swishbin.\n";

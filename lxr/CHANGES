@@ -1,6 +1,58 @@
 This file draws your attention on changes made for
 
         ==========================
+        LXR 0.9.9  -->  LXR 0.10
+        ==========================
+
+This version contains new features.
+
+The menus-and-buttons interface is considered mature enough to be offered for general release.
+
+lxr.conf
+--------
+New and simpler way of entering the URL of your server with 'host_names'
+'baseurl' and 'baseurl_aliases' kept for compatibility
+												=> no impact (unless you want to use this new feature)
+Custom icons may ve used in directory listing	=> no impact (unless you want to use this new feature)
+
+lxr.css
+-------
+More class'es to fine grained control over display
+
+Common.pm
+---------
+File was becoming too big -- split into Template.pm, Markup.pm and Common.pm
+												=> no impact on indexing
+
+templates/
+----------
+Template redesigned and new functions added		=> no impact unless you had custom templates
+												=> no impact on indexing
+
+html-ident-refs.html removed (now integrated in html-ident.html)
+												=> update your customised lxr.conf
+												=> no impact if using released lxr.conf
+												=> no impact on indexing
+
+ident and search scripts
+-----     ------
+Results are now presented in tabular form for better readability
+												=> no impact on indexing
+
+Languages
+JavaScript and Ruby adde						=> re-index your tree
+
+
+genxref script
+-------
+Tests added to detect trivial errors
+  genxref step is done early in the installation/configuration process. This is the appropriate place to detect elementary errors. To see the tests result uncluttered, add --checkonly on the command line
+												=> safer installation
+												=> no impact on indexing
+
+For up-to-date information, connect to http://lxr.sourceforge.net
+
+        ==========================
         LXR 0.9.9  -->  LXR 0.9.10
         ==========================
 

@@ -1,6 +1,7 @@
-# -*- tab-width: 4 -*- ###############################################
+# -*- tab-width: 4 -*- mode: perl -*-
+###############################################
 #
-# $Id: Local.pm,v 1.24 2011/06/10 15:22:00 ajlittoz Exp $
+# $Id: Local.pm,v 1.25 2011/12/21 19:35:54 ajlittoz Exp $
 #
 # Local.pm -- Subroutines that need to be customized for each installation
 #
@@ -28,13 +29,16 @@
 
 package Local;
 
-$CVSID = '$Id: Local.pm,v 1.24 2011/06/10 15:22:00 ajlittoz Exp $ ';
+$CVSID = '$Id: Local.pm,v 1.25 2011/12/21 19:35:54 ajlittoz Exp $ ';
+
+use strict;
 
 require Exporter;
-@ISA    = qw(Exporter);
-@EXPORT = qw(&fdescexpand &descexpand &dirdesc &convertwhitespace);
+our @ISA    = qw(Exporter);
+our @EXPORT = qw(&fdescexpand &descexpand &dirdesc &convertwhitespace);
 
-use LXR::Common qw(:html);
+use LXR::Common;
+use LXR::Markup;
 
 # dme: Create descriptions for a file in a directory listing
 # If no description, return the string "\&nbsp\;" to keep the
@@ -72,24 +76,24 @@ use LXR::Common qw(:html);
 # Yea, though I walk through the valley of the shadow of pattern
 # matching, I shall fear no regex.
 sub fdescexpand {
-	my $filename  = shift;
-	my $dir       = shift;
-	my $releaseid   = shift;
+	my ($filename, $dir, $releaseid) = @_;
+	my $fh;
 	my $linecount = 0;
 	my $copy      = "";
-	local $desc = "";
+	my $desc = "";
 	my $maxlines = 40;    #only look at the beginning of the file
 
 	#ignore files that aren't source code
 	if (
-		!(
-			($filename =~ /\.c$/) |  ($filename =~ /\.h$/) |   ($filename =~ /\.cc$/) |
-			($filename =~ /\.cp$/) | ($filename =~ /\.cpp$/) | ($filename =~ /\.java$/)
-		)
-	  )
-	{
-		return ("\&nbsp\;");
-	}
+		!(	($filename =~ /\.c$/)
+		 |	($filename =~ /\.h$/)
+		 |	($filename =~ /\.cc$/)
+		 |	($filename =~ /\.cp$/)
+		 |	($filename =~ /\.cpp$/)
+		 |	($filename =~ /\.java$/)
+		 )
+	)
+	{ return ("\&nbsp\;"); }
 
 	if ($fh = $files->getfilehandle($dir . $filename, $releaseid)) {
 		while (<$fh>) {
@@ -98,7 +102,7 @@ sub fdescexpand {
 				last;
 			}
 		}
-		close($file);
+		close($fh);
 	}
 
 	# sanity check: if there's no description then stop
@@ -113,12 +117,12 @@ sub fdescexpand {
 
 		# find declaration
 		$desc =~ m/public\s((abstract|static|final|strictfp)\s)*(class|interface)/g;
-		$declPos = pos $desc;
+		my $declPos = pos $desc;
 		return "\&nbsp\;" if !$declPos;
 
 		# last comment start before declaration
 		pos $desc = 0;
-		$commentStart = -1;
+		my $commentStart = -1;
 		while ($desc =~ m#/\*\*#g) {
 			last if $declPos < pos $desc;
 			$commentStart = pos $desc;
@@ -128,7 +132,7 @@ sub fdescexpand {
 		# find comment end, and extract
 		pos $desc = $commentStart;
 		$desc =~ m#\*/#g;
-		$commentEnd = pos $desc;
+		my $commentEnd = pos $desc;
 		$desc       = substr($desc, $commentStart + 3, $commentEnd - $commentStart - 5);
 
 		return "\&nbsp\;" if !$desc;
@@ -145,7 +149,7 @@ sub fdescexpand {
 		$desc =~ s#<[/\w]+(\s*\w+=[\w]*\s*)*>##g;        # no quotes on attributes
 
 		# strip off some CVS keyword lines
-		foreach $keyword ('Workfile', 'Revision', 'Modtime', 'Author', 'Id', 'Date', 'Source',
+		foreach my $keyword ('Workfile', 'Revision', 'Modtime', 'Author', 'Id', 'Date', 'Source',
 			'RCSfile')
 		{
 			$desc =~ s/^\s*\$$keyword[\$:].*$//mg;
@@ -267,7 +271,7 @@ sub fdescexpand {
 	$desc = markupstring($desc, $dir);
 
 	if ($desc) {
-		return ($desc);
+		return ("<p>$desc</p>");
 	} else {
 		return ("\&nbsp\;");
 	}
@@ -282,10 +286,10 @@ sub fdescexpand {
 sub descexpand {
 	my ($templ, $node, $dir, $releaseid) = @_;
 	if ($files->isdir($dir . $node, $releaseid)) {
-		return LXR::Common::expandtemplate($templ,
+		return LXR::Template::expandtemplate($templ,
 			('desctext' => sub { return dirdesc($dir . $node, $releaseid); }));
 	} else {
-		return LXR::Common::expandtemplate($templ,
+		return LXR::Template::expandtemplate($templ,
 			('desctext' => sub { return fdescexpand($node, $dir, $releaseid); }));
 	}
 }
@@ -312,14 +316,15 @@ sub dirdesc {
 
 sub descreadmehtml {
 	my ($dir, $file, $releaseid) = @_;
+	my $desc;
 
 	my $string = "";
 	return if !($desc = $files->getfilehandle($dir . $file, $releaseid));
 
-    undef $/;
+	    undef $/;
 	$string = <$desc>;
 
-    $/ = "\n";
+	    $/ = "\n";
 	close($desc);
 
 	# if the README is 0 length then give up
@@ -330,14 +335,14 @@ sub descreadmehtml {
 	# check if there's a short desc nested inside the long desc. If not, do
 	# a non-greedy search for a long desc. assume there are no other stray
 	# spans within the description.
+	my $long;
 	if ($string =~
 		/<span class=["']?lxrlongdesc['"]?>(.*?<span class=["']?lxrshortdesc['"]?>.*?<\/span>.*?)<\/span>/is
 	  )
 	{
 		$long = $1;
 		if (!($long =~ /<span.*?\<span/is)) {
-			return	( $long
-					. "<p>\nSEE ALSO: "
+			return	( "<div class='desctext'>$long</div>\n<p>\nSEE ALSO: "
 					. fileref($file, '', $dir . $file)
 					. "</p>\n"
 					);
@@ -345,8 +350,7 @@ sub descreadmehtml {
 	} elsif ($string =~ /<span class=["']?lxrlongdesc['"]?>(.*?)<\/span>/is) {
 		$long = $1;
 		if (!($long =~ /\<span/is)) {
-			return	( $long
-					. "<p>\nSEE ALSO: "
+			return	( "<div class='desctext lxrlongdesc'>$long</div>\n<p>\nSEE ALSO: "
 					. fileref($file, '', $dir . $file)
 					. "</p>\n"
 					);
@@ -356,6 +360,7 @@ sub descreadmehtml {
 
 sub descreadme {
 	my ($dir, $file, $releaseid) = @_;
+	my $desc;
 
 	my $string = "";
 
@@ -370,10 +375,10 @@ sub descreadme {
 
 	return if !($desc = $files->getfilehandle($dir . $file, $releaseid));
 
-    undef $/;
+	    undef $/;
 	$string = <$desc>;
 
-    $/ = "\n";
+	    $/ = "\n";
 	close($desc);
 
 	# if the README is 0 length then give up
@@ -407,7 +412,7 @@ sub descreadme {
 	if ($count <= $maxlines) {
 		$string = markupstring($string, $dir);
 		$string = convertwhitespace($string);
-		return ($string);
+		return "<div class='desctext'><p class=\"lxrdesc\">$string</p></div>\n";
 	} else {
 
 		# grab the first n paragraphs, with n decreasing until the
@@ -447,9 +452,9 @@ sub descreadme {
 		if ($string =~ /SEE ALSO/) {
 			$string = $string . ", ";
 		} else {
-			$string = $string . "\n\nSEE ALSO: ";
+			$string = $string . "</p>\n\n<p>SEE ALSO: ";
 		}
-		$string =~ s|SEE ALSO|</div>\nSEE ALSO|;
+		$string =~ s|SEE ALSO|</p>\n<p>SEE ALSO|;
 		$string .= fileref($file, '', $dir . $file);
 
 		$string = convertwhitespace($string). "\n\n";
@@ -459,7 +464,7 @@ sub descreadme {
 		$string =~ s/\s*\n$//gs;
 		chomp($string);
 
-		return ("<div class=\"lxrdesc\">" . $string . "\n");
+		return "<div class='desctext'><p class=\"lxrdesc\">$string</p></div>\n";
 	}
 }
 
@@ -470,9 +475,11 @@ sub convertwhitespace {
 	my ($string) = @_;
 
 	# handle ascii bulleted lists
+#	$string =~ s/<p>\n\s+o\s/<p>\n\&nbsp\;\&nbsp\;o /sg;
 	$string =~ s/\n\s+o\s/&nbsp\;\n<br>\&nbsp\;\&nbsp\;o /sg;
 
-	#find paragraph breaks and replace with <br>
+	#find paragraph breaks and replace with <p> ... </p>
+# 	$string =~ s/\n\s*\n/<br><br>\n/sg;
 	$string =~ s/(([\S\t ]*?\n)+?)[\t ]*(\n|$)/$1<br>\n/sg;
 
 	return ($string);
