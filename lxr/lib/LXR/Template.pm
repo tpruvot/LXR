@@ -528,6 +528,41 @@ sub titleexpand {
 }
 
 
+=head2 C<stylesheet ($templ)>
+
+Function C<thisurl> is a "$variable" substitution function.
+It returns an HTML-encoded string suitable for use as the
+target href of a C<< <link rel="stylesheet"> >> tag.
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template (i.e. argument)
+
+=over
+
+=item
+
+I<< Presently, the template is equal to C<undef>, which is the
+template value for a variable substitution request. >
+
+=comment (POD bug?) See previous =comment about >/>>.
+
+=back
+
+The string comes from configuration parameter C<'stylesheet'>.
+
+=cut
+
+sub stylesheet {
+	my $ret = $config->{'stylesheet'};
+
+	$ret =~ s/([\?\&\;\=\'\"])/sprintf('%%%02x',(unpack('c',$1)))/ge;
+	return $ret;
+}
+
+
 =head2 C<thisurl ()>
 
 Function C<thisurl> is a "$variable" substitution function.
@@ -1202,7 +1237,7 @@ sub makeheader {
 				'title'      => sub { titleexpand(@_, $who) }
 			,	'baseurl'    => sub { baseurl(@_) }
 			,	'encoding'   => sub { $config->{'encoding'} }
-			,	'stylesheet' => sub { $config->{'stylesheet'} }
+			,	'stylesheet' => \&stylesheet
 			  # --header decoration--
 			,	'caption'    => sub { captionexpand(@_, $who) }
 			,	'banner'     => sub { bannerexpand(@_, $who) }
@@ -1216,7 +1251,7 @@ sub makeheader {
 			,	'varbtnaction'	 => sub { varbtnaction(@_, $who) }
 			,	'urlargs'    => sub { urlexpand(@_, $who) }
 			  # --various URLs, useless probably--
-			,	'dotdoturl'  => sub { dotdoturl(@_) }
+			,	'dotdoturl'  => \&dotdoturl
 			,	'thisurl'    => \&thisurl
 			  # --for developers only--
 			,	'devinfo'    => \&devinfo
@@ -1280,7 +1315,7 @@ sub makefooter {
 			,	'varbtnaction'	 => sub { varbtnaction(@_, $who) }
 			,	'urlargs'    => sub { urlexpand(@_, $who) }
 			  # --various URLs, useless probably--
-			,	'dotdoturl'  => sub { dotdoturl(@_) }
+			,	'dotdoturl'  => \&dotdoturl
 			,	'thisurl'    => \&thisurl
 			  # --for developers only--
 			,	'devinfo'    => \&devinfo

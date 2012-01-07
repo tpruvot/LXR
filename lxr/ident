@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: ident,v 1.31 2011/12/21 19:35:54 ajlittoz Exp $
+# $Id: ident,v 1.32 2012/01/03 07:09:39 ajlittoz Exp $
 
 # ident --	Look up identifiers
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: ident,v 1.31 2011/12/21 19:35:54 ajlittoz Exp $ ';
+$CVSID = '$Id: ident,v 1.32 2012/01/03 07:09:39 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
@@ -159,6 +159,7 @@ sub usesexpand {
 	my $templ = shift;
 	my $ret   = '';
 
+	return '' if $defonly;
 	my @uses = $index->symreferences($identifier, $releaseid);
 	countfiles (\@uses);
 	return '' if (scalar(@uses) == 0);

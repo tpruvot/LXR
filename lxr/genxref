@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # -*- tab-width: 4 -*-"
-# $Id: genxref,v 1.49 2011/12/27 19:34:22 ajlittoz Exp $
+# $Id: genxref,v 1.50 2012/01/04 19:43:27 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -105,6 +105,8 @@ if ($option{'url'}) {
 my $tool;
 my $toolloc;
 my $version;
+my $foundglimpse;
+my $foundswishe;
 
 if ($config && $config->{'ectagsbin'}) {
 	$tool = $config->{'ectagsbin'};
@@ -159,7 +161,7 @@ if ($config && $config->{'glimpsebin'}) {
 		print "${VTred}glimpse not found${VTnorm}, `which glimpse` returned a null string\n";
 		goto END_TEST_GLIMPSE;
 	}
-	$config->{'glimpsebin'} = $toolloc;
+	$foundglimpse = $toolloc;
 	$tool = $toolloc;
 	print "'glimpsebin' temporarily adjusted to ${VTyellow}$toolloc${VTnorm}\n";
 	print "Manually update lxr.conf for permanent setting\n";
@@ -238,7 +240,7 @@ if ($config && $config->{'swishbin'}) {
 		print "${VTred}swish-e not found${VTnorm}, `which swish-e` returned a null string\n";
 		goto END_TEST_SWISHE;
 	}
-	$config->{'swishbin'} = $toolloc;
+	$foundswishe = $toolloc;
 	$tool = $toolloc;
 	print "'swishbin' temporarily adjusted to ${VTyellow}$toolloc${VTnorm}\n";
 	print "Manually update lxr.conf for permanent setting\n";
@@ -262,6 +264,28 @@ print "\n";
 END_TEST_SWISHE:
 
 die("${VTred}No matching configuration${VTnorm}") unless $config->{'sourceroot'};
+
+if ($config && $config->{'glimpsebin'} && $config->{'swishbin'}) {
+	print "${VTred}Both 'glimpsebin' and 'swishbin' defined${VTnorm}\n";
+	print "Choose one of them by commenting the other in lxr.conf\n";
+	$failure = 1;
+}
+
+if ($config && !$config->{'glimpsebin'} && !$config->{'swishbin'}) {
+	print "${VTyellow}Neither 'glimpsebin' nor 'swishbin' defined${VTnorm}\n";
+	if ($foundglimpse) {
+		$config->{'glimpsebin'} = $foundglimpse;
+		print "Using existing ${VTyellow}glimpse${VTnorm}\n";
+		print "If you prefer swish-e, configure lxr.conf\n";
+	} elsif ($foundswishe){
+		$config->{'swishbin'} = $foundglimpse;
+		print "Using existing ${VTyellow}swish-e${VTnorm}\n";
+		print "If you prefer glimpse, configure lxr.conf\n";
+	} else {
+		print "${VTred}None found in the system - Can't run${VTnorm}\n";
+		$failure = 1
+	}
+}
 
 $files = new LXR::Files($config->sourceroot, $config->sourceparams);
 die "${VTred}Can't create file access object ${VTnorm}" . $config->sourceroot

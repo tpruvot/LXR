@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: source,v 1.53 2011/12/21 20:46:33 ajlittoz Exp $
+# $Id: source,v 1.54 2011/12/30 11:30:33 ajlittoz Exp $
 
 # source --	Present sourcecode as html, complete with references
 #  the '/icons' images are available in any standard Apache installation
@@ -24,7 +24,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: source,v 1.53 2011/12/21 20:46:33 ajlittoz Exp $ ';
+$CVSID = '$Id: source,v 1.54 2011/12/30 11:30:33 ajlittoz Exp $ ';
 
 use strict;
 use lib '.';    # for Local.pm
@@ -80,14 +80,14 @@ sub fileicon {
 				if ($ext =~ m/^($pat)$/i) {
 					$img = $config->{'iconfolder'} . $iconfile;
 					keys %$icons;	# reset iterator
-					return fileref("<img src=\"$img\">", "", $dir . $node);
+					return fileref("<img src=\"$img\" alt=\"file $node\">", "", $dir . $node);
 				}
 			}
 			if ($ext =~ m/^($graphic)$/) {
 				return fileref("<img src=\""
 							. $config->{'iconfolder'}
 							. $config->{'graphicicon'}
-							. "\">"
+							. "\" alt=\"graphic file $node\">"
 							, "", $dir . $node);
 			}
 		}
@@ -95,7 +95,7 @@ sub fileicon {
 		return fileref("<img src=\""
 						. $config->{'iconfolder'}
 						. $config->{'defaulticon'}
-						. "\">"
+						. "\" alt=\"file $node\">"
 						, "", $dir . $node);
 	}
 
@@ -117,7 +117,7 @@ sub fileicon {
 			$img = "/icons/generic.gif";
 		}
 	}
-	return fileref("<img src=\"$img\">",
+	return fileref("<img src=\"$img\" alt=''>",
 		"", $dir . $node);
 }
 

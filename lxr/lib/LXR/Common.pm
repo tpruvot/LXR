@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Common.pm,v 1.85 2011/12/23 17:59:10 ajlittoz Exp $
+# $Id: Common.pm,v 1.86 2012/01/03 13:57:28 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.85 2011/12/23 17:59:10 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.86 2012/01/03 13:57:28 ajlittoz Exp $ ';
 
 use strict;
 
@@ -27,6 +27,8 @@ require Exporter;
 # use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS
 #   $files $index $config $pathname $identifier $releaseid
 #   $HTTP $wwwdebug $tmpcounter);
+
+use vars qw($HTTP $wwwdebug $tmpcounter);
 
 our @ISA = qw(Exporter);
 
@@ -111,7 +113,7 @@ sub tmpcounter {
 sub nonvarargs {
 	my @args;
 
-	foreach my $param (%{keys $HTTP->{'param'}}) {
+	foreach my $param (keys %{$HTTP->{'param'}}) {
 		next unless $param =~ m!^_!;
 		my $val = $HTTP->{'param'}->{$param};
 		if (length($val)) {
@@ -333,6 +335,8 @@ sub httpinit {
 	$HTTP->{'param'}->{'a'} ||= $HTTP->{'param'}->{'_arch'};
 	$HTTP->{'param'}->{'_i'} ||= $HTTP->{'param'}->{'_identifier'};
 
+	foreach my $param (keys %{$HTTP->{'param'}}) {
+	}
 	$identifier = clean_identifier($HTTP->{'param'}->{'_i'});
 	# remove the param versions to prevent unclean versions being used
 	delete $HTTP->{'param'}->{'_i'};
