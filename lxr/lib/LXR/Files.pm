@@ -36,6 +36,11 @@ sub new {
 		$srcroot = $1;
 		$files   = new LXR::Files::BK($srcroot, $params);
 	}
+	elsif ( $srcroot =~ /^svn:(.*)/i ) {
+		require LXR::Files::Subversion;
+		$srcroot = $1;
+		$files   = new LXR::Files::Subversion($srcroot, $params);
+	}
 	elsif ( $srcroot =~ /^git:(.*)/i ) {
 		require LXR::Files::GIT;
 		$srcroot = $1;
