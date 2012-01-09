@@ -28,9 +28,10 @@
 <head>
 	<title>$title</title>
 	<meta http-equiv="content-type" content="text/html; charset=$encoding">
+        <meta http-equiv="Expires" content="0">
 	<base href="$baseurl">
 	<link rel="stylesheet" type="text/css" href="$stylesheet">
-	<link  rel="icon" type="image/x-icon" href="LXRlogo32.ico">
+	<link rel="icon" type="image/x-icon" href="LXRlogo32.ico">
 <!-- Candidat à destruction -->
 <!-- placer le script seulement où il y a besoin -->
 <script type="text/javascript">
@@ -47,49 +48,43 @@ function ensureFocus()
 
 <body onload="ensureFocus()">
 
-<table class="header">
-	<tr>
-		<td class="leftmost">
-<!-- put local logo or links here -->
-			<a href="/">
-<img	src="LXRlogo64.jpeg"
-		alt="Back to home page"
-		style="border: none"
->
-			</a>
-		</td>
-		<td>
-			<table class="header">
-				<tr>
-					<td>
-						<h1 class="main">$caption</h1>
-					</td>
-				</tr>
-				<tr>
-					<td class="banner">$banner</td>
-				</tr>
-			</table>
-		</td>
-		<td class="rightmost">
-  $modes{[&nbsp;$modelink&nbsp;]<br>}
-		</td>
-	</tr>
-	<tr><td colspan='3'>&nbsp;</td></tr>
-	<tr>
-		<td>$atticlink</td>
-		<td colspan='2'>
-			<table class="header">
-  $variables{
-	<tr>
-		<td class="leftmost">$varname:</td>
-		<td class="rightmost">
-  $varlinks{[&nbsp;$varvalue&nbsp;]}<br>
-		</td>
-	</tr>
-  }
-			</table>
-		</td>
-	</tr>
+<table class="header" width="100%" border="0" cellpadding="0" cellspacing="0">
+  <tr>
+    <td class="leftmost" width="64px" valign="top" rowspan="3">
+      <a href="/lxr/source/">
+        <img src="/lxr/templates/logo.png" width="48px" height="93" alt="Back to home page" style="border:none;">
+      </a>
+    </td>
+    <td>
+      <table width="100%" border="0" cellpadding="0" cellspacing="0">
+        <!-- <tr><td><h1 class="main">$caption</h1></td></tr> -->
+        <tr>
+          <td align="center" class="banner">$banner</td>
+        </tr>
+      </table>
+    </td>
+    <td class="rightmost" align="right">
+      $modes{
+      [&nbsp;$modelink&nbsp;]<br>}
+    </td>
+  </tr>
+  <tr><td colspan="2">&nbsp;</td></tr>
+  <tr>
+   <td>$atticlink</td>
+   <td colspan="2">
+     <table width="100%" border="0" cellpadding="0" cellspacing="0">
+       $variables{
+       <tr>
+         <td class="rightmost" align="right">
+           $varname:
+           $varlinks{
+           [&nbsp;$varvalue&nbsp;]}
+           <br>
+         </td>
+       </tr>}
+     </table>
+   </td>
+  </tr>
 </table>
 
 <hr>

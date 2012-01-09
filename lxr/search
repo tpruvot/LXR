@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: search,v 1.37 2011/12/21 19:35:54 ajlittoz Exp $
+# $Id: search,v 1.38 2012/01/04 14:35:24 ajlittoz Exp $
 
 # search --	Freetext search
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: search,v 1.37 2011/12/21 19:35:54 ajlittoz Exp $ ';
+$CVSID = '$Id: search,v 1.38 2012/01/04 14:35:24 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm

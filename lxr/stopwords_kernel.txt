@@ -1,0 +1,13 @@
+# Stopwords for C kernel sources (most common kw)
+
+addr
+buf
+data dev 
+err error 
+flags 
+len 
+rc reg res ret 
+status size 
+tmp 
+val
+

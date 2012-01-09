@@ -149,8 +149,8 @@ sub printdiff {
 	close(DIFF);
 
 	print(
-		"<h1>Diff markup</h1>\n",
-		"<h2>Differences between ",
+		"<h1 class=\"diff\">Diff markup</h1>\n",
+		"<h2 class=\"diff\">Differences between ",
 
 		fileref(
 			"$origname (" . $config->vardescription($diffvar) . " $origval)",
@@ -194,7 +194,7 @@ sub printdiff {
 
 	my $leftwidth = $$HTTP{'param'}{'_diffleftwidth'}
 					|| $config->{'diffleftwidth'}
-					|| 50;
+					|| 70;
 	print("<pre class=\"file\">\n");
 	foreach $i (0 .. $len) {
 		my $o = htmlsub($orig[$i], $leftwidth);

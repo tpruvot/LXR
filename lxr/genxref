@@ -36,6 +36,7 @@ GetOptions	(\%option
 			, "version=s"
 			, "allurls!"
 			, "allversions!"
+			, "gensearch-only!"
 			, "genindex-only!"
 			, "genrefs-only!"
 			, "purge=s",
@@ -63,6 +64,9 @@ Valid options are:
   --allurls          Generate tokens for all URL configuration blocks.
   --version=VERSION  Generate tokens for the given version of the code.
   --allversions      Generate tokens for all versions of the code (default).
+  --gensearch-only   used with --version=<VERSION>, update swish full text files
+  --genindex-only    used with --version=<VERSION>, update db index
+  --genrefs-only     used with --version=<VERSION>, update db refs
   --purge=VERSION    Purge VERSION data from database
   --reindex=VERSION  Purge and reindex VERSION
   --reindexall       Purges existing index data
@@ -333,12 +337,13 @@ foreach my $version (@versions) {
 		print("Purging version $version \n");
 		$index->purge($version);
 	}
-	if (!$option{'purge'} && !$option{'genindex-only'} && !$option{'genrefs-only'}) {
+	if (!$option{'purge'} && !$option{'gensearch-only'} && !$option{'genindex-only'} && !$option{'genrefs-only'}) {
 		gensearch($version);
 		genindex('/', $version);
 		genrefs('/', $version);
 	}
 
+        gensearch($version)     if $option{'gensearch-only'};
 	genindex('/', $version) if $option{'genindex-only'};
 	genrefs('/', $version)  if $option{'genrefs-only'};
 

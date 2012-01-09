@@ -1237,6 +1237,7 @@ sub makeheader {
 				'title'      => sub { titleexpand(@_, $who) }
 			,	'baseurl'    => sub { baseurl(@_) }
 			,	'encoding'   => sub { $config->{'encoding'} }
+			,	'meta'       => sub { meta(@_, $who) }
 			,	'stylesheet' => \&stylesheet
 			  # --header decoration--
 			,	'caption'    => sub { captionexpand(@_, $who) }
@@ -1365,7 +1366,7 @@ sub makeerrorpage {
 					);
 
 # Emit a simple HTTP header
-	print("Content-Type: text/html; charset=iso-8859-1\n");
+	print("Cache-Control: no-cache, must-revalidate\n");
 	print("\n");
 
 	print(
@@ -1380,6 +1381,54 @@ sub makeerrorpage {
 	$config = undef;
 	$files  = undef;
 	$index  = undef;
+}
+
+
+=head2 C<meta ($templ, $who)>
+
+Function C<meta> is a "$variable" substitution function.
+It returns an HTML-safe string suitable for use in a C<< <meta> >>
+element.
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template
+
+=over
+
+=item
+
+I<< Presently, the template is equal to C<undef>, which is the
+template value for a variable substitution request. >
+
+=comment (POD bug?) See previous =comment about >/>>.
+
+=back
+
+=item 1 C<$who>
+
+a I<string> containing the script name (i.e. cource, sourcedir,
+diff, ident or search) requesting this substitution
+
+=back
+
+=cut
+
+sub meta {
+	my ($templ, $who) = @_;
+	my $ret;
+
+	if ($who eq 'source' || $who eq 'diff' || $who eq 'sourcedir') {
+		$ret = "";
+	} elsif ($who eq 'ident') {
+		$ret = "";
+	} elsif ($who eq 'search') {
+		my $s = $HTTP->{'param'}->{'_string'};
+		$ret = "<meta http-equiv=\"Expires\" content=\"0\">";
+	}
+	return $ret;
 }
 
 1;

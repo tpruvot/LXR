@@ -45,6 +45,7 @@ our @EXPORT = qw(
 #   &abortall 
 #   );
 
+# our %EXPORT_TAGS = ('html' => [@EXPORT]);
 # our %EXPORT_TAGS = ('html' => [@EXPORT_OK]);
 
 require Local;
@@ -279,7 +280,9 @@ sub printhttp {
 		#FIXME - need more types here
 		my %type = (
 			'gif'  => 'image/gif',
-			'html' => 'text/html'
+			'html' => 'text/html',
+			'jpg'  => 'image/jpeg',
+			'png'  => 'image/png'
 		);
 
 		if ($pathname =~ /\.([^.]+)$/ && $type{$1}) {
@@ -292,6 +295,8 @@ sub printhttp {
 	{
 		print("Content-Type: text/html; charset=", $config->{'encoding'}, "\n");
 	}
+
+	print("Cache-Control: no-cache, must-revalidate\n");
 
 	# Close the HTTP header block.
 	print("\n");

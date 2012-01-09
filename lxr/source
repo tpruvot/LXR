@@ -181,7 +181,7 @@ sub modtime {
 
 sub rowclass {
 	my ($templ, $line) = @_;
-	return ((($line - 1) / 3) % 2) ? "dirrow2" : "dirrow1";
+	return ((($line - 1) ) % 2) ? "dirrow2" : "dirrow1";
 }
 
 sub direxpand {

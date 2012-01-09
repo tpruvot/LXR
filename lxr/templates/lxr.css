@@ -8,7 +8,8 @@
   body
 , a.dirfile
 , a.dirfolder
-{ font-family: Baskerville, Times, "Times New Roman", serif
+{ font-family: monospace, Baskerville, Times, "Times New Roman", serif
+;
 }
   .main
 , .banner
@@ -22,7 +23,17 @@
 , .dirrow2
 , .lxrdesc
 , select
-{ font-family: "Gill Sans", Helvetica, Arial, sans
+{ font-family: monospace, "Gill Sans", Helvetica, Arial, sans
+;
+}
+
+  h1
+{ font-size: 1.2em
+;
+}
+  h2
+{ font-size: 1em
+;
 }
 
 /*****************/
@@ -31,19 +42,24 @@
   body
 { color: #000000
 ; background-color: white
+; font-family: monospace
+;
 }
 
   .error
 { text-align: center
 ; color: red
+;
 }
 
 /* general link behavior */
   a
 { text-decoration: none
+;
 }
   a:hover
 { text-decoration: underline
+;
 }
   a:visited
 {
@@ -52,9 +68,11 @@
 /* side cells of tables */
   td.leftmost
 { text-align: left
+;
 }
   td.rightmost
 { text-align: right
+;
 }
 
 /***********************/
@@ -65,42 +83,57 @@
 { text-align: center
 ; border: none
 ; width: 100%
+;
 }
   .header td
 , .footer td
 { padding: 0
+;
 }
 
 /*  .header .leftmost
 ,*/ .footer .rightmost
 { width: 1%
 ; white-space: nowrap
+;
 }
 
   .main
 { color: #000066
 ; font-size: 24pt
 ; font-weight: bold
+;
 }
 
   h1.main
-{ font-size: 18pt
+{ font-size: 13pt
+; padding: 2px
 ; color: black
+;
 }
 
   h2.main
-{ font-size: 14pt
+{ font-size: 13pt
+; padding: 2px
+; font-weight: bold
+;
 }
 
 /* banner - displayed file/folder path */
   .banner
-{ font-size: 14pt
-; color: #339966
-; text-align: center
+{ font-size: 13pt
+; font-weight: bold
+; text-align: left
+;
 }
 
+  a.banner
+{ color: #0000c0
+;
+}
   .filecontent
 { font-family: monospace
+;
 }
 
   .footer p
@@ -116,30 +149,35 @@
 , .varlink
 { font-size: 10pt
 ; color: blue
+;
 }
 
   a.modes
 , a.varlink
 { text-decoration: none
 ; color: blue
+;
 }
   a.modes:visited
 , a.varlink:visited
 { color: blue
+;
 }
 
   a.modes:hover
 , a.varlink:hover 
-{ background-color: #ddffcc
+{ background-color: #ddddff
 ; text-decoration: none
+;
 }
 /* currently selected mode/variable */
   span.modes-sel
 , span.var-sel  /* selected one */
-{ font-style: italic
+{ font-style: normal
 ; font-weight: bold
 ; font-size: 10pt
-; background-color: #cceeff
+; background-color: #ccccff
+;
 }
 
   form.modes
@@ -147,18 +185,21 @@
 , form.vars
 { margin: 1px
 ; padding: 1px
+;
 }
   .modes-sel button
 { font-style: italic
 /* ; font-size: 9pt */
 ; font-weight: bold
 ; background-color: #cceeff
+;
 }
   .modes button
 { font-style: normal
 /* ; font-size: 8pt */
 ; color: blue
 ; background-color: #eeeeee
+;
 }
 
   .vars button
@@ -170,36 +211,45 @@
   select
 { color: blue
 ; background-color: white
+;
 }
   option.varlink
 { color: blue
 ; background-color: #eeeeee
+;
 }
   option.var-sel
 { color: black
 ; background-color: #eeeeee
 ; font-weight: bold
 ; font-style: italic
+;
 }
 
   form.diff-form
 { display: inline
+;
 }
 
 /************************************/
-/*			directory view			*/
+/* directory view                   */
 /************************************/
 
 /* description extracted from README(.txt) file */
   .lxrdesc
 { color: #666666
-; font-style: italic
 }
 
 /* link to file or folder in the source view */
   a.dirfile
 , a.dirfolder
-{ font-size: 12pt
+{ font-size: 9pt
+;
+}
+
+table.dircontent
+{ border-spacing: 0
+;
 }
   a.dirfile
 { color: black
@@ -212,20 +262,23 @@
   .dircontent
 { width: 100%
 ; border: none
+;
 }
 
-  .dircontent TH
-{ border-right:	 1pt solid white
-; border-left:	 none
+  .dircontent th
+{ border-right: none
+; border-left: 1px solid white
 ; border-top: none
-; border-bottom: 1pt solid blue
+; border-bottom: 1px solid navy
 ; text-align: center
+;
 }
 
 /* directory listing header */
   .dirheader
-{ background-color: #aaddff
+{ background-color: #aaddaa
 ; color: #000000
+;
 }
 
 /* directory listing data */
@@ -233,28 +286,39 @@
   .dirrow1
 { background-color: #ffffff
 ; font-size: 10pt
+;
 }
 
 /* "even" lines (three at once) */
   .dirrow2
-{ background-color: #eeeeee
+{ background-color: #f4f4f4
 ; font-size: 10pt
-}
-
-  .dirrow1 td
-, .dirrow2 td
-{ border-right: thin solid #999999
-; padding-top: 3px
-; padding-left: 4px
-; padding-right: 4px
+;
 }
 
   .diricon
 , .dirname
 , .dirsize
 , .dirtime
-{ width: 1%
-; white-space: nowrap
+{ white-space: nowrap
+;
+}
+
+.dirrow1 td
+{ border-right: thin solid #f0f0f0
+;
+}
+
+.dirrow2 td
+{ border-right: thin solid #e0e0e0
+;
+}
+
+.dirrow1 td, .dirrow2 td
+{ vertical-align: top
+; padding-top: 3px
+; padding-left: 4px
+; padding-right: 4px
 }
 
   .dirrow1 td.diricon
@@ -265,32 +329,53 @@
 
   td.dirname
 { text-align: left
+;
 }
 
   td.dirsize
 { text-align: right
+;
 }
 
   td.dirtime
 { text-align: right
+;
 }
 
   td.dirdesc
-{ text-align: left
+{ font-size: 8pt
+;
+}
+
+  td.dirdesc p
+, div.desctext p
+{ -webkit-margin-before: 0
+; -webkit-margin-after: 0
+;
+}
+
+.lxrdesc
+{
+; font-size: 7pt
+; font-family: "Gill Sans", Helvetica, Arial, sans
+;
 }
 
 /********************************/
-/*			file view			*/
+/* file view                    */
 /********************************/
 
 /* the line number */
 .fline
-{ background-color: silver
+{ background-color: #e0e0e0
+;
 }
 
 /* link - the line number - underlined by default */
 a.fline
 { text-decoration: none
+; color: gray
+;
 }
 
 /* link to other site (http, ftp and mailto) */
@@ -299,12 +384,14 @@ a.offshore {
 
 /* link to the include file */
 a.include
-{ color: #669966
+{ color: #800080
+;
 }
 
 /* link - identifier search */
 .fid
-{ color: #669966
+{ color: #000080
+;
 }
 
 /* general file font etc. */
@@ -313,23 +400,27 @@ pre.file {
 
 /* comments */
 .comment
-{ color: #808080
+{ color: #308030
+;
 }
 
 /* strings */
 .string
-{ color: #0000CC
+{ color: #800080
+;
 }
 
 /* reserved words */
 .reserved
 { color: #800000
+;
 }
 
 /************************************/
-/*		indent. search results		*/
-/*		and free-text search		*/
+/* indent. search results           */
+/* and free-text search             */
 /************************************/
+
 
   TABLE.identdef
 , TABLE.identref
@@ -337,6 +428,13 @@ pre.file {
 { border: thin solid black
 ; border-spacing: 0
 ; border-collapse: collapse
+;
+}
+
+/* link to "member of" */
+.search-member
+{ color: #669966
+;
 }
 
   .searchref TH
@@ -344,12 +442,18 @@ pre.file {
 ; border-left: none
 ; border-top: 1pt solid black
 ; */border/*-bottom*/: 1pt solid black
-; text-align: center
-; background-color: #aaddff
+; text-align: left
+; padding: 1px 4px
+; background-color: #CCF
+;
 }
 
   .identdef TH
-{ color: red
+, .identref TH
+{ background-color: #CCF
+; padding: 1px 6px
+; text-align: left
+;
 }
 
   .identdef TR
@@ -357,42 +461,48 @@ pre.file {
 /*, .searchref TR*/
 { border-top: thin solid black
 ; border-bottom: thin solid black
+;
 }
 
   .identdef TD
 , .identref TD
 , .searchref TD
 { border-top: thin solid black
+; border-right: thin solid black
 ; border-bottom: thin solid black
-; border-left: thin solid black
 ; padding: 0 3pt
+;
 }
 
   TD.identfile
 , TD.searchfile
 , TD.searchfilevoid
-{ border-right: thin solid black
+{ border-left: thin solid black
+;
 }
 
   TD.identfile
 , TD.searchfile
+, TD.searchtext
 { border-top: thin solid black
 ; border-bottom: none
+;
 }
 
   TD.searchfilevoid
 { border-top: none
 ; border-bottom: none
+;
 }
   .identfile A
 , .searchfile A
-{ color: gray
+{
 }
 
   a.identline
 , a.searchline
 { text-align: right
-; min-width: 2.5em
+; min-width: 1.5em
 ; margin: 0 1pt
 ; display: inline-block
 ; border: none
@@ -401,6 +511,7 @@ pre.file {
   TR.identline
 , TR.searchline
 { text-align: left
+;
 }
 
 /*  PRE.searchtext
@@ -410,11 +521,13 @@ pre.file {
   PRE.searchtext SPAN.searchtext
 { color: red
 ; font-weight: bold
+;
 }
 
 /* link to "member of" */
-.search-member
-{ color: #669966
+  .search-member
+{ color: #000066
+;
 }
 
 /* link to the file with reference */
@@ -429,8 +542,30 @@ pre.file {
 ; */color: blue
 }
 
+/* declaration list block */
+.search-ul
+{ display: block
+; margin-top: 10pt
+; margin-bottom: 10pt
+;
+}
+
+/* indented items (declaration list) */
+.search-li1
+{ display: list-item
+; margin-left: 50pt
+;
+}
+
+/* indented (but not so much) items (ref. list) */
+.search-li2
+{ display: list-item
+; margin-left: 20pt
+;
+}
+
 /********************************/
-/*			diff view			*/
+/* diff view                    */
 /********************************/
 
 /* reference to the file (in header) */
@@ -438,18 +573,22 @@ pre.file {
 }
 
 /* marks like '!!', '<<' etc. */
-.diff-mark
+  .diff-mark
 { color: red
+;
 }
 
 /* background of differing lines */
   .diff-left
 { background-color: #ffccdd
+;
 }
   .diff-both
 { background-color: #ffffaa
+;
 }
   .diff-right
 { background-color: #ddffdd
+;
 }
 
