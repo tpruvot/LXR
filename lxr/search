@@ -41,15 +41,10 @@ sub varinputs {
 
 	foreach ($config->allvariables) {
 		if ($config->variable($_) ne $config->vardefault($_)) {
-			$ret .= expandtemplate(
-				$templ,
-				(
-					variable => sub { $_ },
-					value    => sub { $config->variable($_) },
-				)
-			);
+			$ret .= "<input type=\"hidden\" name=\"$_\" value=\"" . $config->variable($_) . "\">\n";
 		}
 	}
+
 	return $ret;
 }
 

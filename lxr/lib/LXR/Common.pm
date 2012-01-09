@@ -335,9 +335,8 @@ sub httpinit {
 	$HTTP->{'param'}->{'a'} ||= $HTTP->{'param'}->{'_arch'};
 	$HTTP->{'param'}->{'_i'} ||= $HTTP->{'param'}->{'_identifier'};
 
-	foreach my $param (keys %{$HTTP->{'param'}}) {
-	}
 	$identifier = clean_identifier($HTTP->{'param'}->{'_i'});
+
 	# remove the param versions to prevent unclean versions being used
 	delete $HTTP->{'param'}->{'_i'};
 	delete $HTTP->{'param'}->{'_identifier'};
