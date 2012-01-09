@@ -36,6 +36,10 @@ GetOptions	(\%option
 			, "version=s"
 			, "allurls!"
 			, "allversions!"
+			, "genindex-only!"
+			, "genrefs-only!"
+			, "purge=s",
+			, "reindex=s"
 			, "reindexall!"
 			, "checkonly!"
 			);
@@ -59,6 +63,8 @@ Valid options are:
   --allurls          Generate tokens for all URL configuration blocks.
   --version=VERSION  Generate tokens for the given version of the code.
   --allversions      Generate tokens for all versions of the code (default).
+  --purge=VERSION    Purge VERSION data from database
+  --reindex=VERSION  Purge and reindex VERSION
   --reindexall       Purges existing index data
   --checkonly        Verify tools version and stop
   
@@ -307,7 +313,13 @@ our %binaryfiles;
 
 my @versions;
 
-if ($option{'allversions'} || !$option{'version'}) {
+if ($option{'purge'}) {
+	@versions = $option{'purge'};
+
+} elsif ($option{'reindex'}) {
+	@versions = $option{'reindex'};
+
+} elsif ($option{'allversions'} || !$option{'version'}) {
 	@versions = $config->varrange('v');
 	die
 	  "${VTred}Option --allversions cannot be used because no versions found automatically.${VTnorm}  Use --version=VERSION or fix lxr.conf.\n"
@@ -317,10 +329,19 @@ if ($option{'allversions'} || !$option{'version'}) {
 }
 
 foreach my $version (@versions) {
-	$index->purge($version) if $option{'reindexall'};
-	gensearch($version);
-	genindex('/', $version);
-	genrefs('/', $version);
+	if ($option{'purge'} || $option{'reindex'} || $option{'reindexall'}) {
+		print("Purging version $version \n");
+		$index->purge($version);
+	}
+	if (!$option{'purge'} && !$option{'genindex-only'} && !$option{'genrefs-only'}) {
+		gensearch($version);
+		genindex('/', $version);
+		genrefs('/', $version);
+	}
+
+	genindex('/', $version) if $option{'genindex-only'};
+	genrefs('/', $version)  if $option{'genrefs-only'};
+
 	$index->commit;
 }
 
@@ -415,12 +436,15 @@ sub gensearch {
 		my $filelist = new IO::File $config->swishdir . "/$releaseid.filenames", "w"
 		  or die "${VTred}can't open $releaseid.filenames for writing${VTnorm}";
 
-		# execute swish, as a pipe we can write to
+		if (!$config->swishcfg) {
+			$config->swishcfg = "swish-e.conf";
+		}
 
+		# execute swish, as a pipe we can write to
 		open($swish,
 			    "| "
 			  . $config->swishbin
-			  . " -S prog -i stdin -v 1 -c swish-e.conf -f "
+			  . " -S prog -i stdin -v 1 -c ".$config->swishcfg." -f "
 			  . $config->swishdir . "/"
 			  . $releaseid
 			  . ".index")
