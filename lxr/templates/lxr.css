@@ -244,6 +244,9 @@
   .dirrow1 td
 , .dirrow2 td
 { border-right: thin solid #999999
+; padding-top: 3px
+; padding-left: 4px
+; padding-right: 4px
 }
 
   .diricon
@@ -254,24 +257,26 @@
 ; white-space: nowrap
 }
 
+  .dirrow1 td.diricon
+, .dirrow2 td.diricon
+{ padding: 0
+;
+}
+
   td.dirname
 { text-align: left
-; padding: 0 1pt 0 2pt
 }
 
   td.dirsize
 { text-align: right
-; padding: 0 1pt 0 2pt
 }
 
   td.dirtime
 { text-align: right
-; padding: 0 1pt 0 5pt
 }
 
   td.dirdesc
 { text-align: left
-; padding-left: 5pt
 }
 
 /********************************/
