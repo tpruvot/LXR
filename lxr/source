@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: source,v 1.54 2011/12/30 11:30:33 ajlittoz Exp $
+# $Id: source,v 1.56 2012/01/25 17:29:34 ajlittoz Exp $
 
 # source --	Present sourcecode as html, complete with references
 #  the '/icons' images are available in any standard Apache installation
@@ -24,7 +24,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: source,v 1.54 2011/12/30 11:30:33 ajlittoz Exp $ ';
+$CVSID = '$Id: source,v 1.56 2012/01/25 17:29:34 ajlittoz Exp $ ';
 
 use strict;
 use lib '.';    # for Local.pm
@@ -304,20 +304,46 @@ sub printfile {
 				my @ann = $files->getannotations($pathname, $releaseid);
 
 				if (@ann) {
-					my ($a, $b);
-					foreach $a (@ann) {
-						if ($a eq $b) {
-							$a = ' ' x 16;
-							next;
+					my $currev = $files->filerev($pathname, $releaseid);
+					my ($rev, $r);
+					foreach $rev (@ann) {
+						if ($rev eq $r) {
+							$rev = ' ' x 16;
+							if ($r eq $currev) {
+								$rev = "<span class='annot-cur'>$rev</span>";
+							}
+						next;
 						}
-
-						$b = $a;
-						$a .=
-						  ' ' x (6 - length($a))
-						  . $files->getauthor($pathname, $a);
-						$a .= ' ' x (16 - length($a));
-						if (length($a) > 16) {
-							substr($a, 15, 10000, '*');
+						$r = $rev;
+						my $auth = $files->getauthor($pathname, $rev);
+						my $la = length($auth);
+						my $lr = length($rev);
+						if ($lr+$la > 15) {	# sum of 2 fields too long
+							if	( $la > 4
+								&& $la > 14-$lr
+								) {	# truncate first author
+								$la = 14 - $lr;
+								$la = 4 if $la < 4;
+								$auth = substr($auth, 0, $la++) . "*";
+							}
+							if ($lr+$la >15) { # now truncate revision
+								$lr = 13 - $la;
+								$rev = "&lt;" . substr($rev, -$lr++);
+							}
+						}
+						if ($lr+$la < 15) {	# some space to distribute
+							if ($la >= 8) {
+								$rev  .= ' ' x (15-$lr-$la);
+							} elsif ($lr >= 7) {
+								$auth .= ' ' x (15-$lr-$la);
+							} else {
+								$rev  .= ' ' x (7-$lr);
+								$auth .= ' ' x (8-$la);
+							}
+						}
+						$rev .= " " . $auth;
+						if ($r eq $currev) {
+							$rev = "<span class='annot-cur'>$rev</span>";
 						}
 					}
 				}
@@ -362,8 +388,10 @@ if ($config->filter && $pathname !~ $config->filter) {
 	exit;
 }
 
-# If the file is html then simply pump it out.
-if ($pathname =~ /\.(html)$/ || $HTTP->{'param'}->{'_raw'}) {
+# Formerly, if the file was html, it was sent out as is.
+# Now, since we want to parse HTML files too, use URL parameter _raw
+# to interpret it through the browser, the same as for other files.
+if ($HTTP->{'param'}->{'_raw'}) {
 	printfile(1);
 } else {
 	my $type = ($pathname !~ m|/$| ? 'source' : 'sourcedir');
