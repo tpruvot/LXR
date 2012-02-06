@@ -174,6 +174,10 @@ sub markupfile {
 		while (defined($frag)) {
 			&markspecials($frag);
 
+			if (not defined($btype) ) {
+				$btype = '';
+			}
+
 			if ($btype eq 'comment') {
 
 				# Comment
