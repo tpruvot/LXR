@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Tagger.pm,v 1.25 2009/05/10 11:54:29 adrianissott Exp $
+# $Id: Tagger.pm,v 1.26 2012/01/25 17:29:34 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Tagger;
 
-$CVSID = '$Id: Tagger.pm,v 1.25 2009/05/10 11:54:29 adrianissott Exp $ ';
+$CVSID = '$Id: Tagger.pm,v 1.26 2012/01/25 17:29:34 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
@@ -47,7 +47,6 @@ sub processfile {
 			print(STDERR "--- $pathname $fileid\n");
 
 			my $path = $files->tmpfile($pathname, $releaseid);
-
 			$lang->indexfile($pathname, $path, $fileid, $index, $config);
 			$index->setfileindexed($fileid);
 			unlink($path);
