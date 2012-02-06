@@ -152,7 +152,10 @@ sub fileref {
 	# jwz: URL-quote any special characters.
 	$path =~ s|([^-a-zA-Z0-9.\@/_\r\n])|sprintf("%%%02X", ord($1))|ge;
 
-	if ($line > 0 && length($line) < 4) {
+	if (!defined $line) {
+		$line = 0;
+	}
+	elsif ($line > 0 && length($line) < 4) {
 		$line = ('0' x (4 - length($line))) . $line;
 	}
 
