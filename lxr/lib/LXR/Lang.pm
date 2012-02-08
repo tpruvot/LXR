@@ -1,6 +1,6 @@
 # -*- tab-width: 4; cperl-indent-level: 4 -*- ###############################################
 #
-# $Id: Lang.pm,v 1.39 2011/03/12 13:10:29 ajlittoz Exp $
+# $Id: Lang.pm,v 1.40 2012/01/26 16:35:35 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Lang;
 
-$CVSID = '$Id: Lang.pm,v 1.39 2011/03/12 13:10:29 ajlittoz Exp $ ';
+$CVSID = '$Id: Lang.pm,v 1.40 2012/01/26 16:35:35 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -75,38 +75,16 @@ sub new {
 
 sub processinclude {
 	my ($self, $frag, $dir) = @_;
-	my $source = $$frag;
-
-	# Split the include directive into individual components
-	$source =~ s/^					# reminder: no initial space in the grammar
-				([\w\#]\s*[\w]*)	# reserved keyword for include construct
-				(\s+)				# space
-				(?|	(\")(.+?)(\")	# C syntax
-				|	(\0<)(.+?)(\0>)	# C alternate syntax
-				|	()([\w:]+)(\b)	# Perl and others
-				)
-				//sx ;
-	# Now, process individually the component to avoid marking
-	#	inadvertantly HTML tags if a user identifier is same as one
-	# NOTE: processreserved is inlined to proceed with the different
-	#		markings simultaneously to avoid interferences;
-	#		second reason, $2 is not a reference
-	$$frag =	( $self->isreserved($1)
-				? "<span class='reserved'>$1</span>"
-				: "$1"
-				)
-			.	"$2$3"
-			.	&LXR::Common::incref($4, "include" ,$4 ,$dir)
-			.	"$5"
-			. $source;		# tail if any (e.g. in Perl)
+	warn  __PACKAGE__."::processinclude not implemented. Parameters @_";
+	return;
 }
 
 sub processcomment {
 	my ($self, $frag) = @_;
 
 	$$frag = "<span class=\"comment\">$$frag</span>";
-	$$frag =~ s#\n#</span>\n<span class=\"comment\">#g;
-	$$frag =~ s#<span class=\"comment\"></span>$## ; #remove excess marking
+	$$frag =~ s!\n!</span>\n<span class="comment">!g;
+	$$frag =~ s!<span class="comment"></span>$!! ; #remove excess marking
 }
 
 #

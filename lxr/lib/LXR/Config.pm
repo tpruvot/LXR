@@ -204,7 +204,7 @@ sub _initialize {
 				%$self = (%$self, %$mapping);
 			}
 		}
-	}
+ 	}
 	if (!exists $self->{'filetype'}) {
 		die "No file type mapping in $confpath.\n"
 			. "Please specify 'filetype' or 'filetypeconf' \n";
@@ -215,21 +215,21 @@ sub _initialize {
 	}
 
 	# Set-up various directories as necessary
-	_ensuredirexists($self->{'tmpdir'});
+  _ensuredirexists($self->{'tmpdir'});
 
-	if (exists $self->{'glimpsebin'} and exists $self->{'swishbin'}) {
-		die "Both Glimpse and Swish have been specified in $confpath.\n".
-		"Please choose one of them by commenting out either glimpsebin or swishbin.\n";
-	} elsif (exists $self->{'glimpsebin'}) {
-		die "Please specifiy glimpsedir in $confpath\n" unless exists $self->{'glimpsedir'};
-		_ensuredirexists($self->{'glimpsedir'});
-	} elsif (exists $self->{'swishbin'}) {
-		die "Please specifiy swishdir in $confpath\n" unless exists $self->{'swishdir'};
-		_ensuredirexists($self->{'swishdir'});
-	} else {
-		die "Neither Glimpse nor Swish have been specified in $confpath.\n".
-		"Please choose one of them by specifing a value for either glimpsebin or swishbin.\n";
-	}
+  if (exists $self->{'glimpsebin'} and exists $self->{'swishbin'}) {
+    die "Both Glimpse and Swish have been specified in $confpath.\n".
+        "Please choose one of them by commenting out either glimpsebin or swishbin.\n";
+  } elsif (exists $self->{'glimpsebin'}) {    
+    die "Please specifiy glimpsedir in $confpath\n" unless exists $self->{'glimpsedir'};    
+    _ensuredirexists($self->{'glimpsedir'});
+  } elsif (exists $self->{'swishbin'}) {    
+    die "Please specifiy swishdir in $confpath\n" unless exists $self->{'swishdir'};    
+    _ensuredirexists($self->{'swishdir'});
+  } else {
+    die "Neither Glimpse nor Swish have been specified in $confpath.\n".
+        "Please choose one of them by specifing a value for either glimpsebin or swishbin.\n";
+  }
 	return 1;
 }
 
