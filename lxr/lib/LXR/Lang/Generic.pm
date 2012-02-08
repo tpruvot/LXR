@@ -139,9 +139,10 @@ sub parsespec {
 # Tell if a flag is present in generic.conf language description
 sub flagged {
 	my ($self, $flag) = @_;
-	my @flags = $self->langinfo('flags');
-	for (@flags) {
-		return 1 if $_ eq $flag;
+	if (defined $self->langinfo('flags')) {
+		foreach my $f (@{$self->langinfo('flags')}) {
+			return 1 if ($f eq $flag);
+		}
 	}
 	return 0;
 }
