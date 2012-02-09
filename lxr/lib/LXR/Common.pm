@@ -169,7 +169,7 @@ sub diffref {
 	my ($desc, $css, $path, @args) = @_;
 	my ($darg, $dval);
 
-	($darg, $dval) = $args[0] =~ /(.*?)=(.*)/;
+	($darg, $dval) = $args[0] =~ /(.*?)=(.*)/ if (defined $args[0]);
 	return ("<a class='$css' href=\"$config->{virtroot}/diff$path"
 		  . &urlargs	( &nonvarargs()
 						, ($darg ? "_diffvar=$darg" : "")
@@ -253,7 +253,10 @@ sub http_wash {
 }
 
 sub fixpaths {
-	my $node = '/' . shift;
+	my $node = shift;
+	if (!defined($node)) {
+		return "";
+	}
 
 	while ($node =~ s|/[^/]+/\.\./|/|g) { }
 	$node =~ s|/\.\./|/|g;
@@ -354,15 +357,19 @@ sub httpinit {
 
 	$HTTP->{'path_info'} = http_wash($ENV{'PATH_INFO'});
 
-	$HTTP->{'path_info'} = clean_path($HTTP->{'path_info'});
+	$HTTP->{'path_info'} = clean_path($HTTP->{'path_info'}) || "";
 	$HTTP->{'this_url'} = 'http://' . $ENV{'SERVER_NAME'};
 	$HTTP->{'this_url'} .= ':' . $ENV{'SERVER_PORT'}
 	  if $ENV{'SERVER_PORT'} != 80;
+
 	$HTTP->{'this_url'} .= $ENV{'SCRIPT_NAME'};
 	my $script_path = $HTTP->{'this_url'};
 	$script_path =~ s!/[^/]*$!!;
+
 	$HTTP->{'script_path'} = $script_path;
-	$HTTP->{'this_url'} .= $ENV{'PATH_INFO'};
+
+	$HTTP->{'this_url'} .= $HTTP->{'path_info'}
+	  if $HTTP->{'path_info'};
 	$HTTP->{'this_url'} .= '?' . $ENV{'QUERY_STRING'}
 	  if $ENV{'QUERY_STRING'};
 

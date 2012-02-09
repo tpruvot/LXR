@@ -213,6 +213,12 @@ sub processinclude {
 			}
 		}
 	} else {
+
+		$lsep	= "";
+		$file	= "";
+		$path	= "";
+		$rsep	= "";
+
 # NOTE: 5.10 syntax block replaced by following lines
 # 		$source =~ s/^					# reminder: no initial space in the grammar
 # 					([\w\#]\s*[\w]*)	# reserved keyword for include construct
@@ -235,10 +241,14 @@ sub processinclude {
 # 		$file    = $4;
 # 		$path    = $4;
 # 		$rsep    = $5;
-		$lsep    = $4 . $7;
-		$file    = $5 . $8;
+
+		$lsep    = $4 if defined $4;
+		$lsep   .= $7 if defined $7;
+		$file    = $5 if defined $5;
+		$file   .= $8 if defined $8;
 		$path    = $file;
-		$rsep    = $6 . $9;
+		$rsep    = $6 if defined $6;
+		$rsep   .= $9 if defined $9;
 	}
 	$link = &LXR::Common::incref($file, "include" ,$path ,$dir);
 	if (defined($link)) {

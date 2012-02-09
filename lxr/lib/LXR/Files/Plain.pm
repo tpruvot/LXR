@@ -136,6 +136,9 @@ sub toreal {
 	foreach my $ignoredir ($config->ignoredirs) {
 		return undef if $pathname =~ m|/$ignoredir/|;
 	}
+	if (!defined $releaseid) {
+		$releaseid="";
+	}
 
 	return ($self->{'rootpath'} . $releaseid . $pathname);
 }
