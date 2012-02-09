@@ -456,11 +456,12 @@ sub genrefs {
 			$LXR::Common::pathname = $pathname;
 			my @versions = $config->varrange('v');
 			foreach my $releaseid (@versions) {
+				$versionset{$releaseid} = '';   # remember this version
 				&LXR::Tagger::processfile($pathname, $releaseid, $config, $files, $index);
 			}
 		}
 	} else {
-		&LXR::Tagger::processrefs($pathname, $releaseid, $config, $files, $index)
+		&LXR::Tagger::processrefs($pathname, $releaseid, $config, $files, $index);
 	}
 	$index->commit;
 }

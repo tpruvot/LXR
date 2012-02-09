@@ -77,13 +77,6 @@ Then, get rid of the release number in the directory name and enter into it:
  mv lxr-x.y lxr
  cd lxr
 
-At this point, you can run
-
- ./genxref --checkonly
-
-It will error out, but meanwhile it will have checked the presence and version
-level of some auxiliary tools.
-
 
 C/ Installing the database
 --------------------------
@@ -311,10 +304,6 @@ It is now time to generate the index. This is done using the program
 
 Note: You can drop the protocol if it is "http:" and have a shorter form:
 ====  ./genxref --url=//myPC.example.com/lxr --version=versionA
-
-Note: it is a good idea to run:
-====| ./genxref --url=//localhost/lxr --version=versionA --checkonly
-    | to see if everything is right before launching the full indexing process.
 
 It is VERY IMPORTANT that the --url argument be an URL.  Do not drop the //.
 
