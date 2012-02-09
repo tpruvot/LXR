@@ -277,7 +277,10 @@ sub symdeclarations {
     my ($self, $symname, $releaseid) = @_;
     my ($rows, @ret, @row);
 
-    $rows = $self->{indexes_select}->execute("$symname", "$releaseid");
+    $symname   = "" if (!defined $symname);
+    $releaseid = "" if (!defined $releaseid);
+
+    $rows = $self->{indexes_select}->execute($symname, $releaseid);
     while (@row = $self->{indexes_select}->fetchrow_array) {
         $row[3] &&= $self->symname($row[3]); # convert the symid
         push(@ret, [@row]);
@@ -298,7 +301,10 @@ sub symreferences {
     my ($self, $symname, $releaseid) = @_;
     my ($rows, @ret, @row);
 
-    $rows = $self->{usage_select}->execute("$symname", "$releaseid");
+    $symname   = "" if (!defined $symname);
+    $releaseid = "" if (!defined $releaseid);
+
+    $rows = $self->{usage_select}->execute($symname, $releaseid);
 
     while (@row = $self->{usage_select}->fetchrow_array) {
         push(@ret, [@row]);
