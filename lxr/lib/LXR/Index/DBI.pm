@@ -32,6 +32,9 @@ sub new {
 	if ($dbname =~ /^dbi:mysql:/i) {
 		require LXR::Index::Mysql;
 		$index = new LXR::Index::Mysql($dbname);
+	} elsif ($dbname =~ /^dbi:SQLite:/i) {
+		require LXR::Index::SQLite;
+		$index = new LXR::Index::SQLite($dbname);
 	} elsif ($dbname =~ /^dbi:Pg:/i) {
 		require LXR::Index::Postgres;
 		$index = new LXR::Index::Postgres($dbname);

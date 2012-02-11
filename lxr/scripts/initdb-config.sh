@@ -15,6 +15,10 @@ while : ; do
 				dbengine="mysql"
 				break
 			;;
+			"sqlite" | "SQLITE" )
+				dbengine="sqlite"
+				break
+			;;
 			"oracle" | "ORACLE" )
 				dbengine="oracle"
 				break
