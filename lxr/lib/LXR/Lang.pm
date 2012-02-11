@@ -1,6 +1,6 @@
 # -*- tab-width: 4; cperl-indent-level: 4 -*- ###############################################
 #
-# $Id: Lang.pm,v 1.40 2012/01/26 16:35:35 ajlittoz Exp $
+# $Id: Lang.pm,v 1.42 2012/02/11 08:59:28 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Lang;
 
-$CVSID = '$Id: Lang.pm,v 1.40 2012/01/26 16:35:35 ajlittoz Exp $ ';
+$CVSID = '$Id: Lang.pm,v 1.42 2012/02/11 08:59:28 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -79,12 +79,23 @@ sub processinclude {
 	return;
 }
 
+sub multilinetwist {
+	my ($frag, $css) = @_;
+	$$frag = "<span class=\"$css\">$$frag</span>";
+	$$frag =~ s!\n!</span>\n<span class="$css">!g;
+	$$frag =~ s!<span class="comment"></span>$!! ; #remove excess marking
+}
+
 sub processcomment {
 	my ($self, $frag) = @_;
 
-	$$frag = "<span class=\"comment\">$$frag</span>";
-	$$frag =~ s!\n!</span>\n<span class="comment">!g;
-	$$frag =~ s!<span class="comment"></span>$!! ; #remove excess marking
+	multilinetwist($frag, 'comment');
+}
+
+sub processstring {
+	my ($self, $frag) = @_;
+
+	multilinetwist($frag, 'string');
 }
 
 #
