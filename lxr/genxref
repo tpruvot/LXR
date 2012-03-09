@@ -360,12 +360,14 @@ if ($option{'purge'}) {
 		print "Using automatic CVS version enumeration\n";
 	} else {
 		@versions = $config->varrange('v');
+		print "Processing all versions\n";
 		die
 		  "${VTred}Option --allversions cannot be used because no versions found automatically.${VTnorm}  Use --version=VERSION or fix lxr.conf.\n"
 		  if scalar @versions <= 0;
 	}
 } else {
 	@versions = $option{'version'};
+	print "Processing only @versions \n";
 }
 
 my %versionset;    # cumulative version set
@@ -395,7 +397,7 @@ foreach my $version (@versions) {
 		genrefs('/', $version);
 	}
 
-	gensearch($version)     if ($option{'gensearch-only'} || $files->isa("LXR::Files::Plain"));
+	# gensearch($version)     if ($option{'gensearch-only'} || $files->isa("LXR::Files::Plain"));
 	genindex('/', $version) if $option{'genindex-only'};
 	genrefs('/', $version)  if $option{'genrefs-only'};
 
@@ -414,6 +416,7 @@ $index->DESTROY();
 
 sub genindex {
 	my ($pathname, $releaseid) = @_;
+	my $indexit = 0;
 
 	print(STDERR "*** $pathname $releaseid \n");
 
@@ -433,8 +436,13 @@ sub genindex {
 				$versionset{$releaseid} = '';	# remember this version
 				&LXR::Tagger::processfile($pathname, $releaseid, $config, $files, $index);
 			}
+		} else {
+			$indexit = 1;
 		}
 	} else {
+		$indexit = 1;
+	}
+	if ($indexit) {
 		&LXR::Tagger::processfile($pathname, $releaseid, $config, $files, $index);
 	}
 	$index->commit;
@@ -442,6 +450,7 @@ sub genindex {
 
 sub genrefs {
 	my ($pathname, $releaseid) = @_;
+	my $tagit = 0;
 
 	print(STDERR "### $pathname $releaseid \n");
 
@@ -458,11 +467,16 @@ sub genrefs {
 			$LXR::Common::pathname = $pathname;
 			my @versions = $config->varrange('v');
 			foreach my $releaseid (@versions) {
-				$versionset{$releaseid} = '';   # remember this version
+				print(STDERR " ## Tagger:processfile $pathname $releaseid \n");
 				&LXR::Tagger::processfile($pathname, $releaseid, $config, $files, $index);
 			}
+		} else {
+			$tagit = 1;
 		}
 	} else {
+		$tagit = 1;
+	}
+	if ($tagit) {
 		&LXR::Tagger::processrefs($pathname, $releaseid, $config, $files, $index);
 	}
 	$index->commit;
