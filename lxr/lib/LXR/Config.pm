@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Config.pm,v 1.46 2012/02/04 16:31:56 ajlittoz Exp $
+# $Id: Config.pm,v 1.47 2012/03/07 20:22:22 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.46 2012/02/04 16:31:56 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.47 2012/03/07 20:22:22 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -124,7 +124,9 @@ sub _initialize {
 	}
 	$script_path =~ s!/[^/]*$!!;	# path to script
 	$script_path =~ s!^/*!/!;		# ensure a single starting /
+	my $parmgroup = 0;
   CANDIDATE: foreach $config (@config[1..$#config]) {
+		$parmgroup++;				# next parameter group
 		my @hostnames;
 		if (exists($config->{'host_names'})) {
 			@hostnames = @{$config->{'host_names'}};
@@ -147,6 +149,7 @@ sub _initialize {
 					) {
 					$config->{'baseurl'} = $rt . $port . $script_path;
 					%$self = (%$self, %$config);
+					$$self{'parmgroupnr'} = $parmgroup;
 					last CANDIDATE;
 				}
 			}
@@ -168,6 +171,7 @@ sub _initialize {
 					$rt =~ s/^$r/$rt$port/;
 					$config->{'baseurl'} = $rt;
 					%$self = (%$self, %$config);
+					$$self{'parmgroupnr'} = $parmgroup;
 					last CANDIDATE;
 				}
 			}

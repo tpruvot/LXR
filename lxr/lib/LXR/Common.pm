@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Common.pm,v 1.91 2012/02/04 16:31:56 ajlittoz Exp $
+# $Id: Common.pm,v 1.92 2012/03/06 19:42:51 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.91 2012/02/04 16:31:56 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.92 2012/03/06 19:42:51 ajlittoz Exp $ ';
 
 use strict;
 
@@ -397,7 +397,7 @@ sub httpinit {
 	# override the 'variables' value if necessary
 	foreach my $param (keys %{$HTTP->{'param'}}) {
 		my $var = $param;
-		next unless $var =~ s!^\$!!;
+		next unless $var =~ s/^!//;
 		if (exists($config->{'variables'}->{$var})) {
 				$HTTP->{'param'}->{$var} = $HTTP->{'param'}->{$param};
 		}
