@@ -10,9 +10,10 @@ deny from all
 deny from all
 </Files>
 
-<Files ~ (find|search|source|ident|diff|cgi-bin)$>
+<Files ~ (find|search|source|ident|diff|showconfig)$>
 SetHandler perl-script
-PerlHandler ModPerl::RegistryPrefork
+PerlHandler Apache::Registry
+PerlSetEnv PERL5LIB lib
 ForceType text/html
-PerlOptions +ParseHeaders
+PerlSendHeader On
 </Files>

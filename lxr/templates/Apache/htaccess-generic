@@ -1,7 +1,7 @@
 #
 #	Web server configuration for LXR root directory
 #
-#	$Id: htaccess-generic,v 1.2 2012/01/29 07:36:40 ajlittoz Exp $
+#	$Id: htaccess-generic,v 1.3 2012/03/07 20:22:22 ajlittoz Exp $
 #
 #	Content of this file is independent of the location of
 #	the LXR root directory.
@@ -47,7 +47,7 @@ Options -Indexes
 # ----------- LXR scripts configuration -----------
 #
 #
-<Files ~ (search|source|ident|diff|cgi-bin)$>
+<Files ~ (search|source|ident|diff|showconfig)$>
 	Allow from all
 	#	Access granted to everybody
 

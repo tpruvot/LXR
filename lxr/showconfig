@@ -1,0 +1,308 @@
+#!/usr/bin/perl -T
+# $Id: showconfig,v 1.1 2012/03/07 20:22:22 ajlittoz Exp $
+
+# showconfig --	Present LXR configuration as html
+#
+#	Andre J Littoz <ajlittoz@users.sf.net>
+#
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+######################################################################
+
+=head1 script showconfig
+
+This script shows how LXR understood the configuration parameters
+from lxr.conf file. They are displayed in tabular form:
+
+First column: parameter name
+
+Second column: parameter type (I<string>, I<array>, I<hash>, ...)
+
+Third column: value from tree-specific parameter group
+
+Fourth column: value from global parameter group
+
+With such a layout, it is easy to see if a global value is overriden
+by a specific one.
+
+=cut
+
+$CVSID = '$Id: showconfig,v 1.1 2012/03/07 20:22:22 ajlittoz Exp $ ';
+
+use strict;
+use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" };  # if LXR modules are in ./lib
+
+use LXR::Common;
+use LXR::Template;
+
+
+=head2 C<dumphash ($h, $left)>
+
+Function C<dumphash> returns the contents of the input hash
+as a ready-to-print string.
+
+The value of a key may be a simple I<string> (displayed surrounded
+with quotes), an I<array> (simply indicated with an ellipsis to limit
+recursion) or a I<hash> (recursively dumped surrounded wit curly
+braces).
+
+=over
+
+=item 1 C<$h>
+
+a reference to the I<hash> to dump
+
+=item 1 C<$left>
+
+the I<number> of spaces at left to indent this hash
+
+=back
+
+=cut
+
+sub dumphash {
+	my $h = shift;
+	my $left = shift;
+	my $d = ' 'x$left . '{ ';
+
+	foreach my $k (sort keys %$h) {
+		$d .= "'$k' => ";
+	# Compute left spaces in case we need to recurse
+		my $v = %$h->{$k};
+		if (ref($v) eq 'ARRAY') {
+			$d .= '[ ... ]';
+		} elsif (ref($v) eq 'HASH') {
+			$d =~ m/([^\n]*)$/s;
+			$d .= "\n";
+			$d .= dumphash ($v, length($1));
+		} else {
+			$d .= "'$v'";
+		}
+	# Prepare for next key with initial left spaces and comma
+		$d .= "\n" . ' 'x$left . ', ';
+	}
+	# Replace last comma with closing curly braces
+	$d =~ s/, $/}\n/;
+	return $d;
+}
+
+
+=head2 C<parmvalue ($parm, $pg)>
+
+Function C<parmvalue> dumps a parameter value if it exists in this
+parameter group.
+
+After testing for parameter existence, processing is dispatched
+according to type value.
+
+Parameter C<dbpass> is not dumped for security reason.
+
+=over
+
+=item 1 C<$parm>
+
+a parameter name as a I<hash>
+
+=item 1 C<$pg>
+
+a reference to a parameter group
+
+=back
+
+=cut
+
+sub parmvalue {
+	my $parm = shift;
+	my $pg = shift;
+
+	if (exists($pg->{$parm})) {
+		my $val = $pg->{$parm};
+		if (ref($val) eq 'HASH') {
+			return "<pre>" . dumphash($val, 0) . "</pre>";
+		} elsif (ref($val) eq 'ARRAY') {
+			return "<pre>" . join('<br>', @$val) . "</pre>";
+		} else {
+			if ('dbpass' eq $parm) {
+				return "<h4>Hey, that's supposed to be a secret!</h4>";
+			} else {
+				return "<pre>$val</pre>";
+			}
+		}
+	}
+}
+
+
+=head2 C<parmgrouplink ($gnr, $pgs)>
+
+Function C<parmgrouplink> is a "$function" substitution function.
+It returns a
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template (i.e. argument)
+
+=item 1 C<$who>
+
+a I<string> containing the script name (i.e. showconfig)
+requesting this substitution
+
+=item 1 C<$pgs>
+
+a reference to the parameter group array
+
+=item 1 C<$pgnr>
+
+parameter group index
+
+=back
+
+Parameter names are obtained from global C<$config> hash reference
+since all parameters end up there.
+"I<internal>" parameters C<'confpath'> and C<'parmgroupnr'> are removed
+from the set.
+
+A parameter may be defined in an included file like C<'filetype'>
+from C<'filetypeconf'>. In this case, both specific and column are
+empty.
+
+To dump values anyway, force C<$config> usage instead of a parameter
+group through query argument C<_confall> with non zero value.
+
+=cut
+
+sub parmexpand {
+	my ($templ, $who, $pgs, $pgnr) = @_;
+	my $ret;
+	my $parmgroup = @$pgs[$pgnr];
+	my $globgroup = @$pgs[0];
+	my $full = $HTTP->{'param'}->{'_confall'} || 0;
+
+	if ($full != 0) { $full = 1; }
+
+	for my $parm (sort keys %$config) {
+		next if (	$parm eq 'confpath'
+				||	$parm eq 'parmgroupnr'
+				);
+		$ret .= expandtemplate
+					( $templ
+					,	( 'parm' => sub{ $parm }
+						, 'type' => sub{ 
+									my $t = ref($config->{$parm});
+									if ('HASH' eq $t || 'ARRAY' eq $t) {
+										return lc($t);
+									} else {
+										return 'string';
+									} }
+						, 'val'  => sub{ parmvalue($parm, $parmgroup) }
+						, 'global'=> sub{
+								if (exists($globgroup->{$parm})) {
+									parmvalue($parm, $globgroup)
+								} elsif (!exists($parmgroup->{$parm})
+										&& $full==1
+										) {
+									return '<span class="confall">'
+										. parmvalue($parm, $config)
+										. "</span>\n"
+								} else {
+									return '';
+								}
+										}
+						)
+					);
+	}
+	return $ret;
+}
+
+
+=head2 C<parmgrouplink ($gnr, $pgs)>
+
+Function C<parmgrouplink> is a "$variable" substitution function.
+It returns an C<< E<lt>aE<gt> >> element invoking the
+I<showconfig> script to dump the designated parameter group.
+
+=over
+
+=item 1 C<$pgnr>
+
+parameter group index
+
+=item 1 C<$pgs>
+
+a reference to the parameter group array
+
+=back
+
+Link is created only if C<$pgnr> has an acceptable value.
+Otherwise, function returns string C<'none'>.
+
+=cut
+
+sub parmgrouplink {
+	my ($pgnr, $pgs) = @_;
+
+	if (0>=$pgnr || $pgnr > $#$pgs) {
+		return 'none';
+	} else {
+		return "#$pgnr <a href='showconfig?_parmgroup=$pgnr'>"
+				. $$pgs[$pgnr]->{'virtroot'}
+				. "</a>" ;
+	}
+}
+
+
+=head2 Script entry point
+
+Output is controlled by a template
+
+Eventually, a specific parameter group may be dumped by passing
+its index in argument C<_parmgroup>.
+This index may receive a default value through configuration parameter
+C<'parmgroupnr'>.
+
+=cut
+
+my $errorsig = "<!-- ! -->";
+my $templ;
+
+httpinit;
+
+my $who = 'showconfig';
+my @pgs = $config->readconfig();
+my $which = $HTTP->{'param'}->{'_parmgroup'}
+			|| $config->{'parmgroupnr'};
+makeheader($who);
+$templ = gettemplate	( 'htmlconfig'
+						, $errorsig
+						, ''
+						);
+if ($templ =~ m/^$errorsig/) {
+	die "'htmlconfig' template not configured";
+}
+print expandtemplate
+	( $templ
+	,	( 'conffile' => sub { "<em>" . $config->{'confpath'} . "</em>" }
+		, 'virtroot' => sub { $pgs[$which]->{'virtroot'} }
+		, 'parmgroupnr' => sub { $which }
+		, 'previous' => sub { parmgrouplink($which-1, \@pgs) }
+		, 'next' => sub { parmgrouplink($which+1, \@pgs) }
+		, 'conf_parm' => sub { parmexpand (@_, $who, \@pgs, $which) }
+		)
+	);
+makefooter($who);
+
+httpclean;

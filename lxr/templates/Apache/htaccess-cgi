@@ -10,10 +10,11 @@ deny from all
 deny from all
 </Files>
 
-<Files ~ (find|search|source|ident|diff|cgi-bin)$>
-SetHandler perl-script
-PerlHandler Apache::Registry
-PerlSetEnv PERL5LIB lib
+<Files lxr.css>
+SetHandler default-handler
+</Files>
+
+<Files ~ (find|search|source|ident|diff|showconfig)$>
+SetHandler cgi-script
 ForceType text/html
-PerlSendHeader On
 </Files>
