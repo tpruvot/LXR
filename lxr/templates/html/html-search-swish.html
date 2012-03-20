@@ -1,0 +1,122 @@
+<!--$Id: html-search-swish.html,v 1.1 2012/01/22 14:22:47 ajlittoz Exp $ -->
+
+<!--				html-search-swish.html
+		A template for free-text search with swish-e
+		and display of the results	-->
+
+<!-- ajlittoz <ajlittoz@users.sf.net>	-->
+
+<!--
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+-->
+<h1>Free-text search with SWISH-E</h1>
+<p>
+Type a string to find:
+<br>1) all files for which that string occurs in the path,
+<br>or 2) all files containing that string.
+<br>
+<br>Matches are case-insensitive unless you check the box below.
+<br>To use full-fledged Perl regex, check the other box below.
+
+<form method="get" action="search">
+$variables{<input type="hidden" name="$variable" value="$value">}
+	<table>
+		<tr>
+			<td>
+				<p><b>Files named:</b></p>
+			</td>
+			<td>
+					<input	type="text"
+							name="_filestring"
+							value="$filetext_escaped"
+							size="50"
+					>
+			</td>
+		</tr>
+		<tr>
+			<td>
+				<p><b>Or containing:</b></p>
+			</td>
+			<td>
+				<input id="focus" type="text" name="_string" value="$searchtext_escaped" size="50">
+			</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>
+				<p>
+	Supported operators: AND, OR, NOT, ( ) boolean grouping, trailing *, " " phrase grouping<br>
+	Example: (book* OR magazine*) NOT "my magazine"<br>
+				</p>
+			</td>
+		</tr>
+		<tr>
+			<td></td>
+			<td>
+				<label>
+					<input	type="checkbox"
+							name="_advanced"
+							$advancedchecked
+							value="1"
+					>
+	Advanced (allows usage of
+	<a href="http://perldoc.perl.org/perlrequick.html" target="_blank">perl regex</a>)
+				</label>
+	&nbsp;&nbsp;&nbsp;&nbsp;
+				<label>
+					<input	type="checkbox"
+							name="_casesensitive"
+							$casesensitivechecked
+							value="1"
+					>
+	Case-sensitive
+				</label>
+			</td>
+			<td>
+	&nbsp;&nbsp;&nbsp;&nbsp;
+				<input type="submit" value="Search">
+			</td>
+	</table>
+	<br>
+</form>
+<hr>
+<p>
+	Powered by <a href="http://swish-e.org" target="_blank">Swish-E</a>.
+	(<a href="http://swish-e.org/docs/swish-search.html" target="_blank">Full
+	search syntax documentation</a>)
+</p>
+<p>
+	$maxhits_message
+	$resultcount files found.
+</p>
+   
+<h2>Results for <span class="searchident">$searchtext</span></h2>
+
+	<table class="searchref">
+		<thead>
+			<tr>
+				<th class="searchfile">File</th>
+				<th class="searchtext">Score</th>
+			</tr>
+		</thead>
+		<tbody>
+  $results{
+			<tr>
+				<td class="$tdfile">$file</td>
+				<td class="searchtext">$text</td>
+			</tr>
+  }
+		</tbody>
+	</table>

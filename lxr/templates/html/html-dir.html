@@ -1,0 +1,58 @@
+<!--$Id: html-dir.html,v 1.1 2012/01/22 14:22:47 ajlittoz Exp $ -->
+
+<!--				html-dir.html
+		A template for displaying a directory content -->
+
+<!-- ajlittoz <ajlittoz@users.sf.net>	-->
+
+<!--
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+-->
+
+<div class="dirdesc">
+$description{$desctext}
+</div>
+
+<table class="dircontent">
+	<thead>
+		<tr class="dirheader">
+			<th class="diricon">&nbsp;</th>
+			<th class="dirname">Name</th>
+			<th class="dirsize">Size</th>
+			<th class="dirtime">Date (UTC)</th>
+			<th class="dirdesc">Description</th>
+		</tr>
+	</thead>
+	<tfoot>
+		<tr class="dirheader">
+			<th class="diricon">&nbsp;</th>
+			<th class="dirname">Name</th>
+			<th class="dirsize">Size</th>
+			<th class="dirtime">Date (UTC)</th>
+			<th class="dirdesc">Description</th>
+		</tr>
+	</tfoot>
+	<tbody>
+ $files{
+		<tr class="$dirclass">
+			<td class="diricon">$iconlink</td>
+			<td class="dirname">$namelink</td>
+			<td class="dirsize">$filesize{$bytes bytes}</td>
+			<td class="dirtime">$modtime </td>
+			<td class="dirdesc">$description{$desctext}</td>
+		</tr>
+}
+	</tbody>
+</table>
