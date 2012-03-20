@@ -1,5 +1,5 @@
 /*
- *	$Id: lxr.css,v 1.9 2012/01/25 21:03:01 ajlittoz Exp $
+ *	$Id: lxr.css,v 1.10 2012/03/15 08:14:40 ajlittoz Exp $
  */
 
 /* Some definitions are grouped together to allow modification
@@ -539,3 +539,51 @@
   .diff-right
 { background-color: #ddffdd
 }
+
+/***************/
+/* config view */
+/***************/
+
+  TABLE.conf_section
+{ border: none
+; width: 100%
+; text-align: center
+}
+  .conf_prev
+{ text-align: left
+}
+  .conf_next
+{ text-align: right
+}
+
+  TABLE.config
+{ border: thin solid black
+; border-spacing: 0
+; border-collapse: collapse
+; width: 100%
+}
+
+  .config TH
+{ border: 1pt solid black
+; text-align: center
+; background-color: gray
+; color: white
+}
+
+  .config TD
+{ border: thin solid gray
+}
+
+  TD.conf_parm
+{ padding: 0pt 2pt
+}
+
+  TD.conf_type
+{ text-align: center
+}
+
+  TD.conf_val
+{ overflow: auto
+; padding: 0pt 5pt
+}
+

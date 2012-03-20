@@ -1,5 +1,5 @@
 #!/bin/bash
-# $Id: initial-config.sh,v 1.5 2012/01/29 15:29:51 ajlittoz Exp $
+# $Id: initial-config.sh,v 1.6 2012/03/15 08:08:08 ajlittoz Exp $
 
 CSI=$'\x1b[';	# CSI = esc [
 VTbold="${CSI}1m";
@@ -8,7 +8,7 @@ VTred="${VTbold}${CSI}31m";
 VTyellow="${VTbold}${CSI}33m";
 VTgreen="${VTbold}${CSI}32m";
 
-echo "${VTyellow}***${VTnorm} Initial phase configurator for LXR (\$Revision: 1.5 $) ${VTyellow}***${VTnorm}"
+echo "${VTyellow}***${VTnorm} Initial phase configurator for LXR (\$Revision: 1.6 $) ${VTyellow}***${VTnorm}"
 echo
 
 while : ; do
@@ -86,8 +86,8 @@ if [[ "$glimpse" ]] ; then	# glimpse exists
 		echo "${VTred}***Error:${VTnorm} glimpseindex not installed with glimpse!"
 	fi
 else						# no glimpse
-	sed -e "/%glimpse%/s/^/#/" -i $lc
-	sed -e "/%glimpseindex%/s/^/#/" -i $lc
+	sed -e "/%glimpse%/s/^/#/" \
+	    -e "/%glimpseindex%/s/^/#/" -i $lc
 fi
 
 swish=`which swish-e 2>/dev/null`

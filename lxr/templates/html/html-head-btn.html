@@ -30,7 +30,8 @@
 	<meta http-equiv="content-type" content="text/html; charset=$encoding">
 	<base href="$baseurl">
 	<link rel="stylesheet" type="text/css" href="$stylesheet">
-	<link  rel="icon" type="image/x-icon" href="LXRlogo32.ico">
+$alternatestyle{	<link rel="alternate stylesheet" type="text/css" href="$stylesheet" title="$stylename">
+}	<link  rel="icon" type="image/x-icon" href="/LXRimages/LXRlogo32.ico">
 <!-- Candidat à destruction -->
 <!-- placer le script seulement où il y a besoin -->
 <script type="text/javascript">
@@ -48,11 +49,17 @@ function ensureFocus()
 <body onload="ensureFocus()">
 
 <table class="header">
-	<tr>
+$forest{	<tr>
+		<td class="treelink" colspan="3">
+			Available trees: &nbsp;&nbsp;&nbsp;
+$trees{&nbsp;$treelink&nbsp;}
+		</td>
+	</tr>
+}	<tr>
 		<td class="leftmost">
 <!-- put local logo or links here -->
 			<a href="/">
-<img	src="LXRlogo64.jpeg"
+<img	src="/LXRimages/LXRlogo64.jpeg"
 		alt="Back to home page"
 		style="border: none"
 >
@@ -72,7 +79,7 @@ function ensureFocus()
 		</td>
 		<td class="rightmost">
 $modes{			<form method="get" class="$modecss" action="$modeaction">
-				<div style="padding: 0; margin: 0">
+				<div class="compact">
 $urlargs{				<input type="hidden" name="$urlvar" value="$urlval">
 }					<button type="submit" $modeoff>$modename</button>
 				</div>
@@ -86,8 +93,9 @@ $urlargs{				<input type="hidden" name="$urlvar" value="$urlval">
 			<form	method="get"
 					class="vars"
 					action="$varbtnaction">
-				<p>
-$urlargs{					<input type="hidden" name="$urlvar" value="$urlval">
+				<p class="compact">
+$incargs{					<input type="hidden" name="$urlvar" value="$urlval">
+}$urlargs{					<input type="hidden" name="$urlvar" value="$urlval">
 }$variables{				&nbsp;<label>$varname:
 					<select name="!$varid">
 $varmenu{						<option class="$itemclass" $itemsel>$varvalue</option>

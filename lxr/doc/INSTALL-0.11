@@ -1,0 +1,753 @@
+                 L      X   X  RRRR
+                 L      X   X  R   R
+                 L       X X   R   R
+                 L        X    RRRR
+                 L       X X   R  R
+                 L      X   X  R   R
+                 LLLLL  X   X  R   R
+
+                         LXR
+     First time installation for a single source-tree
+     -------------------------------------------------
+(revised January 2012 for 0.11 release)
+These instructions are also available on the web site at
+            http://lxr.sourceforge.net
+
+
+Note: if you already know LXR, read file CHANGES for compatibility
+====| issues (index database, configuration files, customised templates,
+    | etc.).  Caution, this release introduces major changes in directory
+    | structure.
+
+Note: do not forget to download the 100+ pages user's manual which
+====  covers many topics beyond first-time installation.
+
+
+
+A/ Required tools
+-----------------
+The current version of the lxr depends on the following things:
+
+1) The the exuberant ctags program version 5.10 or later.  Available  as a
+   package in nearly all Linux distributions; otherwise download from
+   http://sf.net/projects/ctags
+
+2) A relational database - MySQL 4.x/5.x (http://www.mysql.com), Postgresql
+   (http://www.postgresql.org) and Oracle are supported.
+   You will also need the right Perl DBI drivers for your particular database,
+   usually available from CPAN.
+
+3) A webserver
+   - Apache httpd (http://httpd.apache.org/) with mod_perl
+     (http://perl.apache.org/) is recommended.  LXR works with Apache 1 and
+     Apache 2.
+   - lighttpd is also now experimentally supported.
+
+4) For freetext searching, either Glimpse (http://webglimpse.net) or
+   Swish-e (http://swish-e.org) version 2.1 or later.
+   Swish-e is fully GPL'ed, while Glimpse is only free for
+   non-commercial use.
+
+5) The Perl database driver interface DBI and the relevant DBD driver for the
+   database you're using.  If you don't already have these, they can be
+   installed via CPAN.  See http://dbi.perl.org/index.html for more info.
+
+6) The Perl File::MMagic module, available from CPAN
+
+7) If using the CVS support, you will need rcs installed as well.
+
+8) If you are using the BitKeeper support, you will need:
+   BitKeeper (bk) installed
+   Digest::SHA module (available from CPAN)
+Note: BK integration is not maintained; it is frozen in its 2005 state
+====  more or less. You're on your own.
+
+Before attempting to load these resources directly (sometimes as source
+you must compile and install), always poke the packages of your favorite
+distribution to spare you pain and failures.
+
+
+B/ Create lxr installation directory
+------------------------------------
+Expand the tarball in the LXR distribution into a directory of your
+choice.  If you just want to have a try, expand in your home directory,
+say /home/yourself/lxr.  If you want to install system-wide,
+a good choice could be /usr/local/share/lxr so you would do
+
+ cd ~
+ tar -zxf /path/to/lxr/lxr-x.y.tgz
+or
+ cd /usr/local/share
+ tar -zxf /path/to/lxr/lxr-x.y.tgz (as root or with appropriate permissions)
+
+Then, get rid of the release number in the directory name and enter into it:
+
+ mv lxr-x.y lxr
+ cd lxr
+
+At this point, the lxr directory should contain the following subdirectories:
+  + doc      : release documentation INSTALL, BUGS, CHANGES, ...
+  + lib      : private LXR library (all subs and modules)
+  + lxrconf.d: configuration data (empty, but will soon be populated)
+  + LXRimages: LXR graphic material (feel free to add inside)
+  + scripts  : installation aids
+  + templates: for conguring database, web server, LXR, composing output, ...
+and the following files:
+    diff, ident, search, source, showconfig : LXR engine
+    genxref    : indexing script
+    robots.txt : bot protection directives (only for well-behaved bots, sigh!)
+
+You can check your computer configuration against LXR requirements running
+the following command:
+
+ ./genxref --checkonly
+
+Output looks like:
+
+    No URL specified - Continuing in checking mode
+=>  Checking Perl version ... 5.14.2  OK 
+    Parameter 'ectagsbin' not defined - trying to find ctags
+    'ectagsbin' temporarily adjusted to /usr/bin/ctags
+    Manually update lxr.conf for permanent setting
+=>  Checking ctags version ... 5.8  OK 
+    Parameter 'glimpsebin' not defined - trying to find glimpse
+    'glimpsebin' temporarily adjusted to /usr/local/bin/glimpse
+    Manually update lxr.conf for permanent setting
+=>  Checking glimpse version ... 4.18.5 
+    Parameter 'glimpseindex' not defined - trying to find glimpseindex
+    'glimpseindex' temporarily adjusted to /usr/local/bin/glimpseindex
+    Manually update lxr.conf for permanent setting
+=>  Checking glimpseindex version ... 4.18.5 
+    Parameter 'swishbin' not defined - trying to find swish-e
+=>  swish-e not found, `which swish-e` returned a null string
+    No matching configuration at ./genxref line 264.
+
+The commands errors out. It is normal because LXR is not yet configured.
+Pay special attention to the lines marked => above (this marker does not appear
+in the real output).  These lines tell you the tools version on your system
+or the absence of a tool.
+
+In the example above: Perl and ctags have correct versions, glimpse is
+    installed but not swish-e.  This is acceptable since only one of them
+    is needed.
+
+If the diagnostic is good, proceed.  Otherwise, check your system and install
+the missing utilities or upgrade to the required version.
+
+
+C/ Preconfigure the master configuration file lxr.conf
+------------------------------------------------------
+Launch script initial-config.sh:
+
+ ./scripts/initial-config.sh
+
+First, it asks if LXR should be configured for single or multiple trees
+operation.  Answer s or m (case indifferent).
+
+This script copies some templates from the 'templates' directory to the
+configuration directory 'lxrconf.d' and applies some general customisation.
+
+1- Single/multiple operation: disables/enables URL black magic to serve
+   several trees under a single URL.
+
+2- Writes absolute paths: LXR root directory, ctags, glimpse, swish-e
+
+3- Warns if neither glimpse nor swish-e could be found or both of them are
+   present.
+   In the former case, go back to step A to install one.
+   In the latter case, you'll have to comment out one of them in step F.
+
+
+D/ Create the database(s)
+-------------------------
+You will need to create a database for lxr, and possibly create a user
+as well.  If you are unsure how to do this, or don't have admin rights
+to the database, consult the documentation or your sysadmin
+respectively.
+
+Note: The database name, table prefix and user name can be changed to fit your
+====| taste.  This can be done with the script, but you must keep the database
+    | configuration in sync with lxr.conf.  This is a manual task.
+
+The steps below assume you know what you're doing.
+
+* For Postgresql:
+  Create a user for lxr and give the user permission to create databases:
+	   createuser lxr
+  Create a database for lxr:
+	   createdb -U lxr lxr
+
+* For MySQL:
+  Create a user for lxr and give the user permission to create databases:
+		mysql -u root -p
+		(give root's password)
+		create user 'lxr'@'localhost' identified by 'lxrpassword';
+
+Note: it is more comfortable and less error-prone to use phpMyAdmin
+====  if it is installed.
+
+* For Oracle:
+  It seems there is no need to create user and database in advance
+Note: please report if this is incorrect
+==== 
+
+
+E/ Configure the database
+-------------------------
+Launch script initial-config.sh:
+
+ ./scripts/initdb-config.sh
+
+Answer the questions or hit return if you are satisfied with the default.
+This is recommended on first install.
+
+Advanced users: launch this script for every tree (every tree should have
+==============| its own separate database).  The configuration directives
+              | are concatenated in the output file.
+Note: This means you must delete the output file if you want to start
+====  again from scratch.
+
+The database configuration directives are written in a file inside the
+'lxrconf.d' directory.  Default name is initdb-DBENGINE-custom.sql.
+DBENGINE is one of mysql, oracle or postgres.
+
+Next configure the database:
+
+* For Postgresql:
+	   psql -U lxr lxr
+	   \i lxrconf.d/initdb-postgres-custom.sql
+  Just ignore the errors about unimplemented functions.
+
+* For MySQL:
+		mysql -u root -p < lxrconf.d/initdb-mysql-custom.sql
+		(give root's password)
+
+* For Oracle:
+  Start script in sqlplus with:
+	sqlplus
+	@lxrconf.d/initdb-oracle-custom.sql;
+
+Troubleshooting: if automatic configuration is causing trouble, you can
+===============| revert to 0.10-style installation.  The configuration
+               | files are available in templates/initdb/ subdirectory.
+               | They allow only for default configuration.
+               | See older INSTALL documents and/or http://lxr.sf.net.
+
+
+F/ Edit the lxr config file
+---------------------------
+The preconfigured lxr.conf file is located in the 'lxrconf.d' directory.
+
+The file is structured in sections that have been labeled for easy reference.
+
+==> The "Global configuration section" should already be configured.
+    Check the "Auxiliary tools subsection".  Scroll to 'glimpsebin'.
+
+Both following parameters for glimpse should point to the executables:
+
+ , 'glimpsebin'   => '/path/to/your/glimpse/executable'
+ , 'glimpseindex' => '/path/to/your/glimpseindex/executable'
+
+For swish-e, the parameters are:
+
+ , 'swishbin'  => '/path/to/your/swishe-e/executable'
+ , 'swishconf' => '/path/to/default/templates/swish-e.conf'
+
+One of 'glimpsebin' or 'swishbin' should be commented out.  If this is not
+the case (because you have both indexers installed on your system), comment
+out the one you will not use.
+
+Note: A comment line starts with a pound character (#).
+====
+
+ , 'ectagsbin'  => '/path/to/your/ctags/executable'
+ , 'ectagsconf' => '/path/to/default/lib/LXR/Lang/ectags.conf'
+
+Check the correct values are already entered.  You can tell so with the
+following shell command in a terminal:
+
+	which ctags glimpse glimpseindex swish-e
+
+Its ouput should match the values; otherwise fill-in the correct locations.
+
+/path/to/default means where you've installed LXR (in our example,
+/home/yourself/lxr or /usr/local/share/lxr).
+
+==> Scroll to 'host_names'.
+
+Enter the names under which your computer is known to the outside world as:
+
+ , 'host_names' => [ 'http://localhost', 'http://192.168.1.1:80'
+                   , '//127.0.0.1', '//myPC.example.com'
+                   ]
+
+Note: You can omit the protocol if it is "http:". "https:" must be explicitly
+====  specified if you want to use it.
+
+==> Scroll to the "HTML subsection".
+
+Set 'htmlsearch' to either 'html-search-swish.html' or
+'html-search-glimpse.html' depending on which indexer you are using.
+
+==> Scroll to the "File content subsection".
+
+Check the 'genericconf' parameter:
+
+ , 'genericconf' => '/path/to/default/lxr/lib/LXR/Lang/generic.conf'
+
+You're done with the general parameters.  You proceed with parameters specific
+to your source tree.
+
+----- Start of configuration for every tree -----
+
+==> In the "Tree configuration section", scroll to the "Server configuration
+    subsection"
+    This section is a long way down, after the languages definitions.
+
+Find parameter 'virtroot'.  In this guide, we set it to '/lxr'.  This is the
+name under which your tree will be accessed (i.e. you'll type
+"http://localhost/lxr" or "//myPC.example.com/lxr" in your browser).
+Of course, you can choose any other name but you need to adapt these
+instructions to your case.
+
+ , 'virtroot' => '/lxr'
+
+Advanced users: for multiple-tree operation, use a 'virtroot' of the form
+==============| '/lxr/tree-id' where tree-id is a short conventional name
+              | different for every tree..
+
+Give a title to be displayed in the header of every page:
+
+, 'caption' => 'First LXR installation'
+
+==> Scroll to the "Tree location subsection"
+
+This is where you describe the location of the directory containing your source
+tree.  We consider in this guide only the case of a source tree made of "real"
+ordinary files contained in a "real" directory.
+'sourceroot' points to that directory:
+
+ , 'sourceroot' => '/home/yourself/tree'
+
+Important note: LXR is aimed at comparing different versions of a source tree.
+==============| It expects that the 'sourceroot' directory contains several
+              | directories, each named after the version name:
+              |
+              | 'sourceroot' -+---- versionA -+---- file1.c
+              |               |               +---- file2.c
+              |               |               +---- file4.c
+              |               |
+              |               +---- versionB -+---- file1.c
+              |                               +---- file3.c
+              |                               +---- file4.c
+              |
+              | Therefore, if you have a single version, you must store it
+              | in a dedicated directory.  You can't deposit your version
+              | directly in the 'sourceroot' directory.
+
+'sourcerootname' is a short name to be displayed instead of the path in
+'sourceroot'.  If you don't specify it, it will be just /.  You can use a
+special feature (variable substitution) to have it reflect the version name:
+
+ , 'sourcerootname' => 'myTree'    # fixed prefix
+ , 'sourcerootname' => '$v'        # variable -- version name
+ , 'sourcerootname' => 'myTree-$v' # mixed case
+
+==> Scroll to the version selection subsection.
+
+The 'v' (Version) variable needs to have the list of versions of your
+sourcecode that you want to index.  You store this list in the 'range'
+attribute:
+
+ , 'range' => [qw(versionA versionB)]
+
+Note: Even if you index a single version, you must give it a name and
+====  create a directory for it (see above).
+
+LXR opens the first version in 'range' unless you tell it otherwise with
+'default' attribute:
+
+ , 'default' => 'versionB'
+
+==> Scroll to the "Data storage subsection".
+
+Set 'dbname' to reflect the database engine you are using.  A model of the
+line is given above 'dbname' for the 3 supported DBs:
+
+ , 'dbname' => 'dbi:mysql:dbname=lxr'  # for mySQL
+ , 'dbname' => 'dbi:Pg:dbname=lxr'     # for Postgres
+ , 'dbname' => 'dbi:Oracle:host=localhost;sid=DEVMMS;port=1521' # for Oracle
+
+Note: dbname must match the name you gave in step E above.  lxr is only
+====  the default name.
+
+Do not forget to set the password for user lxr:
+
+ , 'dbpass' => 'lxrpassword'
+
+Give your free-text search engine a directory where it can store its index and
+other auxiliary data in 'glimpsedir' and 'swishdir':
+
+ , 'glimpsedir' => '/home/yourself/glimpse_private/myTree
+ , 'swishdir'   => '/home/yourself/swish_private/myTree
+
+Notes: 1. It doesn't harm to define both.  You are then free to change the
+=====|    free-text search engine without the risk of forgetting to update
+     |    lxr.conf (at least this section).
+     | 2. Strictly speaking, having a /myTree subdirectory is not necessary,
+     |    but it prepares the way for multiple independent source trees.
+     | 3. Do not forget to set appropriate access rights to these directories.
+     |    LXR is executed under Apache or lighttpd userid; therefore,
+     |    the directories need to be "world" writable.
+
+----- End of configuration for every tree -----
+
+This is all for a simple installation. Save your modifications.
+
+From this rapid glance on lxr.conf, you see there are plenty of parameters that
+can be adjusted to customise LXR in many aspects (display, version management,
+path transformation, data base access, ...).  The information about all these
+parameters and their effect is available on the website http://lxr.sf.net and
+in the user's manual.
+
+
+G/ Generate index
+-----------------
+It is now time to generate the index. This is done using the program
+"genxref". genxref takes two arguments --url= and --version=.
+
+--url is equal to one of the URL used to access your tree, that is one of
+      the 'host_names' followed by 'virtroot'.
+
+--version is the name of one of the versions as defined in
+          { 'v' => { ... 'range' => [ ] ... } }
+          It is also the name of a sub-directory in 'sourceroot'.
+
+  ./genxref --url=http://localhost/lxr --version=versionA
+
+Note: You can drop the protocol if it is "http:" and have a shorter form:
+====  ./genxref --url=//myPC.example.com/lxr --version=versionA
+
+You can also check that globally your configuration is correct with:
+
+  ./genxref --url=http://localhost/lxr --checkonly
+
+Output looks like:
+    Checking Perl version ... 5.14.2  OK 
+    Checking ctags version ... 5.8  OK 
+    Checking glimpse version ... 4.18.5 
+    Checking glimpseindex version ... 4.18.5 
+    Parameter 'swishbin' not defined - trying to find swish-e
+    swish-e not found, `which swish-e` returned a null string
+    genxref stopped without indexing by --checkonly option
+
+If the last line reads:
+    No matching configuration at ./genxref line 264, <CONFIG> line 1.
+
+you mispelled --url or you made a mistake in 'host_names' or 'virtroot'.
+
+It is VERY IMPORTANT that the --url argument be an URL.  Do not drop the //.
+
+You can also use the --allversions argument to automatically index all
+the versions defined in the versions variable.
+
+It is recommended to use --reindexall option to make sure the data base will
+not keep stray values from previous genxref executions:
+
+  ./genxref --url=//localhost/lxr --allversions --reindexall
+
+Note: genxref can be a very slow process the first time it is run.
+====| For example on a 4Gb source tree a full run can take several
+    | days (the author of this statement did not mention the specifications
+    | of his computer).  Anyway, it is wise to experiment on a small tree
+    | first and then to index versions individually.  According to the result,
+    | you'll see if it is reasonable to use --allversions.
+    | Some experimental results:
+    |
+    | source tree  650Mhz-PIII-512Mb  3.4GHz-i5-4Gb
+    | -----------  -----------------  -------------
+    | LXR 0.10             39s             4s
+    | kernel 3.1           N/A           3h 43mn
+
+However, on future runs, if you don't use --reindexall, it will only index
+changed files, thus speeding the process.
+
+
+H/ Set up the webserver (Apache)
+----------------------- ********
+Step C above has copied a '.htaccess' into the LXR root directory.
+It consists of two parts:
+
+1- Access restriction to the LXR root directory
+   Should only be modified if you want to allow wider access.
+
+2- Script execution configuration
+   It uses conditional directives to be valid in all known cases.
+
+Troubleshooting: if automatic configuration is causing trouble, you can
+===============| revert to 0.10-style installation.  The configuration
+               | files are available in templates/Apache/ subdirectory.
+               | They need manual editing.
+               | See older INSTALL documents and/or http://lxr.sf.net.
+
+Step C also created a 'apache-lxrserver.conf' file which you must copy into
+the /etc/httpd/conf.d directory to activate LXR service.
+
+Check however that lines marked with '----> absolute path' point to your
+LXR root directory.
+
+Note: if you have no /etc/httpd/conf.d directory, you must add the content
+====| of lxrserver.conf to the end of /etc/httpd/conf/httpd.conf but this is
+    | not recommended.
+
+Apache 1.x specific: LXR Perl modules must be put into a known Perl library
+   with mod_perl   | directory(typically site_perl).  Launch the following
+===================| commands from the LXR root directory:
+  cp -r lib/LXR/* /usr/lib/perl5/site_perl
+                   | You may need root privileges to access/usr/lib/perl5
+
+H/ Set up the webserver (lighttpd)  -- !!  EXPERIMENTAL  !! --
+----------------------- **********
+Step C above created a 'lighttpd-lxrserver.conf' in the lxrconf.d directory.
+It is based on a Fedora architecture.  So you must check that directory paths
+are compatible with your installation.
+
+Comment lines start with a pound sign (#).
+
+Some IMPORTANT variables are defined at the very beginning of this file:
+
+- var.server_root : location of servers directory (usually /var/www/)
+- var.conf_dir    : location of the configuration directory
+                    for your distribution.
+
+Scroll down to "Load the modules".  The 'include' directive here will load
+lighttpd modules required by LXR.  The base module list is in a template file
+from templates/lighttpd/.  If you need a different configuration, copy file
+lighttpd-lxr-modules.conf to lxrconf.d directory, edit it and change the
+include line to point to the lxrconf.d directory.
+
+Scroll to "Basic configuration" if you need to change the port lighttpd
+is listening:
+server.port = 80
+
+Scroll to "mimetype mapping" (circa 3/4 down).
+mimetype.assign += ( ".shtml" => "text/html" )
+has been added in case you want to use SSI.
+
+server.follow-symlink = "enable"
+will allow to mimic Apache URL black magic (aka. AliasMatch) with symlinks.
+
+Scroll down to the bottom of the file.  Here is an LXR specific section.
+
+- server.document-root : location of LXR root directory acting as the default
+                         server (localhost) directory.
+
+Note: if LXR is not the home site of your site, change the value to
+====| var.server-root + "lighttpd/" and use alias.url for LXR service.
+
+You may add here the host names you defined in the various 'host_names'
+lxr.conf parameters as (one line per host name):
+
+$HTTP["host"] == "192.168.1.1" { server.document-root = "path/to/lxr" }
+$HTTP["host"] == "127.0.0.1"   { server.document-root = "path/to/lxr" }
+$HTTP["host"] == "myPC.example.com" { server.document-root = "path/to/lxr" }
+
+This is good if you listen on the default port.  Otherwise, it must be
+specified as in:
+
+$HTTP["host"] == "192.168.1.1:1234" { server.document-root = "path/to/lxr" }
+
+You can also ignore port with regexp:
+
+$HTTP["host"] =~ "(?i)mypc\.example\.com"
+      { server.document-root = "path/to/lxr" }
+
+Note: (?i) has been added to match case-insensitive and regexp special
+====| characters have been escaped.
+    | ** The LXR maintainer has been unable to determine if string
+    | ** comparison is done case-insensitive by default.  Consequently,
+    | ** watch your step!
+
+Next, you have a "black magic" section for the multiple trees case.
+Uncomment the alias.url directive lines if you need this feature.
+Replace '/lxr/tree*' by your different 'virtroot's.  The right part
+should already be set to your LXR root directory location.  Add (or
+remove) as many lines as required.
+
+The next directive tells lighttpd which files in the LXR root directory
+are scripts.
+
+Save the edited file.  Have it checked by lighttpd:
+
+  lighttpd -t -f lxrconf.d/lighttpd-lxrserver.conf
+
+If you pass the test, you are ready to launch lighttpd.
+For a private test, the command is:
+
+  lighttpd -D -f lxrconf.d/lighttpd-lxrserver.conf
+
+To stop lighttpd server, type ctl-C.
+
+For system-wide service, a script lighttpd-init is provided in
+scripts/. Launch it as a single line (broken here for clarity):
+
+  LIGHTTPD_CONF_PATH="/path/to/lxr/lxrconf.d/lighttpd-lxrserver.conf" \
+          ./scripts/lighttpd-init start
+
+lighttpd will daemonize and run in the background.
+To stop:
+
+  ./scripts/lighttpd-init stop
+
+You may also copy this script as lighttpd in /etc/init.d
+
+  cp scripts/lighttpd-init /etc/init.d/lighttpd
+
+and define system-wide variable LIGHTTPD_CONF_PATH otherwise the
+standard configuration file will be used.  If you already run a
+lighttpd server, merging LXR into your configuration is left to
+you as an exercise.
+
+Note: the maintainer would appreciate any feedback on an elegant
+====| way to integrate an LXR subsite in main configuration.
+
+H/ Other webservers
+-------------------
+
+Most webservers should be capable of supporting the CGI script
+versions of LXR - consult the server documentation for information on
+how to configure this.
+
+If you are using a webserver other than Apache, you need to provide
+the following icons (unless you enable the 'iconfolder'/'icons' feature):
+
+/icons/back.gif
+/icons/folder.gif
+/icons/c.gif
+/icons/text.gif
+/icons/compressed.gif
+/icons/image2.gif
+/icons/generic.gif
+
+Hbis/ Security vs. web server
+-----------------------------
+Some security enhanced OSes like SELinux may bar access to your LXR
+root directory if it is not located in /var/www.  If you encounter
+such warnings or access denials, you must relabel the LXR directory
+with command:
+
+  chcon --reference /var/www/cgi-bin/ -R LXR_root_directory/
+
+
+I/ Drink a cup of coffee (or tea if you prefer)
+-----------------------------------------------
+You went through the whole process.  Relax a bit and be prepared for the
+ultimate bugs.
+
+
+That's it - lxr should now work. Fire up your webbrowser and go to
+http://localhost/lxr/source and you should see the listing for the top
+of your source tree.
+
+If you don't see the LXR page, check your Apache logs, especially the
+error and access logs to see what's happening.  Problems are often
+caused by the webserver not being able to access the LXR files - make
+sure all the paths and file permissions are correct.
+
+
+Site-specific customisation
+---------------------------
+
+LXR has a large amount of flexibility in behaviour, allowing control
+over many aspects of behaviour.
+
+The places to look for customisation are:
+
+- lxr.conf: controls most basic settings, including how filenames are
+  mapped to languages, tab settings etc.
+
+- lxrconf.d: where you should copy every file before editing.
+             Sources are:
+    o templates/html/: Templates for the HTML display.  This is where
+                       you can change how the website looks, e.g. by
+                       adding site logos, links, ...
+    o templates/lxr.css: CSS for HTML output. You can change colours,
+                         fonts etc.
+    o lib/LXR/Lang/ectags.conf: Advanced configuration for ectags when
+                                parsing various language files - this is
+                                one place to look if you want to add
+                                support for another language.
+    o lib/LXR/Lang/generic.conf: Configures the generic language support
+                                 module that handles most of the
+                                 languages LXR recognises.
+                                 Configuration here enables support for
+                                 new languages.
+    o lib/Local.pm: various routines that may need to be customised to
+                    provide useful file summaries in the directory and
+                    file listing views.
+- lxrconf.d/images: Graphic stuff, e.g. site logos.
+
+How to deal with these is explained on the website http://lxr.sf.net and
+in the user's manual (separate download).
+
+
+Getting help if it doesn't work:
+--------------------------------
+If you can't get LXR to work then have a look at the website.  Consult
+the support forums or ask on the mailing list.  Do check the archives
+of both first  - your question may already have been answered.
+
+By web:    http://lxr.sf.net/
+By web:    http://sf.net/projects/lxr/forums/forum/861451
+By email:  Send a mail to lxr-general@lists.sf.net
+
+
+Troubleshooting:
+---------------
+Common problems are listed on the http://lxr.sf.net/troubleshooting.shtml page.
+Only the most frequent for a first installation are mentioned here.
+
+** Fatal: Couldn't open configuration file
+
+The configuration file lxr.conf does not exist, is not in the LXR root
+directory (it was left in the templates directory for instance) or cannot
+be accessed (check the file permission: it must be "world" readable).
+
+** Fatal: Can't find config for myTree
+
+The value of the --url (or URL in your browser) matches none of the
+'host-names'/'virtroot' combinations.  Check the spelling of the URL.
+
+** Fatal: Can't create index xxx
+
+This message is usually preceded by others about DB, lock or socket.  Check
+the database description in lxr.conf and your access permissions to the
+database.
+
+** Fatal: Can't find database
+
+This message comes from the DB backend. The likely cause is that the
+webserver url passed to the browsing scripts does not match the url in
+lxr.conf.  This means the configuration will not be found, and thus
+the database will not be found
+
+HTTP headers appearing in the html, or output not being interpreted as HTML
+
+This can be caused by warning messages output before the script
+outputs the right headers to tell the browser that the output is
+HTML.  This can normally be solved by changing the value of $wwwdebug
+to 0 in Common.pm.  But please report the warning message as a bug at
+http://sf.net/projects/lxr first!
+
+
+Security advisory
+-----------------
+LXR ships with a very restrictive robots.txt for preventing (well-behaved
+only) robots from crawling inside your site.  You may want to allow public
+access.  Just change the name of the file.
+
+
+Other sources of information
+----------------------------
+Read the manual available for download at SourceForge.  Browse the
+http://lxr.sourceforge.net site.

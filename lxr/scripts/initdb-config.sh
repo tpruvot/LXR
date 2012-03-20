@@ -1,7 +1,7 @@
 #!/bin/sh
-# $Id: initdb-config.sh,v 1.4 2012/02/04 13:39:56 ajlittoz Exp $
+# $Id: initdb-config.sh,v 1.5 2012/03/15 08:08:08 ajlittoz Exp $
 
-echo "*** initdb script configurator for LXR (\$Revision: 1.4 $) ***"
+echo "*** initdb script configurator for LXR (\$Revision: 1.5 $) ***"
 echo ""
 echo "      In case you make a mistake, you can cancel the"
 echo "      whole process by typing ctl-C."
@@ -102,7 +102,7 @@ fi
 
 sed -e "s/%DB_tbl_prefix%/$dbprefix/g" $template \
 	| sed -e "s/%DB_name%/$dbname/g" \
-	| sed -e "s/%DB_user%/$dbuser/g" >> "$outscript"
+	      -e "s/%DB_user%/$dbuser/g" >> "$outscript"
 
 echo ""
 echo "Init script saved in $outscript"
