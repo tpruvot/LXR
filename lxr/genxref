@@ -283,7 +283,7 @@ if ($version eq '') {
 print "\n";
 END_TEST_SWISHE:
 
-die("${VTred}No matching configuration${VTnorm}") unless $config->{'sourceroot'};
+die("${VTred}No matching configuration${VTnorm}") unless exists($config->{'sourceroot'});
 
 if ($config && $config->{'glimpsebin'} && $config->{'swishbin'}) {
 	print "${VTred}Both 'glimpsebin' and 'swishbin' defined${VTnorm}\n";

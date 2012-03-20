@@ -1,11 +1,63 @@
-Config File: $conffile<br/>
+<!--$Id: html-config.html,v 1.1 2012/03/15 08:14:40 ajlittoz Exp $ -->
 
-Virtual Root: $virtroot<br/>
+<!--				html-config.html
+		A template for displaying LXR configuration -->
 
-$conf_parm{
-<br/>
-}
-
-$parmgroupnr{
-$previous	$next
-}
+<!-- ajlittoz <ajlittoz@users.sf.net>	-->
+<!--
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+-->
+<table class="conf_title">
+	<tr>
+		<td class="leftmost">
+			<h2>Configuration parameters from $conffile</h2>
+		</td>
+		<td class="rightmost">
+			<p>
+			<form method="get" action="showconfig">
+				<input type="hidden" name="_confall" value="1">
+				<button type="submit">Force all</button>
+			</form>
+			</p>
+		</td>
+	</tr>
+</table>
+<table class="conf_section">
+	<tr>
+		<td class="conf_prev">
+			Previous: $previous
+		</td>
+		<td>
+			<p>Now showing <strong>$virtroot</strong> configured in parameter group # $parmgroupnr</p>
+		</td>
+		<td class="conf_next">
+			Next: $next</p>
+		</td>
+	</tr>
+</table>
+<table class="config">
+	<thead>
+		<th>Parameter</th>
+		<th>Type</th>
+		<th>Tree-specific</th>
+		<th>Global</th>
+	</thead>
+$conf_parm{	<tr>
+		<td class="conf_parm">$parm</td>
+		<td class="conf_type">$type</td>
+		<td class="conf_val">$val</td>
+		<td class="conf_val">$global</td>
+	</tr>
+}</table>

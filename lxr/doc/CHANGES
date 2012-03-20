@@ -1,6 +1,76 @@
 This file draws your attention on changes made for
 
         ==========================
+        LXR 0.10  -->  LXR 0.11
+        ==========================
+
+This version begins reorganizing the root directory. As a user remarked, it is becoming a mess.
+New subdirectories are created:
+
+- doc: for release documentation
+- lxrconf.d: all active configuration files go here
+             as well as all user-customised templates
+- LXRimages: all pics and graphic files
+- scripts: shell scripts to ease installation
+- templates: all models sorted in
+	+ Apache  : files related to Apache web server configuration and operation
+	+ html    : the traditional HTML templates
+	+ initdb  : templates to create the databases
+	+ lighttpd: files related to lighttpd web server configuration and
+	            operation
+	+(no dir) : assorted files which couldn't be stored in the above
+	           directories
+
+Should remain in the root directory only the main Perl script files
+(to be accessed by the web server) and the final lxr.conf.
+
+
+Support for fast switching between trees when multiple sources managed.
+
+Reliable dynamic link reconfiguration when changing variable value
+(think of 'version' and 'architecture').
+
+Experimental support for lighttpd web server.
+
+Browsed tree target determined independently from access port, but port
+should still be configured in 'host_names' if you want a default applied
+to generated links.
+
+New script showconfig to display lxr.conf content and help diagnose
+configuration issues.
+
+Installation: new scripts to relieve some pain in configuring
+============= web server and database.
+
+
+Configuration files: if not modified, can be used from the templates
+                     subdirectories; otherwise must be stored in
+                     lxrconf.d directory
+
+lxr.conf:*files controlled by scripts now use OS-absolute path form
+--------  for better reliability; penalty: in the rare event you move
+          your LXR root directory, configuration must be redone
+          from start, unless you first tailored the template.
+         *new parameters 'swishconf' (location was hard-coded!),
+          'alternate_stylesheet'
+         *new parameter 'filetypeconf' pointing to file/parser associations
+
+generic.conf: reorganised so that future fiddling with supported
+------------  languages will have no impact on existing databases
+              (read: language id is guaranteed to remain fixed --
+              unless ctags undergoes drastic changes, of course)
+
+filetype.conf: new file; content was formerly inside lxr.conf but was
+-------------  rarely modified, anyway by the end-user. This makes
+               lxr.conf smaller and more easily manageable by end-user.
+
+
+CSS class attribute name changes
+Substitution marker name (in HTML templates) changes
+												=> no impact
+			(unless you developed your own templates and lxr.css)
+
+        ==========================
         LXR 0.9.9  -->  LXR 0.10
         ==========================
 

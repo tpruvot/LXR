@@ -1,3 +1,434 @@
+2012-03-19 20:03  tag release-0-11-0
+
+2012-03-19 20:03  ajlittoz
+
+	* lib/LXRversion.pm, templates/lxr.conf: lxr.conf: add missing
+	  comment opening delimiter
+
+	  LXRersion.pm: set version number to 0.11 for release
+
+2012-03-18 13:04  tag release-0-11
+
+2012-03-18 13:04  ajlittoz
+
+	* doc/: CHANGES, INSTALL-0.11: CHANGES, INSTALL-0.11: documentation
+	  files needed for release 0.11
+
+2012-03-15 08:14  ajlittoz
+
+	* templates/: lxr.conf, lxr.css, html/config-head-btn-smaller.html,
+	  html/html-config.html: Templates, CSS styles and configuration
+	  for script showconfig
+
+2012-03-15 08:08  ajlittoz
+
+	* scripts/: initdb-config.sh, initial-config.sh: scripts: minor
+	  optimisation to avoid calling repetitively sed
+
+2012-03-15 08:01  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: generic.conf: improve 'atom'
+	  specification for Perl to avoid premature erroneous switch from
+	  "code" to other categories
+
+2012-03-07 20:22  ajlittoz
+
+	* showconfig, lib/LXR/Config.pm, templates/Apache/htaccess-apache1,
+	  templates/Apache/htaccess-apache2, templates/Apache/htaccess-cgi,
+	  templates/Apache/htaccess-generic: showconfig, Config.pm,
+	  htaccess*: new script showconfig to display current settings in
+	  lxr.conf
+
+2012-03-06 19:42  ajlittoz
+
+	* lib/LXR/Common.pm, templates/html/html-head-btn-smaller.html,
+	  templates/html/html-head-btn.html: Common.pm,
+	  templates/html/*-btn-*: change sigil before variable name from $
+	  to ! since $ causes malfunction on some OSes (creates a
+	  void-named variable whose value is garbage when sent back as LXR
+	  state)
+
+2012-02-23 07:49  ajlittoz
+
+	* genxref: genxref: incorrect test on ctags version If Exuberant
+	  ctags is not installed (but plain ctags is), check fails on title
+	  line of ctags, leaving $1 undefined which prints an empty
+	  version. Then version extraction is done from the title line,
+	  which defines $1. Test for version succeeds unhappily on
+	  erroneous data.  Corrected as: transfer version information from
+	  the result of title line chach; add a !defined() test.
+
+2012-02-11 08:59  ajlittoz
+
+	* lib/LXR/Lang.pm: Lang.pm: common factor <span> tagging for
+	  elements spanning several lines
+
+2012-02-11 08:12  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: generic.conf: Perl parsing, needs to
+	  handle escaped characters in regexp operators (aka. m// or s///)
+	  at least for LXR itself
+
+2012-02-10 20:59  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: generic.conf: Perl parsing, add 'atom'
+	  production to swallow quote and regexp operators.  NOTE: this fix
+	  can't handled all cases (notably properly nested braces when
+	  delimiters are also braces). No attempt has been made to skip
+	  escaped characters for performance of the regexp; that means we
+	  can get early termination if escaped character is the delimiter.
+
+2012-02-10 20:54  ajlittoz
+
+	* lib/LXR/: Lang.pm, Markup.pm: Lang.pm, Markup.pm: create a
+	  processstring sub analogous to processcomment to avoid marking
+	  line number when string spans several line (add a </span> before
+	  \n and reopen with <span class='string'> immediately after.
+
+2012-02-06 15:51  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf:
+	  templates/lighttpd/lighttpd-lxrserver.conf: add an example
+	  $HTTP["host"] directive
+
+2012-02-04 16:31  ajlittoz
+
+	* lib/LXR/: Common.pm, Config.pm: Common.pm: previous patch forgot
+	  to move $pathname setting before call to clean_release
+	  (CVS::parsecvs could not collect the valid releases, ending with
+	  head always)
+
+	  This new patch is not 100% bullet-proof in CVS mode when query
+	  parameter _file requests recomputation of include file path.
+
+	  Common.pm: small change in sub vardefault (test length of
+	  returned varrange array as >0 instead of relying on default Perl
+	  syntax for true value)
+
+2012-02-04 13:39  ajlittoz
+
+	* scripts/initdb-config.sh: initdb-config.sh: correct a typo
+	  (postgres referenced instead of oracle)
+
+2012-02-04 12:49  ajlittoz
+
+	* lib/LXR/Config.pm, templates/filetype.conf, templates/lxr.conf:
+	  Config.pm, templates/lxr.conf, templates/filetype.conf: new
+	  configuration parameter 'filetypeconf' to allow a separate file
+	  for language/parser association (parameters 'filetype' and
+	  'interpreters')
+
+	  The net effect is a smaller and not so cluttered lxr.conf.
+
+2012-02-04 12:36  ajlittoz
+
+	* lib/LXR/Template.pm, templates/html/html-fatal.html,
+	  templates/html/html-head-btn-smaller.html,
+	  templates/html/html-head-btn.html,
+	  templates/html/html-head-smaller.html,
+	  templates/html/html-head.html: Template.pm, templates/tmpl/:
+	  changed some substitution marker names to better reflect their
+	  expected usage
+
+2012-01-29 15:35  ajlittoz
+
+	* search: search: fix for bug #1183103 (0 search result when max
+	  number reached before file-name match)
+
+	  Moved filename filtering in glimpse result collecting loop
+	  (instead of stuffing all results up to maxhits, then filtering
+	  when editing). Now, filter when collecting, then edit.
+
+2012-01-29 15:29  ajlittoz
+
+	* scripts/initial-config.sh: initial-config.sh: make templates
+	  directory (and content) read only to discourage in-place editing
+
+2012-01-29 14:11  ajlittoz
+
+	* scripts/lighttpd-init: New script lighttpd-init for start-,
+	  stop-, reload-ing lighttpd server
+
+2012-01-29 07:38  ajlittoz
+
+	* templates/lighttpd/: lighttpd-lxr-modules.conf,
+	  lighttpd-lxrserver.conf: Experimental support for lighttpd web
+	  server
+
+	  To allow simultaneous service on Apache and lighttpd, port is no
+	  longer considered when trying to match host-name. However, it
+	  must still be written in URL.
+
+	  templates/lighttpd/ created to hold lighttpd related templates
+
+2012-01-29 07:36  ajlittoz
+
+	* lib/LXR/Config.pm, lib/LXR/Template.pm,
+	  scripts/initial-config.sh,
+	  templates/Apache/apache-lxrserver.conf,
+	  templates/Apache/htaccess-generic,
+	  templates/Apache/lxrserver.conf: Experimental support for
+	  lighttpd web server
+
+	  To allow simultaneous service on Apache and lighttpd, port is no
+	  longer considered when trying to match host-name. However, it
+	  must still be written in URL.
+
+2012-01-29 07:24  ajlittoz
+
+	* LXRimages/LXRlogo32.ico, LXRimages/LXRlogo64.jpeg,
+	  LXRimages/valid-html401.png, LXRimages/vcss.gif,
+	  templates/html/html-head-btn-smaller.html,
+	  templates/html/html-head-btn.html,
+	  templates/html/html-head-smaller.html,
+	  templates/html/html-head.html, templates/html/html-tail.html:
+	  Image designation using HTML-absolute form in templates to ease
+	  integration in existing web-sites when DocumentRoot is not equal
+	  to LXR root directory.
+
+	  Directory images renamed LXRimages to remove potential conflict
+	  with Apache's /images
+
+2012-01-29 07:10  ajlittoz
+
+	* lib/LXR/Common.pm: Common.pm: when forcing a variable value,
+	  dollar sigil not stripped from argument causing variable not
+	  updated; $releaseid was set too late, preventing file
+	  identificatoin and path transformation (setting moved before
+	  include file path handling)
+
+2012-01-26 17:22  ajlittoz
+
+	* genxref, lib/LXR/Lang/Generic.pm: Generic.pm: replaced a regexp
+	  with 5.10 syntax by a 5.8 syntax one, so that it will compile
+	  with older Perl interpreter (subsequent processing is ugly!)
+	  genxref updated not to fail on this dependency
+
+2012-01-26 16:35  ajlittoz
+
+	* lib/LXR/: Lang.pm, Lang/Generic.pm, Lang/Perl.pm, Lang/Ruby.pm,
+	  Lang/generic.conf: Rearchitect the language handlers: Generic.pm
+	  is becoming too big, trying to cope with an excessive number of
+	  languages.  Created Perl.pm and Ruby.pm; Generic.pm concentrates
+	  now on C family generic.conf updated for Ruby.
+
+2012-01-25 21:03  ajlittoz
+
+	* templates/lxr.css: templates/lxr.css: styles for links to fast
+	  switch to other trees (used in html-head-*)
+
+2012-01-25 17:29  ajlittoz
+
+	* genxref, source, lib/LXR/Common.pm, lib/LXR/Index.pm,
+	  lib/LXR/Tagger.pm, lib/LXR/Files/CVS.pm, lib/LXR/Index/Mysql.pm,
+	  lib/LXR/Index/Oracle.pm, lib/LXR/Index/Postgres.pm,
+	  templates/lxr.css: CVS management: source file retrieval in side
+	  branches and automatic version enumeration
+
+	  This fix involves many source files and subs, mainly in CVS.pm
+	  and genxref. The main task is to scan the CVS header to extract
+	  all tags and release numbers and to apply a new algorithm in
+	  parsecvs sub to reconstruct the target file.
+
+	  genxref --allversions in CVS mode purges all DB tables. This
+	  necessitates a new method 'purgeall' in Files.pm (existent
+	  purge() operates on a single designated releaseid and we have no
+	  exhaustive list of releases for a CVS repository). This method
+	  has been tested for MySQL and copied as is in Oracle.pm and
+	  Postgres.pm. Testers welcome.
+
+	  As a bonus, annotation display has been enhanced with background
+	  highlighting of latest addition to repository.
+
+2012-01-23 10:06  ajlittoz
+
+	* scripts/: initdb-config.sh, initial-config.sh: scripts/*: a
+	  dollar sign was not escaped in a shell command (previous commit
+	  ineffective)
+
+2012-01-23 09:57  ajlittoz
+
+	* scripts/: initdb-config.sh, initial-config.sh: scripts/*: a
+	  dollar sign was not escaped in a shell command
+
+2012-01-23 09:54  ajlittoz
+
+	* templates/html/: html-head-btn-smaller.html, html-head-btn.html,
+	  html-head-smaller.html, html-head.html, html-ident.html,
+	  html-search-glimpse.html, html-tail.html: templates/html/: add
+	  alternate-stylesheets and multiple-trees features; change path to
+	  graphic files; enhance class atributes
+
+2012-01-23 09:37  ajlittoz
+
+	* lib/LXR/Lang/ectags.conf, lib/LXR/Lang/ectags.conf.documentation,
+	  templates/ectags.conf, templates/ectags.conf.documentation,
+	  templates/lxr.conf: New subdirectories map: move ectags.conf from
+	  lib/lxr/Lang/ to 'templates' since it is not related to LXR but
+	  to ectags.
+
+	  Unhappily, the move resets the CVS version number and loses
+	  history.
+
+2012-01-23 08:52  ajlittoz
+
+	* templates/initdb/initdb-mysql,
+	  templates/initdb/initdb-oracle.sql,
+	  templates/initdb/initdb-postgres, LXRversion.pm, Local.pm,
+	  .htaccess-apache1, .htaccess-apache2, .htaccess_cgi, BUGS,
+	  CHANGES, CREDITS.txt, HACKING, INSTALL, LICENSE, LXRlogo32.ico,
+	  RELEASING, apache2-require.pl, initdb-config.sh, initdb-mysql,
+	  initdb-oracle.sql, initdb-postgres, swish-e.conf, doc/BUGS,
+	  doc/CREDITS.txt, doc/HACKING, doc/INSTALL-0.10.txt,
+	  doc/INSTALL-0.9.9.txt, doc/LICENSE, doc/RELEASING,
+	  lib/LXRversion.pm, lib/Local.pm, scripts/initdb-config.sh,
+	  scripts/initial-config.sh, templates/README,
+	  templates/swish-e.conf, templates/Apache/apache2-require.pl,
+	  templates/Apache/htaccess-apache1,
+	  templates/Apache/htaccess-apache2, templates/Apache/htaccess-cgi,
+	  templates/Apache/htaccess-generic,
+	  templates/Apache/lxrserver.conf: New subdirectories map: move
+	  files to their target subdirectories; apply minor adjustments to
+	  scripts in intdb to cope with the new organisation.
+
+	  Unhappily, the move resets the CVS version number and loses
+	  history.
+
+2012-01-23 08:22  ajlittoz
+
+	* genxref, templates/lxr.conf: genxref, lxr.conf: configuration
+	  file swish-e.conf location was hard-coded in genxref. Create a
+	  new config parameter 'swishconf' to allow for easy relocation of
+	  said file.
+
+2012-01-23 08:09  ajlittoz
+
+	* genxref: genxref: revert 1.52 change Genxref creates items in
+	  configuration when checking user system; therefore testing
+	  readconfig success on the existence of $config is faulty. Revert
+	  to testing for 'sourceroot' parameter existence.
+
+2012-01-22 14:44  ajlittoz
+
+	* LXRlogo64.jpeg: New subdirectories map
+
+2012-01-22 14:22  ajlittoz
+
+	* templates/: vcss, html-dir.html, html-fatal.html,
+	  html-head-btn.html, html-head.html, html-ident.html,
+	  html-search-glimpse.html, html-search-swish.html, html-tail.html,
+	  initdb-mysql-template.sql, initdb-oracle-template.sql,
+	  initdb-postgres-template.sql, valid-html401.png,
+	  html/html-dir.html, html/html-fatal.html,
+	  html/html-head-btn.html, html/html-head.html,
+	  html/html-ident.html, html/html-search-glimpse.html,
+	  html/html-search-swish.html, html/html-tail.html,
+	  initdb/initdb-mysql-template.sql,
+	  initdb/initdb-oracle-template.sql,
+	  initdb/initdb-postgres-template.sql: New subdirectories map
+
+2012-01-22 13:52  ajlittoz
+
+	* genxref, lib/LXR/Common.pm, lib/LXR/Config.pm: Config.pm: make
+	  _initialize always return a value (1 OK, 0 failure) when not
+	  dying Common.pm, genxref: reflect the above change
+
+2012-01-19 17:44  ajlittoz
+
+	* initdb-config.sh: initdb-config.sh now takes its templates from
+	  templates directory
+
+2012-01-19 17:38  ajlittoz
+
+	* initdb-mysql-template, initdb-oracle-template.sql,
+	  initdb-postgres-template, templates/initdb-mysql-template.sql,
+	  templates/initdb-oracle-template.sql,
+	  templates/initdb-postgres-template.sql: initdb-xxx-template.sql
+	  moved to templates directory to have a cleaner root directory
+
+2012-01-17 17:52  ajlittoz
+
+	* templates/: lxr.conf, lxr.css: templates/lxr.conf,
+	  templates/lxr.css Reorganised and commented both files .conf:
+	  arranged the language descriptors so that enabling a new one will
+	  not imply renumbering; introduced new parameters 'host_names',
+	  'caption' and those related to icons with an example.  (Language
+	  descriptors will probably migrate to another file to keep the
+	  size manageable) .css: more class'es for buttons-and-menus
+	  interface and multiple trees management
+
+2012-01-17 15:36  ajlittoz
+
+	* lib/LXR/: Common.pm, Config.pm, Template.pm: Common.pm,
+	  Config.pm, Template.pm: Review the link setup for #include (and
+	  equivalent) so that 'maps' feature works when cascading
+	  'variable' selections.
+
+2012-01-17 13:22  ajlittoz
+
+	* source: source: Treat HTML files like other source code files
+	  (HTML is now among the supported languages) To display the file
+	  "as is", use URL argument ?_raw=1
+
+2012-01-17 13:19  ajlittoz
+
+	* diff: diff: change <PRE class=> to "filecontent" (instead of
+	  file), same class as in source
+
+2012-01-17 13:18  ajlittoz
+
+	* search: search: - Substitution markers needed for
+	  buttons-and-menus interfaces - Sort results on ascending filename
+	  - Change <PRE class=> to "filecontent" (instead of file), same
+	  class as in source
+
+2012-01-17 13:01  ajlittoz
+
+	* genxref: genxref: - More sanity tests - Prevent free-text engine
+	  preparation step if source-tree rests in an SCM, since the engine
+	  does not understand the SCM file format and won't do any useful
+	  work anyway.
+
+2012-01-04 19:43  ajlittoz
+
+	* genxref: genxref: correction for bug 3469081 Tests for glimpse
+	  and swish-e were independently trying to configure the dree-text
+	  search engine to use, resulting in both defined if they existed
+	  on the computer. Now, forcing a free-text search engine is
+	  deferred until the user preference can be tested (after reading
+	  the configuration).
+
+2012-01-04 14:35  ajlittoz
+
+	* search: search: correction for bug 3469392 2 lines were forgotten
+	  when installing $fileonce substitution variable
+
+2012-01-03 13:57  ajlittoz
+
+	* lib/LXR/Common.pm: Common.pm: use strict syntac on hashes to
+	  allow backward Perl compatibility
+
+2012-01-03 07:09  ajlittoz
+
+	* ident: ident: make "definitions only" effective (bug 3468849).
+	  Add a conditional return at the beginning of sub usesexpand.
+
+2011-12-30 11:30  ajlittoz
+
+	* source, templates/html-head-btn.html: source and templates: HTML
+	  output made 4.01 compliant
+
+2011-12-30 10:51  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: correction for bug 3466821 - use
+	  correct configuration parameter name in error message
+
+2011-12-30 10:43  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: correction for bug 3466565 by
+	  restoring sub stylesheet since $stylesheet is used for 3
+	  templates; add URL-encoding for the file name.
+
 2011-12-28 12:45  tag release-0-10
 
 2011-12-28 12:45  ajlittoz
