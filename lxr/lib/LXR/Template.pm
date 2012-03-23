@@ -1274,6 +1274,7 @@ sub varlinks {
 	my $vlex = '';
 	my ($val, $oldval);
 	my $vallink;
+	my $cnt = 0;
 
 	$oldval = $config->variable($var);
 	foreach $val ($config->varrange($var)) {
@@ -1300,11 +1301,17 @@ sub varlinks {
 			}
 		}
 
+		$vallink = "[" . $vallink . "]";
+
+		$cnt++;
+		if (($cnt % 6) eq 0) {
+			$vallink = $vallink . "&nbsp;<br/>";
+		}
+
 		$vlex .= expandtemplate
 					( $templ
 					, ('varvalue' => sub { $vallink })
 					);
-
 	}
 	return ($vlex);
 }
