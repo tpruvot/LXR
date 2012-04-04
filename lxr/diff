@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: diff,v 1.22 2011/12/21 19:35:54 ajlittoz Exp $
+# $Id: diff,v 1.27 2012/04/03 15:56:18 ajlittoz Exp $
 
 # diff --	Display diff output with markup.
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: diff,v 1.22 2011/12/21 19:35:54 ajlittoz Exp $ ';
+$CVSID = '$Id: diff,v 1.27 2012/04/03 15:56:18 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
@@ -59,12 +59,16 @@ sub htmlsub {
 }
 
 sub printdiff {
-	my ($diffvar, $diffval) = @_;
+	my (@dargs) = @_;
 
-	unless ($diffvar) {
+	unless (defined @dargs) {
 		my @vars;
 		foreach ($config->allvariables) {
-			push(@vars, $config->vardescription($_));
+			if	(!exists($config->{'variables'}{$_}{'when'})
+				|| eval($config->varexpand($config->{'variables'}{$_}{'when'}))
+				) {
+				push(@vars, $config->vardescription($_));
+			}
 		}
 
 		$vars[ $#vars - 1 ] .= " or " . pop(@vars) if $#vars > 0;
@@ -83,29 +87,27 @@ sub printdiff {
 		print("<h3 align=\"center\">Diff not yet supported for directories.</h3>\n");
 		return;
 	}
-
-	my $origval  = $config->variable($diffvar);
 	my $origname = $pathname;
-	my $origtemp = $files->tmpfile($origname, $releaseid);
 
-	$config->variable($diffvar, $diffval);
-	my $diffname = $config->mappath($pathname);
-	my $difftemp = $files->tmpfile($diffname, $config->variable('v'));
+	my $diffname = $config->mappath($config->unmappath($pathname, @dargs));
+	my ($diffv) = grep(m/v=/, @dargs);
+	$diffv =~ s/v=//;
 
-	$config->variable($diffvar, $origval);
-
-	unless (defined($origtemp)) {
-		unlink($difftemp);
+	unless ($files->isfile($origname, $releaseid)) {
 		print("*** $origname does not exist ***\n");
 		return;
 	}
-	unless (defined($difftemp)) {
-		unlink($origtemp);
+	unless ($files->isfile($diffname, $diffv)) {
 		print("*** $diffname does not exist ***\n");
 		return;
 	}
 
 	fflush;
+	# realfilename may create a temporary file
+	# which should be released when no longer needed
+	my $origtemp = $files->realfilename($origname, $releaseid);
+	my $difftemp = $files->realfilename($diffname, $diffv);
+# print STDERR "*** diff between $origtemp ($origname $releaseid) and $difftemp ($diffname $diffv)\n";
 	$ENV{'PATH'} = '/usr/local/bin:/usr/bin:/bin:/usr/sbin';
 	unless (open(DIFF, "-|")) {
 		open(STDERR, ">&STDOUT");
@@ -148,30 +150,50 @@ sub printdiff {
 	}
 	close(DIFF);
 
-	print(
-		"<h1 class=\"diff\">Diff markup</h1>\n",
-		"<h2 class=\"diff\">Differences between ",
-
-		fileref(
-			"$origname (" . $config->vardescription($diffvar) . " $origval)",
-			"diff-fref", $origname, undef, "$diffvar=$origval"
-		),
-		" and ",
-
-		fileref(
-			"$diffname (" . $config->vardescription($diffvar) . " $diffval)",
-			"diff-fref", $diffname, undef, "$diffvar=$diffval"
-		),
-		"</h2><hr>\n"
-	);
+	print   ( "<h1>Diff markup</h1>\n"
+			, "<h2>between "
+			, fileref       ( "$origname"
+						, "diff-fref", $origname
+						)
+			, " ("
+			);
+	my @fctx;
+	for ($config->allvariables) {
+		next if exists($config->{'variables'}{$_}{'when'})
+				&& !eval($config->varexpand($config->{'variables'}{$_}{'when'}));
+		push (@fctx, $config->vardescription($_).": ".$config->variable($_));
+	}
+	print   ( join(", ", @fctx)
+			, ")<br>"
+			, " and "
+			);
+	my @linkargs = grep {m/(.*?)=(.*)/; $config->variable($1) ne "$2";} @dargs;
+	map (s/(.*?)=/!$1=/, @linkargs);
+	print   ( fileref       ( "$diffname",
+						, "diff-fref", $diffname, undef
+						, @linkargs
+						)
+			, " ("
+			);
+	@fctx = ();
+	for my $var ($config->allvariables) {
+		next if exists($config->{'variables'}{$var}{'when'})
+				&& !eval($config->varexpand($config->{'variables'}{$var}{'when'}));
+		my ($varval) = grep(m/$var=/, @dargs);
+		$varval =~ s/$var=//;
+		push (@fctx, $config->vardescription($var).": $varval");
+	}
+	print   ( join(", ", @fctx)
+			, ")</h2><hr>\n"
+			);
 
 	my $origh = new FileHandle($origtemp);
 	my $orig  = '';
 	markupfile($origh, sub { $orig .= shift }, 1);
 	my $len = $. + $ofs;
 	$origh->close;
+	$files->releaserealfilename($origtemp);
 
-	$config->variable($diffvar, $diffval);
 	$pathname = $diffname;
 
 	my $diffh = new FileHandle($difftemp);
@@ -179,8 +201,8 @@ sub printdiff {
 
 	markupfile($diffh, sub { $new .= shift });
 	$diffh->close;
+	$files->releaserealfilename($difftemp);
 
-	$config->variable($diffvar, $origval);
 	$pathname = $origname;
 
 	my $i;
@@ -221,15 +243,22 @@ sub printdiff {
 		#      ($chg{$i+1} || "  "), "</span> $n\n");
 		print "$o $diffmark $n\n";
 	}
-	print("</pre>");
+	print("</pre>\n");
 
-	unlink($origtemp, $difftemp);
 }
 
 httpinit;
 
 makeheader('diff');
-printdiff($$HTTP{'param'}{'_diffvar'}, $$HTTP{'param'}{'_diffval'});
+my @dargs;
+foreach my $param (keys %{$HTTP->{'param'}}) {
+	my $var = $param;
+	next unless $var =~ s/^~//;
+	if (exists($config->{'variables'}->{$var})) {
+			push @dargs, "$var=" . $HTTP->{'param'}->{$param};
+	}
+}
+printdiff(@dargs);
 makefooter('diff');
 
 httpclean;
