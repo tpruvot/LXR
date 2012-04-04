@@ -1,4 +1,4 @@
-<!--$Id: html-search-swish.html,v 1.1 2012/01/22 14:22:47 ajlittoz Exp $ -->
+<!--$Id: html-search-swish.html,v 1.2 2012/04/03 08:22:24 ajlittoz Exp $ -->
 
 <!--				html-search-swish.html
 		A template for free-text search with swish-e
@@ -24,11 +24,12 @@
 <h1>Free-text search with SWISH-E</h1>
 <p>
 Type a string to find:
-<br>1) all files for which that string occurs in the path,
-<br>or 2) all files containing that string.
+<br>1) all filenames matching the filter (top input field only),
+<br>2) all occurrences of the string across all files (bottom input field only),
+<br>3) the occurrences of the string in the files matching the filter (both input fields).
 <br>
 <br>Matches are case-insensitive unless you check the box below.
-<br>To use full-fledged Perl regex, check the other box below.
+<br>To use full-fledged Perl regex in the filename filter, check the other box below.
 
 <form method="get" action="search">
 $variables{<input type="hidden" name="$variable" value="$value">}
@@ -44,6 +45,18 @@ $variables{<input type="hidden" name="$variable" value="$value">}
 							size="50"
 					>
 			</td>
+			<td>
+	&nbsp;&nbsp;&nbsp;&nbsp;
+				<label>
+					<input	type="checkbox"
+							name="_advanced"
+							$advancedchecked
+							value="1"
+					>
+	Advanced (allows usage of
+	<a href="http://perldoc.perl.org/perlrequick.html" target="_blank">perl regex</a>)
+				</label>
+			</td>
 		</tr>
 		<tr>
 			<td>
@@ -55,7 +68,7 @@ $variables{<input type="hidden" name="$variable" value="$value">}
 		</tr>
 		<tr>
 			<td></td>
-			<td>
+			<td colspan=2>
 				<p>
 	Supported operators: AND, OR, NOT, ( ) boolean grouping, trailing *, " " phrase grouping<br>
 	Example: (book* OR magazine*) NOT "my magazine"<br>
@@ -65,16 +78,6 @@ $variables{<input type="hidden" name="$variable" value="$value">}
 		<tr>
 			<td></td>
 			<td>
-				<label>
-					<input	type="checkbox"
-							name="_advanced"
-							$advancedchecked
-							value="1"
-					>
-	Advanced (allows usage of
-	<a href="http://perldoc.perl.org/perlrequick.html" target="_blank">perl regex</a>)
-				</label>
-	&nbsp;&nbsp;&nbsp;&nbsp;
 				<label>
 					<input	type="checkbox"
 							name="_casesensitive"
