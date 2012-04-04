@@ -150,26 +150,26 @@ sub printdiff {
 	}
 	close(DIFF);
 
-	print   ( "<h1>Diff markup</h1>\n"
+	print	( "<h1>Diff markup</h1>\n"
 			, "<h2>between "
-			, fileref       ( "$origname"
+			, fileref	( "$origname"
 						, "diff-fref", $origname
 						)
 			, " ("
 			);
 	my @fctx;
 	for ($config->allvariables) {
-		next if exists($config->{'variables'}{$_}{'when'})
+		next if	exists($config->{'variables'}{$_}{'when'})
 				&& !eval($config->varexpand($config->{'variables'}{$_}{'when'}));
 		push (@fctx, $config->vardescription($_).": ".$config->variable($_));
 	}
-	print   ( join(", ", @fctx)
+	print	( join(", ", @fctx)
 			, ")<br>"
 			, " and "
 			);
 	my @linkargs = grep {m/(.*?)=(.*)/; $config->variable($1) ne "$2";} @dargs;
 	map (s/(.*?)=/!$1=/, @linkargs);
-	print   ( fileref       ( "$diffname",
+	print	( fileref	( "$diffname",
 						, "diff-fref", $diffname, undef
 						, @linkargs
 						)
@@ -177,13 +177,13 @@ sub printdiff {
 			);
 	@fctx = ();
 	for my $var ($config->allvariables) {
-		next if exists($config->{'variables'}{$var}{'when'})
+		next if	exists($config->{'variables'}{$var}{'when'})
 				&& !eval($config->varexpand($config->{'variables'}{$var}{'when'}));
 		my ($varval) = grep(m/$var=/, @dargs);
 		$varval =~ s/$var=//;
 		push (@fctx, $config->vardescription($var).": $varval");
 	}
-	print   ( join(", ", @fctx)
+	print	( join(", ", @fctx)
 			, ")</h2><hr>\n"
 			);
 
@@ -198,7 +198,6 @@ sub printdiff {
 
 	my $diffh = new FileHandle($difftemp);
 	my $new   = '';
-
 	markupfile($diffh, sub { $new .= shift });
 	$diffh->close;
 	$files->releaserealfilename($difftemp);

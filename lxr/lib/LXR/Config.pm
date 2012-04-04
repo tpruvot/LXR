@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Config.pm,v 1.47 2012/03/07 20:22:22 ajlittoz Exp $
+# $Id: Config.pm,v 1.49 2012/03/27 16:04:26 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,9 +16,20 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+#############################################################
+
+=head1 Config module
+
+This module contains the API to the configuration file.
+It is responsible for reading the file, locating the
+parameter group for the current source-tree and presenting
+an abstract interface to the C<'variables'>.
+
+=cut
+
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.47 2012/03/07 20:22:22 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.49 2012/03/27 16:04:26 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -179,7 +190,8 @@ sub _initialize {
 	}
 
 	if(!exists $self->{'baseurl'}) {
-		if("genxref" ne ($0 =~ /([^\/]*)$/)) {
+		$0 =~ m/([^\/]*)$/;
+		if("genxref" ne $1) {
 			return 0;
 		}
 		elsif($url =~ m!https?://.+\.!) {
@@ -286,7 +298,7 @@ sub varrange {
 
 sub varexpand {
 	my ($self, $exp) = @_;
-	$exp =~ s/\$\{?(\w+)\}?/$self->variable($1)/ge;
+	$exp =~ s/\$\{?([a-zA-Z]\w*)\}?/$self->variable($1)/ge;
 
 	return $exp;
 }
@@ -324,6 +336,7 @@ sub AUTOLOAD {
 
 sub mappath {
 	my ($self, $path, @args) = @_;
+	return $path if !exists($self->{'maps'});
 	my %oldvars;
 	my ($m, $n);
 
@@ -334,10 +347,277 @@ sub mappath {
 		}
 	}
 
-	while (($m, $n) = each %{ $self->{maps} || {} }) {
-		$path =~ s/$m/$self->varexpand($n)/e;
+	my $i = 0;
+	while ($i < $#{$self->{'maps'}}) {
+		$m = ${$self->{'maps'}}[$i++];
+		$n = ${$self->{'maps'}}[$i++];
+ 		$path =~ s/$m/$self->varexpand($n)/e;
 	}
 
+	while (($m, $n) = each %oldvars) {
+		$self->variable($m, $n);
+	}
+
+	return $path;
+}
+
+
+=head2 C<unmappath ($path, @args)>
+
+Function C<unmappath> attempts to undo the effects of C<mappath>.
+It returns an abstract path suitable for a new processing by
+C<mappath> with a new set of variables values.
+
+=over
+
+=item 1 C<$path>
+
+a I<string> containing the file path to "invert".
+
+=item 1 C<@args>
+
+an I<array> containing strings of the form var=value defining
+the context in which the C<'maps'> rules were applied.
+
+=back
+
+=head3 Algorithm
+
+C<'maps'> rules are given as I<pattern> C<=E<gt> > I<replacement>
+where I<replacement> may itself contain C<$I<var> > markers
+asking for substitution by the designated variable value.
+
+Tentatively I<inverting> C<mappath> processing means applying
+"inverse" C<'maps'> rules in reverse order.
+
+B<Note:>
+
+=over
+
+=item
+
+From a theoretical point of view, this problem has no general
+solution. It can be solved only under restrictive conditions,
+i.e. information has not been irremediably lost after rule
+application (consider what happens if you completely remove
+a path fragment and its delimiter).
+
+=back
+
+The generated "inverted" rule has the following form:
+
+transformed I<replacement> C<=E<gt> > transformed I<pattern>
+
+=over
+
+=item 1 transformed I<replacement>
+
+=over
+
+=item 1 C<$num> elements become C<.+?>, i.e. "match something, but not
+too much" to avoid to "swallow" what is described after this
+sub-pattern.
+
+B<Note:>
+
+=over
+
+=item
+
+It could be possible to be more specific through parsing this
+original pattern and analysing the associated parenthesised
+sequence.
+However, this could be time-expensive and the final advantage
+might not be worth the trouble.
+Even the known C<'maps'> rules for kernel cross-referencing
+do not use C<$num>.
+
+=back
+
+=item 1 C<$var> are replaced by the designated variable value.
+
+=item 1 If the original pattern had C<^> (start) or C<$> (end)
+position anchors, these are transfered.
+
+=back
+
+=item 1 transformed I<pattern>
+
+=over
+
+=item 1 Optional quantifiers C<?> or C<*> (and variants
+suffixed with C<?> or C<+>)
+
+If there is one, process the sequence from beginning to the
+quantifier to remove the preceding C<(> C<)> parenthesised
+block (proceeding carefully from innermost pair of parenthesis
+to outermost), C<[> C<]> character range or single character.
+
+B<Caveat:>
+
+=over
+
+=item
+
+When a character is checked, care is taken to cope with
+C<\>-I<escaped> characters but no effort is done to manage
+longer escape sequences such as C<\000>, C<\x00> or any other
+multi-character sequence.
+Consequently, the above transformation WILL FAIL if any such
+sequence is present in the original pattern.
+
+=back
+
+I<The sub-pattern is entirely removed because the corresponding
+string can be omitted from the file path. We then do not bother
+with creating a sensible string since it is optional.>
+
+=item 1 Repeating quantifier C<+> (and variants
+suffixed with C<?> or C<+>)
+
+Quantifier is merely removed to leave a single occurrence of
+the matching string.
+
+=item 1 C<(> C<)> groups
+
+Proceeding from innermost group to outermost, the first alternative
+is kept and the others deleted. The parentheses, now useless
+and, matter of fact, harmful, are erased.
+
+=item 1 C<[> C<]> character ranges
+
+Only the first character is kept.
+
+I<If the specification is an exclusion range C<[^ E<hellip> ]>,
+the range is replaced by character C<%>, without further parsing,
+in the hope it does not appear in the range.>
+
+=item 1 C<\> escaped characters
+
+Depending on the character, the sequence is erased, replaced by
+a conventional character (think of character classes) or by the
+designator letter without the backslash.
+
+B<Caveat:>
+
+=over
+
+=item
+
+No effort is done to manage longer escape sequences such as
+C<\000>, C<\x00> or any other multi-character sequence on the
+ground that this escape sequence is also valid in the replacement
+part of an C<s///> instruction.
+
+However some multi-character sequences (e.g. C<\P>) are not valid
+and will ruin the "inverse" rule but they are thought to be rather
+rare in LXR context.
+
+=back
+
+=back
+
+=back
+
+The generated rule is then applied to C<$path>.
+
+The effect is cumulated on all "inverse" rules and the final
+C<$path> is returned as the value of this C<sub>.
+
+=cut
+
+sub unmappath {
+	my ($self, $path, @args) = @_;
+	return $path if	(!exists($self->{'maps'})
+					|| scalar($self->allvariables)<2
+					);
+	my ($m, $n);
+	my %oldvars;
+
+#	Save current environment before switching to @args environment
+	foreach $m (@args) {
+		if ($m =~ /(.*?)=(.*)/) {
+			$oldvars{$1} = $self->variable($1);
+			$self->variable($1, $2);
+		}
+	}
+
+	my $i = $#{$self->{'maps'}};
+	while ($i >= 0) {
+		$n = ${$self->{'maps'}}[$i--];
+		$m = ${$self->{'maps'}}[$i--];
+# 		if ($n =~ m/\$\{?[0-9]/) {
+# 			warning("Unable to reverse 'maps' rule $m => $n");
+# 		}
+	# Transform the original "replacement" into a pattern
+	#	Replace variable markers by their values
+		$n = $self->varexpand($n);
+	#	Use a generic sub-pattern for $number substitutions
+		$n =~ s/\$\{?[0-9]+\}?/.+?/g;
+
+	# Next transform the original "pattern" into a replacement
+	#	Remove x* or x? fragments since they are optional
+		$m =~ s/((?:\\.|[^*?])+)[*?][+?]?/{
+			my $pre = $1;
+	#	( ... ) sub-pattern
+			if ($pre =~ m!(\\.|[^\\])\)$!) {
+	#	a- remove innermost ( ... ) blocks
+				while ($pre =~ s!((?:^|\\.|[^\\])\((?:\\.|[^\(\)])*)\((?:\\.|[^\(\)])*\)!$1!) {};
+	# 			                 1                ^                1 ^                 ^
+	#	b- remove outer ( ... ) block
+				$pre =~ s!(^|\\.|[^\\])\((?:\\.|[^\)])*\)$!$1!;
+	#	[ ... ] sub-pattern
+			} elsif ($pre =~ m!(\\.|[^\\])\]$!) {
+				$pre =~ s!(^|\\.|[^\\])\[(?:\\.|[^\]])+\]$!$1!;
+	#	single character or class
+			} else {
+				$pre =~ s!\\?.$!!;
+			}
+			$pre;
+		}/ge;
+		$m =~ s!(^|[^\\])\(\)!$1!;
+	#	Remove + quantifiers since a single occurrence is enough
+		$m =~ s/(\\.|[^+])\+[+?]?/$1/g;
+	#	Process block constructs
+	#	( ... ) sub-pattern: replace by first alternative
+		while ($m =~ m!(^|\\.|[^\\])\(!) {
+	#	a- process innermost, i.e. non-nested, ( ... ) blocks
+			while ($m =~ s!((?:^|\\.|[^\\])\((?:\\.|[^\(\)])*)\(((?:\\.|[^\(\)\|])+)\|?(?:\\.|[^\(\)])*\)!$1$2!) {};
+		#	               1                ^                1 ^2                  2                    ^
+	#	b- process the remaining outer ( ... ) block
+			$m =~ s!(^|\\.|[^\\])\(((?:\\.|[^\)\|])+)(?:\|(?:\\.|[^\(\)])*)?\)!$1$2!;
+#			        1           1 ^2                2                        ^
+		}
+	#	[ ... ] sub-pattern: replace by one character
+		$m =~ s!(^|\\.|[^\\])\[(\\.|[^\]])(?:\\.|[^\\])*\]!
+			# Heuristic attempt to handle [^range]
+			if ($2 eq "^") {
+				$2 = "%";
+			}
+			$1 . $2;
+				!ge;
+	#	\x escaped character
+	# NOTE: not handled g k N p P X o x
+		$m =~ s!\\[AbBCEGKlLQuUzZ]!!g;
+		$m =~ s!\\w!A!g;
+		$m =~ s!\\d!0!g;
+		$m =~ s!\\D!=!g;
+		$m =~ s!\\W!&!g;
+		$m =~ s!\\[hs]! !g;
+		$m =~ s!\\([HNSV])!$1!g;
+		$m =~ s!\\v!\n!g;
+		$m =~ s!\\([^0-9abcdefghklnoprstuvwxzABCDEGHKLNPQRSUVWXZ])!$1!g;
+
+	# Finally, transfer position information from original pattern
+	# to new pattern (i.e. start and end tags)
+		$n = "^" . $n if $m =~ s/^\^//;
+		$n .= "\$" if $m =~ s/\$$//;
+
+	# Apply the generated rule
+		$path =~ s/$n/$m/;
+	}
+
+#	Restore original environment
 	while (($m, $n) = each %oldvars) {
 		$self->variable($m, $n);
 	}

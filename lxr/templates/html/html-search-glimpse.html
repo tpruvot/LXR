@@ -1,4 +1,4 @@
-<!--$Id: html-search-glimpse.html,v 1.2 2012/01/23 09:54:39 ajlittoz Exp $ -->
+<!--$Id: html-search-glimpse.html,v 1.3 2012/04/03 08:22:24 ajlittoz Exp $ -->
 
 <!--				html-search-glimpse.html
 		A template for free-text search with glimpse
@@ -24,13 +24,12 @@
 <h1>Free-text search with Glimpse</h1>
 <p>
 Type a string to find:
-<br>1) all files for which that string occurs in the path,
-<br>or 2) all files containing that string.
+<br>1) all filenames matching the filter (top input field only),
+<br>2) all occurrences of the string across all files (bottom input field only),
+<br>3) the occurrences of the string in the files matching the filter (both input fields).
 <br>
 <br>Matches are case-insensitive unless you check the box below.
-<br>Characters ^ $ \ [ ] ( ) | , ; ~ have special meaning for Glimpse
-and can be used for building simple regex.
-To use full-fledged Perl regex, check the other box below.
+<br>To use full-fledged Perl regex in the filename filter, check the other box below.
 <br>Files ending in ",v" (CVS internal) or "~" (editor backup) are excluded from the search.
 </p>
 
@@ -48,6 +47,18 @@ $variables{<input type="hidden" name="$variable" value="$value">}
 							size="50"
 					>
 			</td>
+			<td>
+	&nbsp;&nbsp;&nbsp;&nbsp;
+				<label>
+					<input	type="checkbox"
+							name="_advanced"
+							$advancedchecked
+							value="1"
+					>
+	Advanced (allows usage of
+	<a href="http://perldoc.perl.org/perlrequick.html" target="_blank">perl regex</a>)
+				</label>
+			</td>
 		</tr>
 		<tr>
 			<td>
@@ -59,17 +70,14 @@ $variables{<input type="hidden" name="$variable" value="$value">}
 		</tr>
 		<tr>
 			<td></td>
+			<td colspan=2>
+Characters ^ $ \ [ ] ( ) | , ; ~ have special meaning for Glimpse
+and can be used for building simple regex.
+			</td>
+		</tr>
+		<tr>
+			<td></td>
 			<td>
-				<label>
-					<input	type="checkbox"
-							name="_advanced"
-							$advancedchecked
-							value="1"
-					>
-	Advanced (allows usage of
-	<a href="http://perldoc.perl.org/perlrequick.html" target="_blank">perl regex</a>)
-				</label>
-	&nbsp;&nbsp;&nbsp;&nbsp;
 				<label>
 					<input	type="checkbox"
 							name="_casesensitive"
@@ -84,11 +92,6 @@ $variables{<input type="hidden" name="$variable" value="$value">}
 				<input type="submit" value="Search">
 			</td>
 		</tr>
-<!--		<tr>
-			<td colspan="2">
-				&nbsp;
-			</td>
-		</tr>-->
 	</table>
     <br>
 </form>

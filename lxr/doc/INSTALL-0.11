@@ -28,35 +28,38 @@ A/ Required tools
 -----------------
 The current version of the lxr depends on the following things:
 
-1) The the exuberant ctags program version 5.10 or later.  Available  as a
+1) Perl interpreter version 5.8 or later.  Installed by default in
+   nearly all Linux distributions, but check the version number.
+
+2) The exuberant ctags program version 5 or later.  Available  as a
    package in nearly all Linux distributions; otherwise download from
    http://sf.net/projects/ctags
 
-2) A relational database - MySQL 4.x/5.x (http://www.mysql.com), Postgresql
+3) A relational database - MySQL 4.x/5.x (http://www.mysql.com), Postgresql
    (http://www.postgresql.org) and Oracle are supported.
    You will also need the right Perl DBI drivers for your particular database,
    usually available from CPAN.
 
-3) A webserver
+4) A webserver
    - Apache httpd (http://httpd.apache.org/) with mod_perl
      (http://perl.apache.org/) is recommended.  LXR works with Apache 1 and
      Apache 2.
    - lighttpd is also now experimentally supported.
 
-4) For freetext searching, either Glimpse (http://webglimpse.net) or
+5) For freetext searching, either Glimpse (http://webglimpse.net) or
    Swish-e (http://swish-e.org) version 2.1 or later.
    Swish-e is fully GPL'ed, while Glimpse is only free for
    non-commercial use.
 
-5) The Perl database driver interface DBI and the relevant DBD driver for the
+6) The Perl database driver interface DBI and the relevant DBD driver for the
    database you're using.  If you don't already have these, they can be
    installed via CPAN.  See http://dbi.perl.org/index.html for more info.
 
-6) The Perl File::MMagic module, available from CPAN
+7) The Perl File::MMagic module, available from CPAN
 
-7) If using the CVS support, you will need rcs installed as well.
+8) If using the CVS support, you will need rcs installed as well.
 
-8) If you are using the BitKeeper support, you will need:
+9) If you are using the BitKeeper support, you will need:
    BitKeeper (bk) installed
    Digest::SHA module (available from CPAN)
 Note: BK integration is not maintained; it is frozen in its 2005 state

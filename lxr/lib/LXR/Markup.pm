@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Markup.pm,v 1.3 2012/02/10 20:54:30 ajlittoz Exp $
+# $Id: Markup.pm,v 1.4 2012/04/03 15:56:19 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ syntactic components or otherwise interesting elements of a block.
 
 package LXR::Markup;
 
-$CVSID = '$Id: Markup.pm,v 1.3 2012/02/10 20:54:30 ajlittoz Exp $';
+$CVSID = '$Id: Markup.pm,v 1.4 2012/04/03 15:56:19 ajlittoz Exp $';
 
 use strict;
 
@@ -212,15 +212,13 @@ sub markupfile {
 	} 
 	elsif ($pathname =~ /\.$graphic$/)
 	{
-		&$outfun("<ul><table><tr><th valign=\"center\"><b>Image: </b></th></tr>\n");
-		&$outfun("<tr><td>");
+		&$outfun("<b>Image: </b>");
 		&$outfun("<img src=\""
 			  . $config->{'sourceaccess'}
 			  . "/" . $config->variable('v')
 			  . $pathname
 			  . "\" border=\"0\""
-			  . " alt=\"$pathname cannot be displayed from this browser\">\n");
-		&$outfun("</td></tr></table></ul>");
+			  . " alt=\"No access to $pathname or browser cannot display this format\">");
 	}
 	elsif ($pathname =~ m|/CREDITS$|) {
 		while (defined($_ = $fileh->getline)) {
