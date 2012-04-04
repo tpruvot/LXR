@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: BK.pm,v 1.5 2009/05/10 11:54:29 adrianissott Exp $
+# $Id: BK.pm,v 1.6 2012/03/29 18:58:19 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Files::BK;
 
-$CVSID = '$Id: BK.pm,v 1.5 2009/05/10 11:54:29 adrianissott Exp $ ';
+$CVSID = '$Id: BK.pm,v 1.6 2012/03/29 18:58:19 ajlittoz Exp $ ';
 
 use strict;
 use File::Spec;
@@ -171,7 +171,8 @@ sub isfile {
 	return (defined($info));
 }
 
-sub tmpfile {
+#	Was tmpfile
+sub realfilename {
 	my ($self, $filename, $releaseid) = @_;
 	my ($tmp,  $buf);
 
@@ -189,6 +190,16 @@ sub tmpfile {
 	close(TMP);
 
 	return $tmp;
+}
+
+#	Delete temporary file created by realfilename
+sub releaserealfilename {
+	my ($self, $filename) = @_;
+
+	my $td = $config->{'tmpdir'};
+	if ($filename =~ m!^$td/bktmp\.\d+\.\d+\.\d+$!) {
+		unlink($filename);
+	}
 }
 
 #

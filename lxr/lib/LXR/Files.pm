@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Files.pm,v 1.13 2009/05/10 11:54:29 adrianissott Exp $
+# $Id: Files.pm,v 1.14 2012/03/29 18:58:19 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Files;
 
-$CVSID = '$Id: Files.pm,v 1.13 2009/05/10 11:54:29 adrianissott Exp $ ';
+$CVSID = '$Id: Files.pm,v 1.14 2012/03/29 18:58:19 ajlittoz Exp $ ';
 
 use strict;
 
@@ -134,21 +134,34 @@ sub isfile {
 	return $boolean;
 }
 
-# FIXME: This function really sucks and should be removed :)
-sub tmpfile {
-	my ($self, $filename, $releaseid) = @_;
-	warn  __PACKAGE__."::tmpfile not implemented. Parameters: @_";
-	my $pathToATmpCopyOfTheFile;
-	return $pathToATmpCopyOfTheFile;
+sub realfilename {
+	my ($self, $pathname, $releaseid) = @_;
+	warn  __PACKAGE__."::realfilename not implemented. Parameters: @_";
+	my $filename;
+	return $filename;
 }
 
-# FIXME: this function should probably not exist, since it doesn't make sense for 
-# all file access methods
-sub toreal {
-  my ($self, $pathname, $releaseid) = @_;
-	warn "toreal called - obsolete";
-	my $path;
-	return $path;
+sub releaserealfilename {
+	my ($self, $filename) = @_;
+	warn  __PACKAGE__."::releaserealfilename not implemented. Parameters: @_";
+	return;
 }
+
+# # FIXME: This function really sucks and should be removed :)
+# sub tmpfile {
+# 	my ($self, $filename, $releaseid) = @_;
+# 	warn  __PACKAGE__."::tmpfile not implemented. Parameters: @_";
+# 	my $pathToATmpCopyOfTheFile;
+# 	return $pathToATmpCopyOfTheFile;
+# }
+# 
+# # FIXME: this function should probably not exist, since it doesn't make sense for 
+# # all file access methods
+# sub toreal {
+#   my ($self, $pathname, $releaseid) = @_;
+# 	warn "toreal called - obsolete";
+# 	my $path;
+# 	return $path;
+# }
 
 1;
