@@ -950,19 +950,15 @@ sub urlexpand {
 	my $urlex;
 	my $args;
 
-	# diff needs special processing: the current selected version
-	# of the file needs to be transferred to _diffvar and _diffval
-	# variables, so that the standard selection mechanism will give
+	# diff needs special processing: the currently selected version
+	# of the file is transfered with a set of "mirror" arguments
+	# (their name is the same as a variable with a ~ prefix),
+	# so that the standard selection mechanism will give
 	# the version to compare to in the current value of the variables.
-# TODO: The present implementation allows for a single version
-# variable, which may break the desired version (e.g. when LXRing
-# the Linux kernel which uses v and a!
-# HINT: Transfer in variable _diffx=value_of_x (just add prefix
-# _diff to the name of x
 	if ($who eq 'diff') {
 		my @args = ();
 		foreach ($config->allvariables) {
-			push(@args, "$_=".$config->variable($_));
+			push(@args, "~$_=".$config->variable($_));
 		}
 		diffref ("", "", $pathname, @args) =~ m!^.*?(\?.*?)"!;
 		$args = $1;
@@ -970,74 +966,7 @@ sub urlexpand {
 		$args = &urlargs();
 	}
 
-	while ($args =~ m![?&;]((?:\$|\w)+)=(.*?)(?=[&;]|$)!g) {
-		my $var = $1;
-		my $val = $2;
-		$urlex .= expandtemplate
-					( $templ
-					,	( 'urlvar' => sub { $var }
-						, 'urlval' => sub { $val }
-						)
-					);
-	}
-
-	return ($urlex);
-}
-
-
-=head2 C<incexpand ($templ, $who)>
-
-Function C<incexpand> is a "$function" substitution function.
-It returns an HTML string which is the concatenation of its
-expanded argument applied to all the include-specific arguments
-of the current page.
-
-It is similar to C<urlexpand>.
-
-=over
-
-=item 1 C<$templ>
-
-a I<string> containing the template (i.e. argument)
-
-=item 1 C<$who>
-
-a I<string> containing the script name (i.e. source, sourcedir,
-diff, ident or search) requesting this substitution;
-it is here considered as the "mode"
-
-=back
-
-=head3 Algorithm
-
-It checks to see the existence of HTTP parameter C<_file>,
-which is a signature for a file accessed through an include link.
-If that parameter exists, both C<_file> and C<_dir> are considered
-for template expansion.
-Otherwise, the result is a null string.
-
-The argument template is then expanded through C<expandtemplate>
-for each URL argument with a replacement rule for its name and value.
-
-=cut
-
-sub incexpand {
-	my ($templ, $who) = @_;
-	my $urlex;
-	my $args;
-
-	if ($who eq 'source' || $who eq 'sourcedir' || $who eq 'diff') {
-		if (exists($HTTP->{'param'}->{'_file'})) {
-			$args = "?_file=" . $HTTP->{'param'}->{'_file'};
-			$args .= ";_dir=" . $HTTP->{'param'}->{'_dir'};
-		} else {
-			return '';
-		}
-	} else {
-		return '';
-	}
-
-	while ($args =~ m![?&;]((?:\$|\w)+)=(.*?)(?=[&;]|$)!g) {
+	while ($args =~ m![?&;]((?:\~|\w)+)=(.*?)(?=[&;]|$)!g) {
 		my $var = $1;
 		my $val = $2;
 		$urlex .= expandtemplate
@@ -1274,6 +1203,18 @@ sub varlinks {
 	my $vlex = '';
 	my ($val, $oldval);
 	my $vallink;
+	my @dargs;
+
+	# diff needs special processing: the currently selected version
+	# of the file is transfered with a set of "mirror" arguments
+	# (their name is the same as a variable with a ~ prefix),
+	# so that the standard selection mechanism will give
+	# the version to compare to in the current value of the variables.
+	if ($who eq 'diff') {
+		foreach ($config->allvariables) {
+			push(@dargs, "~$_=".$config->variable($_));
+		}
+	}
 
 	$oldval = $config->variable($var);
 	foreach $val ($config->varrange($var)) {
@@ -1289,7 +1230,7 @@ sub varlinks {
 									);
 
 			} elsif ($who eq 'diff') {
-				$vallink = &diffref($val, "varlink", $pathname, "$var=$val");
+				$vallink = &diffref($val, "varlink", $pathname, "$var=$val", @dargs);
 			} elsif ($who eq 'ident') {
 				$vallink = &idref($val, "varlink", $identifier, "$var=$val");
 			} elsif ($who eq 'search') {
@@ -1391,16 +1332,6 @@ sub varbtnaction {
 	my $action;
 
 	if ($who eq 'source' || $who eq 'sourcedir') {
-# TODO $varaction is used outside the "variables" template.
-#		We thus have no idea of the current values of the variables.
-#		To get them, we need to wait until the submit button is clicked.
-#		Then we could apply mappath. Unhappily, $pathname is not
-#		guaranteed to be an 'original' path; it may already have undergone
-#		a mappath transformation. It is then not safe to apply a second time.
-# 		$valaction = varlink2action(&fileref("$val", ""
-# 									, $config->mappath($pathname, "$var=$val")
-# 									, 0, "$var=$val")
-# 								  );
 		$action = &fileref("", "", $pathname);
 	} elsif ($who eq 'diff') {
 		$action = &diffref("", "", $pathname);
@@ -1647,7 +1578,6 @@ sub makeheader {
 			,	'variables'  => sub { varexpand(@_, $who) }
 			,	'varbtnaction' => sub { varbtnaction(@_, $who) }
 			,	'urlargs'    => sub { urlexpand(@_, $who) }
-			,	'incargs'    => sub { incexpand(@_, $who) }
 			  # --various URLs, useless probably--
 			,	'dotdoturl'  => \&dotdoturl
 			,	'thisurl'    => \&thisurl
@@ -1712,7 +1642,6 @@ sub makefooter {
 			,	'variables'  => sub { varexpand(@_, $who) }
 			,	'varbtnaction' => sub { varbtnaction(@_, $who) }
 			,	'urlargs'    => sub { urlexpand(@_, $who) }
-			,	'incargs'    => sub { incexpand(@_, $who) }
 			  # --various URLs, useless probably--
 			,	'dotdoturl'  => \&dotdoturl
 			,	'thisurl'    => \&thisurl

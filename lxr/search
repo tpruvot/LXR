@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: search,v 1.40 2012/01/29 15:35:35 ajlittoz Exp $
+# $Id: search,v 1.41 2012/04/03 08:25:26 ajlittoz Exp $
 
 # search --	Freetext search
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: search,v 1.40 2012/01/29 15:35:35 ajlittoz Exp $ ';
+$CVSID = '$Id: search,v 1.41 2012/04/03 08:25:26 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
@@ -80,19 +80,26 @@ sub glimpsesearch {
 	my $sourceroot = $config->sourceroot . '/' . $releaseid . '/';
 
 	$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin:/usr/sbin';
-	unless (open(GLIMPSE, "-|")) {
-		open(STDERR, ">&STDOUT");
-		$! = '';
-		exec($config->glimpsebin, "-F (\\,[^v\\~]|[^\\,][^\\~])\$", "-i", "-H" , $config->glimpsedir . "/" . $releaseid,
-			'-y', '-n', $searchtext);
-		print(STDERR "Glimpse subprocess died unexpextedly: $!\n");
-		exit;
-	}
+	$! = '';
+	open	( GLIMPSE
+			, $config->glimpsebin
+		# Don't scan files ending in ,v or ~
+				." -F '(\\,[^v\\~]\|[^\\,][^\\~])\$' "
+		# Should we match casesensitive ?
+				. ($casesensitive ? "" : "-i")
+		# Location of index datadbase
+				. " -H "
+				.$config->glimpsedir."/".$releaseid
+		# The pattern to search for
+				." -y -n '$searchtext' 2>&1 |"
+			)
+	|| print(STDERR "Glimpse subprocess died unexpextedly: $!\n");
 
 	my $numlines     = 0;
 	my @glimpselines = ();
+	my @glimpsemsgs  = ();
 	while (<GLIMPSE>) {
-		s/$sourceroot//;
+		if (s/^$sourceroot//) {
 		my ($file) = $_ =~ /(.*?):\s*/;
 	# Keep only occurrences matching file name if given
 		next if $filetext and !filename_matches($filetext, $advanced, $casesensitive, $file);
@@ -100,6 +107,13 @@ sub glimpsesearch {
 		push(@glimpselines, $_);
 		if ($numlines >= $maxhits) {
 			last;
+		} }
+		else {
+	# Ignore information message
+			next if m/^using working-directory/;
+	# Strip off eventual command name
+			s/^.*?glimpse:\s*//;
+			push (@glimpsemsgs, $_);
 		}
 	}
 
@@ -135,9 +149,15 @@ sub glimpsesearch {
 		my $glimpseresponse =~ s/$glimpsebin/Reason/;
 		my $glimpseresponse =~ s/glimpse: error in searching index//;
 		print("<p class='error'>Search failed</p>\n<p>$glimpseresponse</p>\n");
+		foreach (@glimpsemsgs) {
+			print("<p class='error'>$_</p>\n");
+		}
 		return;
 	} else {
 		print("<p class='error'>Unexpected return value $retval from Glimpse (usually means <i>syntax error</i>)</p>\n");
+		foreach (@glimpsemsgs) {
+			print("<p class='error'>$_</p>\n");
+		}
 		return;
 	}
 }
@@ -357,6 +377,7 @@ sub search {
 			)
 		);
 }
+
 httpinit;
 makeheader('search');
 if ($files->isa("LXR::Files::Plain")) {

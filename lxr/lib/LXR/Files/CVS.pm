@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: CVS.pm,v 1.38 2012/01/25 17:29:34 ajlittoz Exp $
+# $Id: CVS.pm,v 1.39 2012/03/29 18:58:19 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Files::CVS;
 
-$CVSID = '$Id: CVS.pm,v 1.38 2012/01/25 17:29:34 ajlittoz Exp $ ';
+$CVSID = '$Id: CVS.pm,v 1.39 2012/03/29 18:58:19 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
@@ -264,7 +264,8 @@ sub getdiff {
 	return $fileh->getlines;
 }
 
-sub tmpfile {
+#	Was tmpfile
+sub realfilename {
 	my ($self, $filename, $releaseid) = @_;
 	my ($tmp,  $buf);
 
@@ -277,6 +278,16 @@ sub tmpfile {
 	close(TMP);
 
 	return $tmp;
+}
+
+#	Delete temporary file created by realfilename
+sub releaserealfilename {
+	my ($self, $filename) = @_;
+
+	my $td = $config->{'tmpdir'};
+	if ($filename =~ m!^$td/lxrtmp\.\d+\.\d+\.\d+$!) {
+		unlink($filename);
+	}
 }
 
 sub dirempty {
