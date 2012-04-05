@@ -109,16 +109,16 @@ sub nextfrag {
 		if ($#frags < 0) {
 			$line = $fileh->getline;
 
-			if (   $. <= 2
-				&& $line =~ /^.*-[*]-.*?[ \t;]tab-width:[ \t]*([0-9]+).*-[*]-/)
-			{
-				# make sure there really is a non-zero tabwidth
-				if ($1) { $tabwidth = $1; }
-			}
+			if (defined($line)) {
+				if (   $. <= 2
+					&& $line =~ /^.*-[*]-.*?[ \t;]tab-width:[ \t]*([0-9]+).*-[*]-/)
+				{
+					# make sure there really is a non-zero tabwidth
+					if ($1) { $tabwidth = $1; }
+				}
 
 				#			&untabify($line, $tabwidth); # We inline this for performance.
 				# Optimize for common case.
-			if (defined($line)) {
 				$line =~ s/^(\t+)/' ' x ($tabwidth * length($1))/ge;
 				$line =~ s/([^\t]*)\t/$1.(' ' x ($tabwidth - (length($1) % $tabwidth)))/ge;
 
