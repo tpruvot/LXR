@@ -287,7 +287,9 @@ sub expandtemplate {
 #	                     ^          ^           ^
 #	first left brace-----+          |           |
 #	nested brace-delimited block----+-----------+
-
+	if (!defined($templ)) {
+		return '';
+	}
 	# Repeatedly find the variables or function calls
 	# and apply replacement rule
 	$templ =~ s/(\$(\w+)(\{([^\}]*)\}|))/{
