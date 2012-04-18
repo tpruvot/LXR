@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: diff,v 1.27 2012/04/03 15:56:18 ajlittoz Exp $
+# $Id: diff,v 1.28 2012/04/17 08:10:46 ajlittoz Exp $
 
 # diff --	Display diff output with markup.
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: diff,v 1.27 2012/04/03 15:56:18 ajlittoz Exp $ ';
+$CVSID = '$Id: diff,v 1.28 2012/04/17 08:10:46 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
@@ -107,7 +107,6 @@ sub printdiff {
 	# which should be released when no longer needed
 	my $origtemp = $files->realfilename($origname, $releaseid);
 	my $difftemp = $files->realfilename($diffname, $diffv);
-# print STDERR "*** diff between $origtemp ($origname $releaseid) and $difftemp ($diffname $diffv)\n";
 	$ENV{'PATH'} = '/usr/local/bin:/usr/bin:/bin:/usr/sbin';
 	unless (open(DIFF, "-|")) {
 		open(STDERR, ">&STDOUT");
@@ -187,7 +186,7 @@ sub printdiff {
 			, ")</h2><hr>\n"
 			);
 
-	my $origh = new FileHandle($origtemp);
+	my $origh = FileHandle->new($origtemp);
 	my $orig  = '';
 	markupfile($origh, sub { $orig .= shift }, 1);
 	my $len = $. + $ofs;
@@ -196,7 +195,7 @@ sub printdiff {
 
 	$pathname = $diffname;
 
-	my $diffh = new FileHandle($difftemp);
+	my $diffh = FileHandle->new($difftemp);
 	my $new   = '';
 	markupfile($diffh, sub { $new .= shift });
 	$diffh->close;

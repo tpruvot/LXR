@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Tagger.pm,v 1.28 2012/04/02 19:20:39 ajlittoz Exp $
+# $Id: Tagger.pm,v 1.30 2012/04/18 20:38:45 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,16 +18,15 @@
 
 package LXR::Tagger;
 
-$CVSID = '$Id: Tagger.pm,v 1.28 2012/04/02 19:20:39 ajlittoz Exp $ ';
+$CVSID = '$Id: Tagger.pm,v 1.30 2012/04/18 20:38:45 ajlittoz Exp $ ';
 
 use strict;
-use FileHandle;
 use LXR::Lang;
 
 sub processfile {
 	my ($pathname, $releaseid, $config, $files, $index) = @_;
 
-	my $lang = new LXR::Lang($pathname, $releaseid);
+	my $lang = LXR::Lang->new($pathname, $releaseid);
 
 	return unless $lang;
 
@@ -63,7 +62,7 @@ sub processfile {
 sub processrefs {
 	my ($pathname, $releaseid, $config, $files, $index) = @_;
 
-	my $lang = new LXR::Lang($pathname, $releaseid);
+	my $lang = LXR::Lang->new($pathname, $releaseid);
 
 	return unless $lang;
 

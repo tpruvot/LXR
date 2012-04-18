@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: search,v 1.41 2012/04/03 08:25:26 ajlittoz Exp $
+# $Id: search,v 1.43 2012/04/17 08:10:46 ajlittoz Exp $
 
 # search --	Freetext search
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: search,v 1.41 2012/04/03 08:25:26 ajlittoz Exp $ ';
+$CVSID = '$Id: search,v 1.43 2012/04/17 08:10:46 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
@@ -84,7 +84,7 @@ sub glimpsesearch {
 	open	( GLIMPSE
 			, $config->glimpsebin
 		# Don't scan files ending in ,v or ~
-				." -F '(\\,[^v\\~]\|[^\\,][^\\~])\$' "
+				." -F '-v (\\,v\|\\~)\$' "
 		# Should we match casesensitive ?
 				. ($casesensitive ? "" : "-i")
 		# Location of index datadbase
@@ -326,7 +326,7 @@ sub search {
 	} elsif ($filetext ne "") {
 		my $FILELISTING;
 		if ($config->swishdir and $config->swishbin) {
-			unless ($FILELISTING = new IO::File($config->swishdir . "/$releaseid.filenames")) {
+			unless ($FILELISTING = IO::File->new($config->swishdir . "/$releaseid.filenames")) {
 				&warning(
 					"Version '$releaseid' has not been indexed and is unavailable for searching<br>Could not open "
 					  . $config->swishdir
@@ -335,7 +335,7 @@ sub search {
 			}
 		} elsif ($config->glimpsedir and $config->glimpsebin) {
 			unless ($FILELISTING =
-				new IO::File($config->glimpsedir . "/" . $releaseid . "/.glimpse_filenames"))
+				IO::File->new($config->glimpsedir . "/" . $releaseid . "/.glimpse_filenames"))
 			{
 				&warning(
 					"Version '$releaseid' has not been indexed and is unavailable for searching<br>Could not open "

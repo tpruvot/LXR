@@ -1,6 +1,6 @@
 # -*- tab-width: 4; cperl-indent-level: 4 -*- ###############################################
 #
-# $Id: Lang.pm,v 1.42 2012/02/11 08:59:28 ajlittoz Exp $
+# $Id: Lang.pm,v 1.44 2012/04/17 10:57:59 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Lang;
 
-$CVSID = '$Id: Lang.pm,v 1.42 2012/02/11 08:59:28 ajlittoz Exp $ ';
+$CVSID = '$Id: Lang.pm,v 1.44 2012/04/17 10:57:59 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -31,7 +31,7 @@ sub new {
 		if ($pathname =~ /$$type[1]/) {
 			eval "require $$type[2]";
 			die "Unable to load $$type[2] Lang class, $@" if $@;
-			my $create = "new $$type[2]" . '($pathname, $releaseid, $$type[0])';
+			my $create = $$type[2] . '->new($pathname, $releaseid, $$type[0])';
 			$lang = eval($create);
 			die "Unable to create $$type[2] Lang object, $@" unless defined $lang;
 			last;
@@ -55,9 +55,8 @@ sub new {
 			if ($shebang =~ /$patt$/) {
 				eval "require $filetype{$inter{$patt}}[2]";
 				die "Unable to load $filetype{$inter{$patt}}[2] Lang class, $@" if $@;
-				my $create = "new "
-				  . $filetype{ $inter{$patt} }[2]
-				  . '($pathname, $releaseid, $filetype{$inter{$patt}}[0])';
+				my $create = $filetype{ $inter{$patt} }[2]
+				  . '->new($pathname, $releaseid, $filetype{$inter{$patt}}[0])';
 				$lang = eval($create);
 				last if defined $lang;
 				die "Unable to create $filetype{$inter{$patt}}[2] Lang object, $@";

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # -*- tab-width: 4 -*-"
-# $Id: genxref,v 1.57 2012/02/23 07:49:17 ajlittoz Exp $
+# $Id: genxref,v 1.58 2012/04/17 08:10:46 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -89,7 +89,7 @@ if ($option{'checkonly'} && !$option{'url'}) {
 }
 
 if ($option{'url'}) {
-	$config = new LXR::Config($option{'url'});
+	$config = LXR::Config->new($option{'url'});
 }
 
 
@@ -308,10 +308,10 @@ if (!exists($config->{'variables'}{'v'})) {
 	$failure = 1; 
 }
 
-$files = new LXR::Files($config->sourceroot, $config->sourceparams);
+$files = LXR::Files->new($config->sourceroot, $config->sourceparams);
 die "${VTred}Can't create file access object ${VTnorm}" . $config->sourceroot
   if !defined($files);
-$index = new LXR::Index($config->dbname, O_RDWR | O_CREAT);
+$index = LXR::Index->new($config->dbname, O_RDWR | O_CREAT);
 die "${VTred}Can't create Index ${VTnorm}" . $config->dbname if !defined($index);
 
 # End of general checks
@@ -332,7 +332,7 @@ if ($option{'checkonly'}) {
 ###
 ###
 
-our $filetype = new File::MMagic(-f 'lib/magic.mime'? ('lib/magic.mime') : ());
+our $filetype = File::MMagic->new(-f 'lib/magic.mime'? ('lib/magic.mime') : ());
 our %binaryfiles;
 
 my @versions;
@@ -485,7 +485,7 @@ sub gensearch {
 		$string = $config->glimpsedir . "/" . $releaseid;
 		mkdir $string;
 		system("chmod 755 $string");   # TODO - fix Unix specific call?
-		my $glimpse = new IO::Handle;
+		my $glimpse = IO::Handle->new();
 		my $pid = open($glimpse, "|-");
 		if ($pid == 0) {
 			exec($config->glimpseindex, "-n", "-o", "-H",
@@ -503,10 +503,10 @@ sub gensearch {
 	}
 
 	if ($config->swishdir and $config->swishbin) {
-		my $swish = new IO::Handle;
+		my $swish = IO::Handle->new();
 		die ${VTred} . $config->swishdir . " does not exist${VTnorm}"
 			unless -d $config->swishdir;
-		my $filelist = new IO::File $config->swishdir . "/$releaseid.filenames", "w"
+		my $filelist = IO::File->new($config->swishdir . "/$releaseid.filenames", "w")
 		  or die "${VTred}can't open $releaseid.filenames for writing${VTnorm}";
 
 		# execute swish, as a pipe we can write to

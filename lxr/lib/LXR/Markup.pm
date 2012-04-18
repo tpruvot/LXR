@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Markup.pm,v 1.4 2012/04/03 15:56:19 ajlittoz Exp $
+# $Id: Markup.pm,v 1.5 2012/04/17 08:10:46 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ syntactic components or otherwise interesting elements of a block.
 
 package LXR::Markup;
 
-$CVSID = '$Id: Markup.pm,v 1.4 2012/04/03 15:56:19 ajlittoz Exp $';
+$CVSID = '$Id: Markup.pm,v 1.5 2012/04/17 08:10:46 ajlittoz Exp $';
 
 use strict;
 
@@ -160,7 +160,7 @@ sub markupfile {
 	# This allows to make no assumption on idref result.
 	my $itagtarget = "!!!";
 	my @itag = &idref("$itagtarget", "fid", $itagtarget) =~ /^(.*)$itagtarget(.*)$itagtarget(.*)$/;
-	my $lang = new LXR::Lang($pathname, $releaseid, @itag);
+	my $lang = LXR::Lang->new($pathname, $releaseid, @itag);
 
 	# A source code file
 	if ($lang) {
