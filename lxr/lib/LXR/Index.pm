@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Index.pm,v 1.18 2012/01/25 17:29:34 ajlittoz Exp $
+# $Id: Index.pm,v 1.19 2012/04/17 08:10:46 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Index;
 
-$CVSID = '$Id: Index.pm,v 1.18 2012/01/25 17:29:34 ajlittoz Exp $ ';
+$CVSID = '$Id: Index.pm,v 1.19 2012/04/17 08:10:46 ajlittoz Exp $ ';
 
 use LXR::Common;
 use strict;
@@ -29,7 +29,7 @@ sub new {
 
     if ($dbname =~ /^DBI:/i) {
         require LXR::Index::DBI;
-        $index = new LXR::Index::DBI($dbname, @args);
+        $index = LXR::Index::DBI->new($dbname, @args);
     } else {
         die "Can't find database, $dbname";
     }

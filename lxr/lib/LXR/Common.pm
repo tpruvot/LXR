@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Common.pm,v 1.94 2012/03/27 16:48:06 ajlittoz Exp $
+# $Id: Common.pm,v 1.96 2012/04/17 08:10:46 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.94 2012/03/27 16:48:06 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.96 2012/04/17 08:10:46 ajlittoz Exp $ ';
 
 use strict;
 
@@ -381,7 +381,7 @@ sub httpinit {
 	delete $HTTP->{'param'}->{'_i'};
 	delete $HTTP->{'param'}->{'_identifier'};
 
-	$config     = new LXR::Config($script_path);
+	$config     = LXR::Config->new($script_path);
 	unless (defined $config) {
 		LXR::Template::makeerrorpage('htmlfatal');
 		die "Can't find config for " . $HTTP->{'this_url'};
@@ -397,9 +397,9 @@ sub httpinit {
 		delete $HTTP->{'param'}->{$param};
 	}
 
-	$files = new LXR::Files($config->sourceroot, $config->sourceparams);
+	$files = LXR::Files->new($config->sourceroot, $config->sourceparams);
 	die "Can't create Files for " . $config->sourceroot if !defined($files);
-	$index = new LXR::Index($config->dbname);
+	$index = LXR::Index->new($config->dbname);
 	die "Can't create Index for " . $config->dbname if !defined($index);
 
 	foreach ($config->allvariables) {
@@ -407,9 +407,9 @@ sub httpinit {
 		delete $HTTP->{'param'}->{$_};
 	}
 
-	$pathname = fixpaths($HTTP->{'path_info'});
 	$releaseid  = clean_release($config->variable('v'));
 	$config->variable('v', $releaseid);  # put back into config obj
+	$pathname = fixpaths($HTTP->{'path_info'});
 
 	printhttp;
 }
