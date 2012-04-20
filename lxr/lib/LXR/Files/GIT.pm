@@ -19,81 +19,94 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #
 
+###############################################
+
+=head1 GIT module
+
+This module subclasses the Files module for Git repository.
+
+See Files POD for method information.
+
+Methods are sorted in the same order as in the super-class.
+
+B<Note:>
+
+=over
+
+=item
+
+GIT.pm was initially based on library Git.pm module.
+Unhappily, it systematically errored out with I<"Insecure
+dependency in &hellip;"> and was unusable.
+
+Since it was inconvenient to chase all occurrences of arguments
+to untaint them, it was considered easier to rewrite an interface
+method to git commands and untaint there.
+
+It is likely that it is less versatile and clean than the library
+module, but at least it works for LXR.
+
+=back
+
+=cut
+
 package LXR::Files::GIT;
 
-$CVSID = '$Id: GIT.pm,v 1.4 2009/05/10 11:54:29 adrianissott Exp $';
+$CVSID = '$Id: GIT.pm,v 1.5 2012/04/19 11:40:23 ajlittoz Exp $';
 
 use strict;
-use FileHandle;
 use Time::Local;
+use Scalar::Util;
 use LXR::Common;
-use Git;
+
+@LXR::Files::GIT::ISA = ('LXR::Files');
 
 sub new {
 	my ($self, $rootpath, $params) = @_;
 
 	$self = bless({}, $self);
 	$self->{'rootpath'} = $rootpath;
-	$self->{'do_blame'} = $$params{'do_blame'};
-	$self->{'do_annotations'} = $$params{'do_annotations'};
+	$self->{'git_blame'} = $$params{'git_blame'};
+	$self->{'git_annotations'} = $$params{'git_annotations'};
 
-	if ($self->{'do_blame'}) {
+	if ($self->{'git_blame'}) {
 		# Blame support will only work when commit IDs are available,
 		# called annotations here...
-		$self->{'do_annotations'} = 1;
+		$self->{'git_annotations'} = 1;
 	}
 
 	return $self;
 }
 
-sub isdir {
-	my ($self, $pathname, $releaseid) = @_;
-
-	$pathname =~ s/^\///;
-	if ($pathname eq "") {
-		return 1 == 1;
-	} else {
-		my $repo = Git->repository (Directory => "$self->{'rootpath'}");
-		my $line = $repo->command_oneline ("ls-tree", "$releaseid", "$pathname");
-		return $line =~ m/^\d+ tree .*$/;
-	}
-}
-
-sub isfile {
-	my ($self, $pathname, $releaseid) = @_;
-
-	$pathname =~ s/^\///;
-	if ($pathname eq "") {
-		return 1 == 0;
-	} else {
-		my $repo = Git->repository (Directory => "$self->{'rootpath'}");
-		my $line = $repo->command_oneline ("ls-tree", "$releaseid", "$pathname");
-		return $line =~ m/^\d+ blob .*$/;
-	}
-}
-
 sub getdir {
 	my ($self, $pathname, $releaseid) = @_;
 	my ($dir, $node, @dirs, @files);
-	my $repo = Git->repository (Directory => "$self->{'rootpath'}");
 
-	$pathname =~ s/^\///;
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$pathname =~ s,^/+,,;
 
-	my ($fh, $c) = $repo->command_output_pipe ("ls-tree", "$releaseid", "$pathname");
-	while (<$fh>) {
+	my $git;
+	# Can't just use the empty pathname for the root directory:
+	# an empty string confuses ls-tree; we must ensure there
+	# really is NO argument in this case.
+	if ($pathname eq '') {
+		$git = $self->_git_cmd ("ls-tree", "$releaseid");
+	} else {
+		$git = $self->_git_cmd ("ls-tree", "$releaseid", "$pathname");
+	}
+	while (<$git>) {
 		if (m/(\d+) (\w+) ([[:xdigit:]]+)\t(.*)/) {
 			my ($entrymode, $entrytype, $objectid, $entryname) = ($1, $2, $3, $4);
 
-			# Only get the filename part of the full path
-			my @array = split (/\//, $entryname);
-			my $num = @array - 1;
-			$entryname = @array[$num];
+			# Only keep the filename part of the full path
+			$entryname =~ s!^.*/!!;
 
 			# Weed out things to ignore
 			foreach my $ignoredir ($config->{ignoredirs}) {
 				next if $entryname eq $ignoredir;
 			}
-
+			# Skip current and parent directories
 			next if $entryname =~ /^\.$/;
 			next if $entryname =~ /^\.\.$/;
 
@@ -104,119 +117,29 @@ sub getdir {
 			}
 		}
 	}
-
-	$repo->command_close_pipe ($fh, $c);
+	close ($git);
 
 	return sort (@dirs), sort (@files);
-}
-
-sub getfilesize {
-	my ($self, $filename, $releaseid) = @_;
-	my $repo = Git->repository (Directory => "$self->{'rootpath'}");
-
-	$filename =~ s/^\///;
-
-	my $sha1hashline = $repo->command_oneline ("ls-tree", "$releaseid", "$filename");
-
-	if ($sha1hashline =~ m/\d+ blob ([[:xdigit:]]+)\t.*/) {
-		return $repo->command_oneline ("cat-file", "-s", "$1");
-	}
-
-	return undef;
-}
-
-sub tmpfile {
-	my ($self, $filename, $releaseid) = @_;
-	my ($tmp, $fileh);
-
-	$tmp = $config->tmpdir . '/lxrtmp.' . time . '.' . $$ . '.' . &LXR::Common::tmpcounter;
-	open (TMP, "> $tmp") || return undef;
-	$fileh = $self->getfilehandle ($filename, $releaseid);
-	print (TMP <$fileh>);
-	close ($fileh);
-	close (TMP);
-
-	return $tmp;
-}
-
-sub filerev {
-	my ($self, $filename, $releaseid) = @_;
-	my $repo = Git->repository (Directory => "$self->{'rootpath'}");
-
-	$filename =~ s/^\///;
-
-	my $sha1hashline = $repo->command_oneline ("ls-tree", "$releaseid", "$filename");
-
-	if ($sha1hashline =~ m/\d+ blob ([[:xdigit:]]+)\t.*/) {
-		return $1;
-	}
-
-	return undef;
-}
-
-sub getfiletime {
-	my ($self, $filename, $releaseid) = @_;
-
-	$filename =~ s/^\///;
-
-	if ($filename eq "") {
-		return undef;
-	}
-	if ($filename =~ m/\/$/) {
-		return undef;
-	}
-
-	my $repo = Git->repository (Directory => "$self->{'rootpath'}");
-	my $lastcommitline = $repo->command_oneline ("log", "--max-count=1", "--pretty=oneline", "$releaseid", "--", "$filename");
-	if ($lastcommitline =~ m/([[:xdigit:]]+) /) {
-		my $commithash = $1;
-
-		my (@fh, $c) = $repo->command ("cat-file", "commit", "$commithash");
-		foreach my $line (@fh) {
-			if ($line =~ m/^author .* <.*> (\d+) .[0-9]{4}$/) {
-				return $1;
-			}
-		}
-		return undef;
-	}
-
-	return undef;
-}
-
-sub getfilehandle {
-	my ($self, $filename, $releaseid) = @_;
-	my $repo = Git->repository (Directory => "$self->{'rootpath'}");
-
-	$filename =~ s/^\///;
-
-	my $sha1hashline = $repo->command_oneline ("ls-tree", "$releaseid",  "$filename");
-
-	if ($sha1hashline =~ m/^\d+ blob ([[:xdigit:]]+)\t.*/) {
-		my ($fh, $c) = $repo->command_output_pipe ("cat-file", "blob", "$1");
-		return $fh;
-	}
-
-	return undef;
 }
 
 sub getannotations {
 	my ($self, $filename, $releaseid) = @_;
 
-	if ($self->{'do_annotations'}) {
-		my $repo = Git->repository (Directory => "$self->{'rootpath'}");
+	if ($self->{'git_annotations'}) {
 		my @revlist = ();
-		$filename =~ s/^\///;
+		# Paths on the git command lines must not start with a slash
+		# to be relative to 'rootpath'. Change LXR convention.
+		$filename =~ s,^/+,,;
 
-		my (@lines, $c) = $repo->command ("blame", "-l", "$releaseid", "--", "$filename");
-
-		foreach my $line (@lines) {
-			if ($line =~ m/^([[:xdigit:]]+) .*/) {
+		my $git = $self->_git_cmd ("blame", "-l", "$releaseid", "--", "$filename");
+		while (<$git>) {
+			if (m/^([[:xdigit:]]+) .*/) {
 				push (@revlist, $1);
 			} else {
 				push (@revlist, "");
 			}
 		}
-
+		close ($git);
 		return @revlist;
 	} else {
 		return ();
@@ -230,25 +153,238 @@ sub getauthor {
 	# Note that $releaseid is a real commit this time
 	# (returned by getannotations() above). This is
 	# _not_ a tag name!
+	# $releaseid may be empty if it comes from the initial commit.
 	#
+	return undef if ($releaseid eq "");
 
-	if ($self->{'do_blame'}) {
-		my $repo = Git->repository (Directory => "$self->{'rootpath'}");
+	if ($self->{'git_blame'}) {
 		my @authorlist = ();
 
-		$pathname =~ s/^\///;
+		# Paths on the git command lines must not start with a slash
+		# to be relative to 'rootpath'. Change LXR convention.
+		$pathname =~ s,^/+,,;
 
-		my (@lines, $c) = $repo->command ("cat-file", "commit", "$releaseid");
-		foreach my $line (@lines) {
-			if ($line =~ m/^author (.*) </) {
+		my $git = $self->_git_cmd ("cat-file", "commit", "$releaseid");
+		while (<$git>) {
+			if (m/^author (.*) </) {
+				close ($git);
 				return $1
 			}
 		}
-
+		close ($git);
 		return undef;
 	}
 
 	return undef;
+}
+
+#	To be consistent with the other Files classes, returns the first
+#	SHA1 hash for the file (it should be the last revision one).
+#	This allows to mark the lastly added lines too.
+#	If there were not this requirement, the blob SHA1 could do,
+#	sparing the call for rev-list.
+sub filerev {
+	my ($self, $filename, $releaseid) = @_;
+
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$filename =~ s,^/+,,;
+
+	my $sha1hashline = $self->_git_oneline ("ls-tree", "$releaseid", "$filename");
+	if ($sha1hashline =~ m/\d+ blob ([[:xdigit:]]+)\t.*/) {
+		return substr($self->_git_oneline ("rev-list", "$releaseid", "-- $filename"),0,-1);
+	}
+
+	return undef;
+}
+
+sub getfilehandle {
+	my ($self, $filename, $releaseid) = @_;
+
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$filename =~ s,^/+,,;
+
+	my $sha1hashline = $self->_git_oneline ("ls-tree", "$releaseid",  "$filename");
+	if ($sha1hashline =~ m/^\d+ blob ([[:xdigit:]]+)\t.*/) {
+		my $fh = $self->_git_cmd ("cat-file", "blob", "$1");
+		die("Error executing \"git cat-file\"") unless $fh;
+		return $fh;
+	}
+
+	return undef;
+}
+
+sub getfilesize {
+	my ($self, $filename, $releaseid) = @_;
+
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$filename =~ s,^/+,,;
+
+	my $sha1hashline = $self->_git_oneline ("ls-tree", "$releaseid", "$filename");
+	if ($sha1hashline =~ m/\d+ blob ([[:xdigit:]]+)\t.*/) {
+		return $self->_git_oneline ("cat-file", "-s", "$1");
+	}
+
+	return undef;
+}
+
+#	getfiletime returns the time and date the file was committed
+#	(with cat-file commit).
+sub getfiletime {
+	my ($self, $filename, $releaseid) = @_;
+
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$filename =~ s,^/+,,;
+
+	if ($filename eq "") {
+		return undef;
+	}
+	if ($filename =~ m/\/$/) {
+		return undef;
+	}
+
+	my $lastcommitline = $self->_git_oneline ("log", "--max-count=1", "--pretty=oneline", "$releaseid", "--", "$filename");
+	if ($lastcommitline =~ m/([[:xdigit:]]+) /) {
+		my $commithash = $1;
+
+		my $git = $self->_git_cmd ("cat-file", "commit", "$commithash");
+		while (<$git>) {
+			if (m/^author .* <.*> (\d+) .[0-9]{4}$/) {
+				close ($git);
+				return $1;
+			}
+		}
+		close ($git);
+		return undef;
+	}
+
+	return undef;
+}
+
+sub isdir {
+	my ($self, $pathname, $releaseid) = @_;
+
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$pathname =~ s,^/+,,;
+	if ($pathname eq "") {
+		return 1 == 1;
+	} else {
+		my $line = $self->_git_oneline ("ls-tree", "$releaseid", "$pathname");
+		return $line =~ m/^\d+ tree .*$/;
+	}
+}
+
+sub isfile {
+	my ($self, $pathname, $releaseid) = @_;
+
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$pathname =~ s,^/+,,;
+	if ($pathname eq "") {
+		return 1 == 0;
+	} else {
+		my $line = $self->_git_oneline ("ls-tree", "$releaseid", "$pathname");
+		return $line =~ m/^\d+ blob .*$/;
+	}
+}
+
+
+#
+#		Private functions
+#
+
+=head2 C<_git_cmd ($cmd, @args)>
+
+C<_git_cmd> returns a handle to a pipe wher the command outputs its result.
+
+=over
+
+=item 1 C<$cmd>
+
+a I<string> containing the Git command
+
+=item 1 C<@args>
+
+a I<list> containing the command arguments
+
+=back
+
+The command is processed after untainting the arguments.
+
+=cut
+
+sub _git_cmd {
+	my ($self, $cmd, @args) = @_;
+
+	#	Blindly untaint all arguments to git command
+	#	otherwise we get the infamous "Insecure dependency ..." error
+	#	message. The insecure reference is in the file names
+	#	which are obtained from the URL.
+	#	NOTE: There may be a security hole here !
+	my @clean;
+	foreach (@args) {
+		m/^(.+)$/;
+		push (@clean, $1);
+	}
+	my $git;
+	$! = '';
+	open	( $git
+			, "git --git-dir=".$$self{'rootpath'}
+				." "
+				.join(" ",$cmd, @clean)
+				." |"
+			)
+	|| print(STDERR "git subprocess died unexpextedly: $!\n");
+	return $git;
+}
+
+=head2 C<_git_oneline ($cmd, @args)>
+
+C<_git_oneline> is a wrapper function for C<_gitcmd> when a single line
+result is expected.
+
+=over
+
+=item 1 C<$cmd>
+
+a I<string> containing the Git command
+
+=item 1 C<@args>
+
+a I<list> containing the command arguments
+
+=back
+
+The function passes its arguments to C<_git_cmd> and closes the pipe after
+reading one line.
+This line is returned as a string.
+
+B<Note:>
+
+=over
+
+=item
+
+Pipe is closed before returning BUT close status is not checked
+despite all warnings in perldoc. It is expected that the
+result line will be empty or undefined if something goes
+wrong with the pipe.
+
+=back
+
+=cut
+
+sub _git_oneline {
+	my ($self, $cmd, @args) = @_;
+
+	my $git = $self->_git_cmd ($cmd, @args);
+	my $line = <$git>;
+	close ($git);
+	return $line;
 }
 
 1;
