@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: diff,v 1.28 2012/04/17 08:10:46 ajlittoz Exp $
+# $Id: diff,v 1.29 2012/04/19 11:33:12 ajlittoz Exp $
 
 # diff --	Display diff output with markup.
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: diff,v 1.28 2012/04/17 08:10:46 ajlittoz Exp $ ';
+$CVSID = '$Id: diff,v 1.29 2012/04/19 11:33:12 ajlittoz Exp $ ';
 
 use strict;
 use lib '.'; # for Local.pm
@@ -94,11 +94,11 @@ sub printdiff {
 	$diffv =~ s/v=//;
 
 	unless ($files->isfile($origname, $releaseid)) {
-		print("*** $origname does not exist ***\n");
+		print("*** $origname does not exist in version $releaseid ***\n");
 		return;
 	}
 	unless ($files->isfile($diffname, $diffv)) {
-		print("*** $diffname does not exist ***\n");
+		print("*** $diffname does not exist in version $releaseid ***\n");
 		return;
 	}
 

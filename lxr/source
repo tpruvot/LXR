@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: source,v 1.56 2012/01/25 17:29:34 ajlittoz Exp $
+# $Id: source,v 1.57 2012/04/19 09:34:09 ajlittoz Exp $
 
 # source --	Present sourcecode as html, complete with references
 #  the '/icons' images are available in any standard Apache installation
@@ -24,7 +24,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: source,v 1.56 2012/01/25 17:29:34 ajlittoz Exp $ ';
+$CVSID = '$Id: source,v 1.57 2012/04/19 09:34:09 ajlittoz Exp $ ';
 
 use strict;
 use lib '.';    # for Local.pm
@@ -306,11 +306,14 @@ sub printfile {
 				if (@ann) {
 					my $currev = $files->filerev($pathname, $releaseid);
 					my ($rev, $r);
+					my $bg = 1;
 					foreach $rev (@ann) {
 						if ($rev eq $r) {
 							$rev = ' ' x 16;
 							if ($r eq $currev) {
 								$rev = "<span class='annot-cur'>$rev</span>";
+							} else {
+								$rev = "<span class='annot$bg'>$rev</span>";
 							}
 						next;
 						}
@@ -344,6 +347,9 @@ sub printfile {
 						$rev .= " " . $auth;
 						if ($r eq $currev) {
 							$rev = "<span class='annot-cur'>$rev</span>";
+						} else {
+							$bg = 1 - $bg;
+							$rev = "<span class='annot$bg'>$rev</span>";
 						}
 					}
 				}

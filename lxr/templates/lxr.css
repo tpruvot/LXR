@@ -1,5 +1,5 @@
 /*
- *	$Id: lxr.css,v 1.10 2012/03/15 08:14:40 ajlittoz Exp $
+ *	$Id: lxr.css,v 1.11 2012/04/19 09:34:09 ajlittoz Exp $
  */
 
 /*******************/
@@ -361,9 +361,23 @@ table.dircontent
 ;
 }
 
-/********************************/
-/* file view                    */
-/********************************/
+/*************/
+/* file view */
+/*************/
+/* most recent addition to file */
+  .annot-cur
+{ background-color: #ffcc88
+;
+}
+/* alternating annotation background */
+  .annot0
+{ background-color: white
+;
+}
+  .annot1
+{ background-color: #ffeedd
+;
+}
 
 /* the line number */
 .fline
