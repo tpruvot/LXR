@@ -1,6 +1,7 @@
-# -*- tab-width: 4 -*- ###############################################
+# -*- tab-width: 4 -*-
+###############################################
 #
-# $Id: BK.pm,v 1.6 2012/03/29 18:58:19 ajlittoz Exp $
+# $Id: BK.pm,v 1.7 2012/04/19 11:40:23 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,9 +17,36 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+###############################################
+
+=head1 BK module
+
+This module subclasses the Files module for BitKeeper repository.
+
+See Files POD for method information.
+
+Methods are sorted in the same order as in the super-class.
+
+B<Caveat:>
+
+=over
+
+=item
+
+As BitKeeper is proprietary software since 2005, this package is
+in the state it reached at that date, apart from commenting,
+sorting the methods to match Files.pm order, removal of C<getfile>
+(which is abstract enough to be coded in the super class).
+
+=back
+
+Andre J. Littoz - April 2012
+
+=cut
+
 package LXR::Files::BK;
 
-$CVSID = '$Id: BK.pm,v 1.6 2012/03/29 18:58:19 ajlittoz Exp $ ';
+$CVSID = '$Id: BK.pm,v 1.7 2012/04/19 11:40:23 ajlittoz Exp $ ';
 
 use strict;
 use File::Spec;
@@ -28,11 +56,11 @@ use Digest::SHA qw(sha1_hex);
 use Time::Local;
 use LXR::Common;
 
-use vars qw(%tree_cache @ISA $memcachecount $diskcachecount);
+@LXR::Files::BK::ISA = ('LXR::Files');
 
-@ISA = ("LXR::Files");
-$memcachecount = 0;
-$diskcachecount = 0;
+our %tree_cache;
+our $memcachecount = 0;
+our $diskcachecount = 0;
 
 sub new {
 	my ($self, $rootpath, $params) = @_;
@@ -61,15 +89,33 @@ sub getdir {
 	return (sort(@dirs), sort(@files));
 }
 
-sub getfile {
-	my ($self, $pathname, $releaseid) = @_;
-	$pathname = canonise($pathname);
-	my $fileh = $self->getfilehandle($pathname, $releaseid);
+sub getannotations {
+	# No idea what this function should return - Plain.pm returns (), so do that
+	return ();
+}
 
-	return undef unless $fileh;
-	my $buffer = join('', $fileh->getlines);
-	close $fileh;
-	return $buffer;
+sub getauthor {
+	my ($self, $pathname, $releaseid) = @_;
+
+	my $info = $self->getfileinfo($pathname, $releaseid);
+	return undef if !defined $info;
+
+	if (!defined($info->{'author'})) {
+		my $fileh = $self->openbkcommand("bk prs -r$info->{'revision'} -h -d:USER: $info->{'curpath'} |");
+		my $user = <$fileh>;
+		close $fileh;
+		chomp $user;
+		$info->{'author'} = $user;
+	}
+
+	return $info->{'author'};
+}
+
+sub filerev {
+	my ($self, $filename, $releaseid) = @_;
+
+	my $info = $self->getfileinfo($filename, $releaseid);
+	return sha1_hex($info->{'curpath'} . '-' . $info->{'revision'});
 }
 
 sub getfilehandle {
@@ -85,11 +131,16 @@ sub getfilehandle {
 	return $fileh;
 }
 
-sub filerev {
-	my ($self, $filename, $releaseid) = @_;
+sub getfilesize {
+	my ($self, $pathname, $releaseid) = @_;
 
-	my $info = $self->getfileinfo($filename, $releaseid);
-	return sha1_hex($info->{'curpath'} . '-' . $info->{'revision'});
+	my $info = $self->getfileinfo($pathname, $releaseid);
+	return undef if !defined($info);
+
+	if (!defined($info->{'filesize'})) {
+		$info->{'filesize'} = length($self->getfile($pathname, $releaseid));
+	}
+	return $info->{'filesize'};
 }
 
 sub getfiletime {
@@ -111,52 +162,6 @@ sub getfiletime {
 	return $info->{'filetime'};
 }
 
-sub getfilesize {
-	my ($self, $pathname, $releaseid) = @_;
-
-	my $info = $self->getfileinfo($pathname, $releaseid);
-	return undef if !defined($info);
-
-	if (!defined($info->{'filesize'})) {
-		$info->{'filesize'} = length($self->getfile($pathname, $releaseid));
-	}
-	return $info->{'filesize'};
-}
-
-
-sub getauthor {
-	my ($self, $pathname, $releaseid) = @_;
-
-	my $info = $self->getfileinfo($pathname, $releaseid);
-	return undef if !defined $info;
-
-	if (!defined($info->{'author'})) {
-		my $fileh = $self->openbkcommand("bk prs -r$info->{'revision'} -h -d:USER: $info->{'curpath'} |");
-		my $user = <$fileh>;
-		close $fileh;
-		chomp $user;
-		$info->{'author'} = $user;
-	}
-
-	return $info->{'author'};
-}
-
-sub getannotations {
-	# No idea what this function should return - Plain.pm returns (), so do that
-	return ();
-}
-
-sub openbkcommand {
-	my ($self, $command) = @_;
-
-	my $dir = getcwd();
-	chdir($self->{'rootpath'});
-	my $fileh = new IO::File;
-	$fileh->open($command) or die "Can't execute $command";
-	chdir($dir);
-	return $fileh;
-}
-
 sub isdir {
 	my ($self, $pathname, $releaseid) = @_;
 	$self->fill_cache($releaseid);
@@ -171,35 +176,16 @@ sub isfile {
 	return (defined($info));
 }
 
-#	Was tmpfile
-sub realfilename {
-	my ($self, $filename, $releaseid) = @_;
-	my ($tmp,  $buf);
 
-	$buf = $self->getfile($filename, $releaseid);
-	return undef unless defined($buf);
+sub openbkcommand {
+	my ($self, $command) = @_;
 
-	$tmp =
-	    $config->tmpdir
-	  . '/bktmp.'
-	  . time . '.'
-	  . $$ . '.'
-	  . &LXR::Common::tmpcounter;
-	open(TMP, "> $tmp") || return undef;
-	print(TMP $buf);
-	close(TMP);
-
-	return $tmp;
-}
-
-#	Delete temporary file created by realfilename
-sub releaserealfilename {
-	my ($self, $filename) = @_;
-
-	my $td = $config->{'tmpdir'};
-	if ($filename =~ m!^$td/bktmp\.\d+\.\d+\.\d+$!) {
-		unlink($filename);
-	}
+	my $dir = getcwd();
+	chdir($self->{'rootpath'});
+	my $fileh = IO::File->new();
+	$fileh->open($command) or die "Can't execute $command";
+	chdir($dir);
+	return $fileh;
 }
 
 #
@@ -253,7 +239,7 @@ sub get_tree {
 	# Return entire tree as provided by 'bk rset'
 	# First, check if cache exists
 
-	my $fileh = new IO::File;
+	my $fileh = IO::File->new();
 
 	if (-r $self->cachename($releaseid)) {
 		$fileh->open($self->cachename($releaseid)) or die "Whoops, can't open cached version";
@@ -268,7 +254,7 @@ sub get_tree {
 			close $fileh;
 			print CACHE @data;
 			close CACHE;
-			$fileh = new IO::File;
+			$fileh = IO::File->new();
 			$fileh->open($self->cachename($releaseid)) or die "Couldn't open cached version!";
 		}
 	}

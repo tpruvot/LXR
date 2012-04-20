@@ -1,6 +1,7 @@
-# -*- tab-width: 4 -*- ###############################################
+# -*- tab-width: 4 -*-
+###############################################
 #
-# $Id: Plain.pm,v 1.28 2012/04/02 19:20:39 ajlittoz Exp $
+# $Id: Plain.pm,v 1.29 2012/04/19 11:40:23 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,90 +17,45 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
+###############################################
+
+=head1 Plain module
+
+This module subclasses the Files module for plain files repository,
+i.e. real files stored in real directories.
+
+See Files POD for method information.
+
+Methods are sorted in the same order as in the super-class.
+
+=cut
+
 package LXR::Files::Plain;
 
-$CVSID = '$Id: Plain.pm,v 1.28 2012/04/02 19:20:39 ajlittoz Exp $ ';
+$CVSID = '$Id: Plain.pm,v 1.29 2012/04/19 11:40:23 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
 use LXR::Common;
+
+@LXR::Files::Plain::ISA = ('LXR::Files');
 
 sub new {
 	my ($self, $rootpath) = @_;
 
 	$self = bless({}, $self);
 	$self->{'rootpath'} = $rootpath;
+	# Make sure root directory name ends with a slash
 	$self->{'rootpath'} =~ s@/*$@/@;
 
 	return $self;
-}
-
-sub filerev {
-	my ($self, $filename, $releaseid) = @_;
-
-	#	return $releaseid;
-	return
-	  join("-", $self->getfiletime($filename, $releaseid), $self->getfilesize($filename, $releaseid));
-}
-
-sub getfiletime {
-	my ($self, $filename, $releaseid) = @_;
-
-	return (stat($self->toreal($filename, $releaseid)))[9];
-}
-
-sub getfilesize {
-	my ($self, $filename, $releaseid) = @_;
-
-	return -s $self->toreal($filename, $releaseid);
-}
-
-sub getfile {
-	my ($self, $filename, $releaseid) = @_;
-	my ($buffer);
-	local ($/) = undef;
-
-	open(FILE, "<", $self->toreal($filename, $releaseid)) || return undef;
-	$buffer = <FILE>;
-	close(FILE);
-	return $buffer;
-}
-
-sub getfilehandle {
-	my ($self, $filename, $releaseid) = @_;
-	my ($fileh);
-
-	$fileh = new FileHandle($self->toreal($filename, $releaseid));
-	return $fileh;
-}
-
-sub tmpfile {
-	my ($self, $filename, $releaseid) = @_;
-	my ($tmp, $tries);
-	local ($/) = undef;
-
-	$tmp = $config->tmpdir . '/lxrtmp.' . time . '.' . $$ . '.' . &LXR::Common::tmpcounter;
-	open(TMP, "> $tmp") || return undef;
-	open(FILE, "<", $self->toreal($filename, $releaseid)) || return undef;
-	print(TMP <FILE>);
-	close(FILE);
-	close(TMP);
-
-	return $tmp;
-}
-
-sub getannotations {
-	return ();
-}
-
-sub getauthor {
-	return undef;
 }
 
 sub getdir {
 	my ($self, $pathname, $releaseid) = @_;
 	my ($dir, $node, @dirs, @files);
 
+	# Make sure directory name ends with a slash
 	if($pathname !~ m!/$!) {
 		$pathname = $pathname . '/';
 	}
@@ -107,15 +63,23 @@ sub getdir {
 	$dir = $self->toreal($pathname, $releaseid);
 	opendir(DIR, $dir) || return ();
   FILE: while (defined($node = readdir(DIR))) {
-		next if $node =~ /^\.|~$|\.orig$/;
+		# Skip files starting with a dot (usually invisible),
+		# ending with a tilde (editor backup)
+		# or having "orig" extension
+		next if $node =~ m/^\.|~$|\.orig$/;
+		# Skip also CVS
 		next if $node eq 'CVS';
+		# More may be added if necessary
 
+		# Check directories to ignore
 		if (-d $dir . $node) {
 			foreach my $ignoredir ($config->ignoredirs) {
 				next FILE if $node eq $ignoredir;
 			}
+			# Directory to keep: suffix name with a slash
 			push(@dirs, $node . '/');
 		} else {
+			# File: don't change the name
 			push(@files, $node);
 		}
 	}
@@ -124,23 +88,48 @@ sub getdir {
 	return sort(@dirs), sort(@files);
 }
 
-# This function should not be used outside this module
-# except for printing error messages
-# (I'm not sure even that is legitimate use, considering
-# other possible File classes.)
+#	There are no annotations in real files,
+#	just return the empty list
+sub getannotations {
+	return ();
+}
 
-sub toreal {
-	my ($self, $pathname, $releaseid) = @_;
+#	No annotations also means no author
+sub getauthor {
+	return undef;
+}
 
-# nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
-	foreach my $ignoredir ($config->ignoredirs) {
-		return undef if $pathname =~ m|/$ignoredir/|;
-	}
+#	No revision either, then return a "signature" made of
+#	last modification time (in seconds) followed by file size
+sub filerev {
+	my ($self, $filename, $releaseid) = @_;
+
 	if (!defined $releaseid) {
 		$releaseid="";
 	}
+	#	return $releaseid;
+	return
+	  join("-", $self->getfiletime($filename, $releaseid), $self->getfilesize($filename, $releaseid));
+}
 
-	return ($self->{'rootpath'} . $releaseid . $pathname);
+#	getfilehandle returns a handle to the original real file.
+#	Take care not to unlink() it, otherwise it is gone for ever.
+sub getfilehandle {
+	my ($self, $filename, $releaseid) = @_;
+
+	return FileHandle->new($self->toreal($filename, $releaseid));
+}
+
+sub getfilesize {
+	my ($self, $filename, $releaseid) = @_;
+
+	return -s $self->toreal($filename, $releaseid);
+}
+
+sub getfiletime {
+	my ($self, $filename, $releaseid) = @_;
+
+	return (stat($self->toreal($filename, $releaseid)))[9];
 }
 
 sub isdir {
@@ -155,6 +144,41 @@ sub isfile {
 	return -f $self->toreal($pathname, $releaseid);
 }
 
+=head2 C<realfilename ($pathname, $releaseid)>
+
+C<realfilename> returns the true original name of the file.
+
+=over
+
+=item 1 C<$pathname>
+
+a I<string> containing the path relative to C<'sourceroot'>
+
+=item 1 C<$releaseid>
+
+the release (or version) in which C<$pathname> is expected to
+be found
+
+=back
+
+There is a substantial performance advantage in avoiding file copy
+into a temporary.
+But this is the real file.
+Be careful enough not to make destructive operations on it!
+
+B<Note:>
+
+=over
+
+=item
+
+If "standard" file copy is desired, comment out the method
+B<AND> C<releaserealfilename>.
+
+=back
+
+=cut
+
 sub realfilename {
 	my ($self, $pathname, $releaseid) = @_;
 
@@ -162,24 +186,73 @@ sub realfilename {
 	return $1;	# Untainted name
 }
 
-#	Nothing was allocated by realfilename, just return
+=head2 C<releaserealfilename ($filename)>
+
+C<releaserealfilename> protects againt file erasure.
+
+=over
+
+=item 1 C<$filename>
+
+a I<string> containing the filename
+
+=back
+
+This is the companion "destructor" of C<realfilename>.
+Since no file was created, just return for a no-op.
+
+This overrides the default erasure action of the super-class.
+
+=cut
+
 sub releaserealfilename {
 }
 
-sub getindex {
+
+=head2 C<toreal ($pathname, $releaseid)>
+
+C<toreal> translate the pair C<$pathname>/C<$releaseid> into a
+real full OS-absolute path.
+
+=over
+
+=item 1 C<$pathname>
+
+a I<string> containing the path relative to C<'sourceroot'>
+
+=item 1 C<$releaseid>
+
+the release (or version) in which C<$pathname> is expected to
+be found
+
+=back
+
+If C<$pathname> is located in some directory to ignore,
+the result is C<undef>.
+Otherwise, the result is the full OS path in the correct 'version'
+directory.
+
+B<Note:>
+
+=over
+
+=item
+
+This function should not be used outside this module.
+
+=back
+
+=cut
+
+sub toreal {
 	my ($self, $pathname, $releaseid) = @_;
-	my ($index, %index);
-	my $indexname = $self->toreal($pathname, $releaseid) . "00-INDEX";
 
-	if (-f $indexname) {
-		open(INDEX, "<", $indexname)
-		  || warning("Existing $indexname could not be opened.");
-		local ($/) = undef;
-		$index = <INDEX>;
-
-		%index = $index =~ /\n(\S*)\s*\n\t-\s*([^\n]*)/gs;
+# nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
+	foreach my $ignoredir ($config->ignoredirs) {
+		return undef if $pathname =~ m|/$ignoredir/|;
 	}
-	return %index;
+
+	return ($self->{'rootpath'} . $releaseid . $pathname);
 }
 
 1;
