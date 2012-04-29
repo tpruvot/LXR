@@ -60,7 +60,7 @@ create unique index %DB_tbl_prefix%symbolindex on %DB_tbl_prefix%symbols (symnam
 
 create        index %DB_tbl_prefix%indexindex  on %DB_tbl_prefix%indexes (symid);
 create        index %DB_tbl_prefix%relsym      on %DB_tbl_prefix%indexes (relsym);
-create        index %DB_tbl_prefix%fileid      on %DB_tbl_prefix%indexes (fileid):
+create        index %DB_tbl_prefix%fileid      on %DB_tbl_prefix%indexes (fileid);
 
 create        index %DB_tbl_prefix%usageindex  on %DB_tbl_prefix%usage (symid);
 
