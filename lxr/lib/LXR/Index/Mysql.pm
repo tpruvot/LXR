@@ -389,7 +389,7 @@ sub decid {
 
 sub commit {
     my ($self) = @_;
-#    $self->{dbh}->commit;
+    $self->{dbh}->commit;
 #    $self->{dbh}->begin_work;
 }
 
