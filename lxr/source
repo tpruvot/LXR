@@ -132,13 +132,13 @@ sub filesize {
 	my $s = $files->getfilesize($dir . $node, $releaseid);
 	my $str;
 
-	$str = "$s ";
-	if (length($s) > 6) {
+	$str = "$s";
+	if (length($s) > 5) {
 		$s >>= 10;
-		$str = "${s}ki";
-		if (length($s) > 7) {
+		$str = "${s}k";
+		if (length($s) > 6) {
 			$s >>= 10;
-			$str = "${s}Mi";
+			$str = "${s}M";
 		}
 	}
 # 	if ($s < 1 << 10) {
