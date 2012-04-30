@@ -1,3 +1,34 @@
+2012-03-27 07:49  tag release-0-11-1
+
+2012-03-27 07:49  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: fix left out sub name change
+
+	  'treeextract' was not changed to 'targetextract' in sub
+	  captionextract (line 422)
+
+2012-03-22 15:54  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: new feature 'conditional
+	  variables' in lxr.conf
+
+	  Conditional expression in new 'when' attribute'
+
+2012-03-22 11:26  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf:
+	  templates/ligttpd/lighttpd-lxrserver.conf: showconfig was
+	  forgotten in the list of CGI scripts
+
+2012-03-22 11:24  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: correction for bug #3509876
+	  (genxref invocation not recognised)
+
+	  Split erroneous line into 2 statements: first to grap script name
+	  in $1, second to compared $1 to "genxref"; thus avoiding
+	  scalar/list context ambiguity.
+
 2012-03-19 20:03  tag release-0-11-0
 
 2012-03-19 20:03  ajlittoz

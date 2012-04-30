@@ -1,6 +1,6 @@
 # -*- tab-width: 4 -*- ###############################################
 #
-# $Id: Config.pm,v 1.47 2012/03/07 20:22:22 ajlittoz Exp $
+# $Id: Config.pm,v 1.48 2012/03/22 11:24:27 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.47 2012/03/07 20:22:22 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.48 2012/03/22 11:24:27 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -179,7 +179,8 @@ sub _initialize {
 	}
 
 	if(!exists $self->{'baseurl'}) {
-		if("genxref" ne ($0 =~ /([^\/]*)$/)) {
+		$0 =~ m/([^\/]*)$/;
+		if("genxref" ne $1) {
 			return 0;
 		}
 		elsif($url =~ m!https?://.+\.!) {

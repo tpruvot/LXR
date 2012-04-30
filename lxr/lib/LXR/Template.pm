@@ -419,7 +419,7 @@ sub captionexpand {
 	# a string by extracting a relevant part from the URL.
 		|| expandtemplate
 				(	"\$tree  by courtesy of the LXR Cross Referencer"
-				,	( 'tree'    => sub { treeexpand(@_, $who) }
+				,	( 'tree'    => sub { targetexpand(@_, $who) }
 					)
 				);
 	$ret =~ s/</&lt;/g;
@@ -1441,6 +1441,14 @@ All variables are considered one after the other and template
 expansion is requested through C<expandtemplate> with adequate
 replacement rules for the properties.
 
+Some variables may be "conditional". They then have a C<'when'>
+attribute which value is a boolean expression. If the expression
+evaluates I<true>, the block will be expanded for this variable;
+otherwise, the variable is skipped.
+
+The expression is most useful to display variables only when
+others have a given value.
+
 The result is the concatenation of the repeated expansion.
 
 =cut
@@ -1451,6 +1459,9 @@ sub varexpand {
 	my $var;
 
 	foreach $var ($config->allvariables) {
+		if	(!exists($config->{'variables'}{$var}{'when'})
+			|| eval($config->varexpand($config->{'variables'}{$var}{'when'}))
+			) {
 		$varex .= expandtemplate
 					( $templ
 					,	( 'varname'  => sub { $config->vardescription($var) }
@@ -1461,6 +1472,7 @@ sub varexpand {
 						, 'varbtnaction'=> \&varbtnaction
 						)
 					);
+		}
 	}
 	return ($varex);
 }
