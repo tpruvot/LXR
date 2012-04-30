@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Common.pm,v 1.96 2012/04/17 08:10:46 ajlittoz Exp $
+# $Id: Common.pm,v 1.97 2012/04/20 19:56:19 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.96 2012/04/17 08:10:46 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.97 2012/04/20 19:56:19 ajlittoz Exp $ ';
 
 use strict;
 
@@ -395,9 +395,18 @@ sub httpinit {
 		delete $HTTP->{'param'}->{$_};
 	}
 
+	# Egg-and-hen problem here: clean_release checks the advertised
+	# release does exist through a reference {'v'}{'range'} and
+	# returns a guaranteed release into $releaseid.
+	# {'v'}{'range'} may be a sub needing $pathname.
+	# Later fixpaths will canonise this path using $releaseid.
+	# To break this vicious circle, we temporarily use the raw
+	# path, the only difference being the trailing slash missing
+	# on a directory name.
+	$pathname   = $HTTP->{'path_info'};
 	$releaseid  = clean_release($config->variable('v'));
 	$config->variable('v', $releaseid);  # put back into config obj
-	$pathname = fixpaths($HTTP->{'path_info'});
+	$pathname   = fixpaths($HTTP->{'path_info'});
 
 	printhttp;
 }
