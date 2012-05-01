@@ -27,9 +27,11 @@
 # and directory description snarfing mechanism is likely to be
 # different for each project.
 
+if ( length($ENV{'SERVER_NAME'}) ) {
 use CGI::Carp qw/carpout/;
 open LOG, ">>", "/var/log/lighttpd/lxr.log"; #or die("Cannot open file: $!\n");
 carpout(LOG);
+}
 
 package Local;
 
