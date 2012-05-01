@@ -348,6 +348,35 @@ sub processreserved {
      }gex;
 }
 
+
+sub readwordfile {
+        my $file = shift;
+        my @data;
+
+        open(INPUT, $file) || return [];
+        $file = <INPUT>;
+        close(INPUT);
+
+        @data = $file =~ /^([^#]+)/gm;
+        $file = join(' ', @data);
+        @data = $file =~ /([^\s]+)/gs;
+
+        return wantarray ? @data : $data[0];
+}
+
+sub in_array {
+    my $string = shift;
+    my @data = shift;
+    my $row;
+    foreach $row (@data)
+    {
+        if ($row eq $string) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 #
 # Find references to symbols in the file
 #
@@ -367,6 +396,8 @@ sub referencefile {
 	my ($btype, $frag) = &LXR::SimpleParse::nextfrag;
 	my @lines;
 	my $ls;
+
+	my @ignored = readwordfile('lxrconf.d/ignore_symbols.txt');
 
 	while (defined($frag)) {
 		@lines = ($frag =~ /(.*?\n)/g, $frag =~ /([^\n]*)$/);
@@ -390,7 +421,8 @@ sub referencefile {
 					$string = $_;
 
 			#		print "considering $string\n";
-					if (!$self->isreserved($string) && $index->issymbol($string, $$self{'releaseid'}))
+					if (!$self->isreserved($string) && !in_array($string, @ignored)
+					  && $index->issymbol($string, $$self{'releaseid'}))
 					{
 
 			#			print "adding $string to references\n";
