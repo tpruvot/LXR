@@ -10,7 +10,7 @@ deny from all
 deny from all
 </Files>
 
-<Files ~ (find|search|source|ident|diff|showconfig)$>
+<Files ~ (search|source|ident|diff|showconfig)$>
 SetHandler perl-script
 PerlHandler ModPerl::RegistryPrefork
 ForceType text/html
