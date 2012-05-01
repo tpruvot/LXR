@@ -88,7 +88,8 @@ lxr_root="${lxr_root//\//\\/}"
 
 if [ "$everything" == 1 ] ; then
 
-	chmod -R a=rx templates
+	chmod -R +rx templates
+	chmod 555 templates
 	echo "templates directory now protected read-only"
 
 	target=".htaccess"

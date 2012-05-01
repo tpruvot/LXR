@@ -27,6 +27,12 @@
 # and directory description snarfing mechanism is likely to be
 # different for each project.
 
+if ( length($ENV{'SERVER_NAME'}) ) {
+use CGI::Carp qw/carpout/;
+open LOG, ">>", "/var/log/lighttpd/lxr.log"; #or die("Cannot open file: $!\n");
+carpout(LOG);
+}
+
 package Local;
 
 $CVSID = '$Id: Local.pm,v 1.25 2011/12/21 19:35:54 ajlittoz Exp $ ';
