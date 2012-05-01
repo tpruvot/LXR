@@ -43,6 +43,6 @@ our @EXPORT = qw($LXRversion);
 
 #our $LXRversion = "%LXRRELEASENUMBER%";
 
-our $LXRversion = "0.11-git";
+our $LXRversion = "0.12-git";
 
 1;
