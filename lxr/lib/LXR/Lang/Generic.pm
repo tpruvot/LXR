@@ -383,17 +383,17 @@ sub referencefile {
 			foreach $l (@lines) {
 				foreach (
 					$l =~ /(?:^|[^a-zA-Z_\#]) 	# Non-symbol chars.
-				 (\~?_*[a-zA-Z][a-zA-Z0-9_]*) # The symbol.
+				 ([a-zA-Z_][a-zA-Z0-9_]*) # The symbol.
 				 \b/ogx
 				  )
 				{
 					$string = $_;
 
-					#		  print "considering $string\n";
+			#		print "considering $string\n";
 					if (!$self->isreserved($string) && $index->issymbol($string, $$self{'releaseid'}))
 					{
 
-						#			print "adding $string to references\n";
+			#			print "adding $string to references\n";
 						$index->setsymreference($string, $fileid, $linenum);
 					}
 
@@ -405,7 +405,7 @@ sub referencefile {
 		}
 		($btype, $frag) = &LXR::SimpleParse::nextfrag;
 	}
-	print("+++ $linenum\n");
+	print("+++ $linenum lines\n");
 }
 
 sub language {

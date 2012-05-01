@@ -64,4 +64,19 @@ create        index %DB_tbl_prefix%fileid      on %DB_tbl_prefix%indexes (fileid
 
 create        index %DB_tbl_prefix%usageindex  on %DB_tbl_prefix%usage (symid);
 
+-- tables are huge, MYISAM allow delayed insert and reduce db size
+ALTER TABLE %DB_tbl_prefix%symbols ENGINE = MYISAM;
+ALTER TABLE %DB_tbl_prefix%indexes ENGINE = MYISAM;
+ALTER TABLE %DB_tbl_prefix%usage ENGINE = MYISAM;
+
+ALTER TABLE %DB_tbl_prefix%declarations ENGINE = MYISAM;
+ALTER TABLE %DB_tbl_prefix%releases ENGINE = MYISAM;
+ALTER TABLE %DB_tbl_prefix%status ENGINE = MYISAM;
+ALTER TABLE %DB_tbl_prefix%files ENGINE = MYISAM;
+
+
+-- permissions
 grant all on %DB_name%.* to %DB_user%@localhost;
+
+SET PASSWORD FOR %DB_user%@localhost = PASSWORD('foo');
+
