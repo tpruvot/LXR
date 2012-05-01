@@ -78,7 +78,7 @@ sub new {
           . "order by f.filename, i.line, d.declaration");
     $self->{indexes_insert} =
       $self->{dbh}->prepare(
-        "insert into ${prefix}indexes (symid, fileid, line, langid, type, relsym) values (?, ?, ?, ?, ?, ?)"
+        "insert delayed into ${prefix}indexes (symid, fileid, line, langid, type, relsym) values (?, ?, ?, ?, ?, ?)"
       );
 
     $self->{releases_select} =
@@ -94,7 +94,7 @@ sub new {
       $self->{dbh}->prepare("update ${prefix}status set status = ? where fileid = ? and status <= ?");
 
     $self->{usage_insert} =
-      $self->{dbh}->prepare("insert into ${prefix}usage (fileid, line, symid) values (?, ?, ?)");
+      $self->{dbh}->prepare("insert delayed into ${prefix}usage (fileid, line, symid) values (?, ?, ?)");
     $self->{usage_select} =
       $self->{dbh}->prepare("SELECT f.filename, u.line "
           . "FROM ${prefix}symbols s "
@@ -103,6 +103,7 @@ sub new {
           . "INNER JOIN ${prefix}releases r ON r.fileid = u.fileid "
           . "WHERE s.symname = ? and  r.releaseid = ? "
           . "order by f.filename, u.line");
+
     $self->{decl_select} =
       $self->{dbh}->prepare(
         "select declid from ${prefix}declarations where langid = ? and declaration = ?");
