@@ -1,6 +1,7 @@
-# -*- tab-width: 4 -*- ###############################################
+# -*- tab-width: 4 -*-
+###############################################
 #
-# $Id: Config.pm,v 1.49 2012/03/27 16:04:26 ajlittoz Exp $
+# $Id: Config.pm,v 1.50 2012/05/04 08:14:43 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +30,7 @@ an abstract interface to the C<'variables'>.
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.49 2012/03/27 16:04:26 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.50 2012/05/04 08:14:43 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -234,17 +235,29 @@ sub _initialize {
 	_ensuredirexists($self->{'tmpdir'});
 
 	if (exists $self->{'glimpsebin'} and exists $self->{'swishbin'}) {
-		die "Both Glimpse and Swish have been specified in $confpath.\n".
-		"Please choose one of them by commenting out either glimpsebin or swishbin.\n";
-	} elsif (exists $self->{'glimpsebin'}) {
-		die "Please specifiy glimpsedir in $confpath\n" unless exists $self->{'glimpsedir'};
+		die "Both Glimpse and Swish have been specified in $confpath.\n"
+			."Please choose one of them by commenting out either glimpsebin or swishbin.\n";
+		
+	} elsif (exists $self->{'glimpsebin'}) {    
+		if (!exists($self->{'glimpsedir'})) {
+			die "Please specify glimpsedirbase or glimpsedir in $confpath\n"
+				unless exists($self->{'glimpsedirbase'});
+			$self->{'glimpsedir'} = $self->{'glimpsedirbase'} . $self->{'virtroot'};
+		}
 		_ensuredirexists($self->{'glimpsedir'});
-	} elsif (exists $self->{'swishbin'}) {
-		die "Please specifiy swishdir in $confpath\n" unless exists $self->{'swishdir'};
+	} elsif (exists $self->{'swishbin'}) {    
+		if (!exists($self->{'swishdir'})) {
+			die "Please specify swishdirbase or swishdir in $confpath\n"
+				unless exists($self->{'swishdirbase'});
+			$self->{'swishdir'} = $self->{'swishdirbase'} . $self->{'virtroot'};
+		}
 		_ensuredirexists($self->{'swishdir'});
 	} else {
-		die "Neither Glimpse nor Swish have been specified in $confpath.\n".
-		"Please choose one of them by specifing a value for either glimpsebin or swishbin.\n";
+	# Since free-text search is not operational with VCSes,
+	# don't complain if not configured.
+	die	"Neither Glimpse nor Swish have been specified in $confpath.\n"
+		."Please choose one of them by specifing a value for either glimpsebin or swishbin.\n"
+		unless $self->{'sourceroot'} =~ m!^[^/]+:! ;
 	}
 	return 1;
 }
@@ -625,11 +638,38 @@ sub unmappath {
 	return $path;
 }
 
+
+=head2 C<_ensuredirexists ($chkdir)>
+
+Function C<_ensuredirexists> checks that directory C<$dir> exists
+and creates it if not in a way similar to "C<mkdir -p>".
+
+=over
+
+=item 1 C<$chkdir>
+
+a I<string> containing the directory path.
+
+=back
+
+=head3 Algorithm
+
+Every component of the path is checked from left to right.
+Both OS-absolute or relative paths are accepted, though the
+latter form would probably not make sense in LXR context.
+
+=cut
+
 sub _ensuredirexists {
-  my $dir = shift;
-  if(!-d $dir) {
-    mkpath($dir) or die "Couldn't make the directory $dir: ?!";
-  }  
+	my $chkdir = shift;
+	my $dir;
+	while ($chkdir =~ s:(^/?[^/]+)::) {
+		$dir .= $1;
+		if(!-d $dir) {
+			mkpath($dir)
+			or die "Couldn't make the directory $dir: ?!";
+		}
+	}  
 }
 
 
