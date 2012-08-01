@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 # -*- tab-width: 4 -*-"
-# $Id: genxref,v 1.58 2012/04/17 08:10:46 ajlittoz Exp $
+# $Id: genxref,v 1.59 2012/07/20 11:47:29 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -237,7 +237,7 @@ END_TEST_GLIMPSEINDEX:
 
 if ($config && $config->{'swishbin'}) {
 	$tool = $config->{'swishbin'};
-	$toolloc = `which swhish-e 2>/dev/null`;
+	$toolloc = `which swish-e 2>/dev/null`;
 	$toolloc =~ s/\n$//s;
 	if ($tool ne $toolloc) {
 		print "${VTyellow}'swishbin' not equal to `which swish-e`${VTnorm}\n";
@@ -515,7 +515,7 @@ sub gensearch {
 			    "| "
 			  . $config->swishbin
 			  . " -S prog -i stdin -v 1 -c ".$config->{'swishconf'}
-			  . "-f ".$config->swishdir."/".$releaseid.".index"
+			  . " -f ".$config->swishdir."/".$releaseid.".index"
 			)
 		  or die ${VTred} . "Couldn't exec " . $config->swishbin . ":${VTnorm $!}\n";
 
