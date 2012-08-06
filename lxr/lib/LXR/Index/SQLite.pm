@@ -1,7 +1,7 @@
 # -*- tab-width: 4 perl-indent-level: 4-*-
 ###############################
 #
-# $Id: Oracle.pm,v 1.24 2012/08/03 14:27:45 ajlittoz Exp $
+# $Id: SQLite.pm,v 1.1 2012/08/03 14:28:42 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,21 +19,9 @@
 #
 ###############################
 
-package LXR::Index::Oracle;
+package LXR::Index::SQLite;
 
-$CVSID = '$Id: Oracle.pm,v 1.24 2012/08/03 14:27:45 ajlittoz Exp $ ';
-
-# ***
-# *** CAUTION -CAUTION - CAUTION ***
-# ***
-# *** This update has not been tested because
-# *** Oracle has a proprietary licence.
-# ***
-# *** (It was written with SQL syntax description only
-# *** without live checks.)
-# ***
-# *** If something goes wrong, report to the maintainer.
-# ***
+$CVSID = '$Id: SQLite.pm,v 1.1 2012/08/03 14:28:42 ajlittoz Exp $ ';
 
 use strict;
 use DBI;
@@ -41,27 +29,29 @@ use LXR::Common;
 
 our @ISA = ("LXR::Index");
 
+our ($filenum, $symnum, $typenum);
+our ($fileini, $symini, $typeini);
+
 sub new {
 	my ($self, $dbname, $prefix) = @_;
 
 	$self = bless({}, $self);
-
-	$self->{dbh} =
-		DBI->connect($dbname, $config->{dbuser}, $config->{dbpass},
-			{ RaiseError => 1, AutoCommit => 1 })
-		or fatal "Can't open connection to database: $DBI::errstr\n";
+	$self->{dbh} = DBI->connect($dbname)
+	or fatal "Can't open connection to database: $DBI::errstr\n";
 
 	$self->{'files_select'} =
 		$self->{dbh}->prepare("select fileid from ${prefix}files where filename = ? and revision = ?");
 	$self->{'files_insert'} =
-		$self->{dbh}->prepare("insert into ${prefix}files (filename, revision, fileid) values (?, ?, ${prefix}filenum.nextval)");
+		$self->{dbh}->prepare("insert into ${prefix}files (filename, revision, fileid) values (?, ?, ?)");
 
 	$self->{'symbols_byname'} =
 		$self->{dbh}->prepare("select symid from ${prefix}symbols where symname = ?");
 	$self->{'symbols_byid'} =
 		$self->{dbh}->prepare("select symname from ${prefix}symbols where symid = ?");
+	$self->{'symnum_lastval'} = 
+		$self->{dbh}->prepare("select sid from ${prefix}symnum");
 	$self->{'symbols_insert'} =
-		$self->{dbh}->prepare("insert into ${prefix}symbols (symname, symid) values ( ?, ${prefix}symnum.nextval)");
+		$self->{dbh}->prepare("insert into ${prefix}symbols (symname, symid) values ( ?, ?)");
 	$self->{'symbols_remove'} =
 		$self->{dbh}->prepare("delete from ${prefix}symbols where symname = ?");
 
@@ -96,7 +86,7 @@ sub new {
 		$self->{dbh}->prepare("insert into ${prefix}usages (fileid, line, symid) values (?, ?, ?)");
 	$self->{'usages_select'} =
 		$self->{dbh}->prepare("select f.filename, u.line"
-			. " from ${prefix}symbols s, ${prefix}files f, ${prefix}releases r, ${prefix}usages u"
+			. " from ${prefix}symbols s, ${prefix}files f, ${prefix}releases r, ${prefix}usages u "
 			. " where s.symid = u.symid"
 			. " and f.fileid = r.fileid"
 			. " and u.fileid = r.fileid"
@@ -109,7 +99,7 @@ sub new {
 			"select typeid from ${prefix}langtypes where langid = ? and declaration = ?");
 	$self->{'langtypes_insert'} =
 		$self->{dbh}->prepare(
-			"insert into ${prefix}langtypes (typeid, langid, declaration) values (${prefix}typenum.nextval, ?, ?)");
+			"insert into ${prefix}langtypes (typeid, langid, declaration) values (?, ?, ?)");
 
 	$self->{'delete_definitions'} =
 		$self->{dbh}->prepare("delete from ${prefix}definitions"
@@ -117,7 +107,7 @@ sub new {
 			. "  (select fileid from ${prefix}releases where releaseid = ?)");
 	$self->{'delete_usages'} =
 		$self->{dbh}->prepare("delete from ${prefix}usages"
-			. " where fileid in "
+			. " where fileid in"
 			. "  (select fileid from ${prefix}releases where releaseid = ?)");
 	$self->{'delete_releases'} =
 		$self->{dbh}->prepare("delete from ${prefix}releases where releaseid = ?");
@@ -126,25 +116,56 @@ sub new {
 			. " where relcount = 0");
 
 	$self->{'purge_langtypes'} =
-		$self->{dbh}->prepare("truncate table ${prefix}langtypes");
+		$self->{dbh}->prepare("delete from ${prefix}langtypes");
 	$self->{'purge_files'} =
-		$self->{dbh}->prepare("truncate table ${prefix}files");
+		$self->{dbh}->prepare("delete from ${prefix}files");
 	$self->{'purge_definitions'} =
-		$self->{dbh}->prepare("truncate table ${prefix}definitions");
+		$self->{dbh}->prepare("delete from ${prefix}definitions");
 	$self->{'purge_releases'} =
-		$self->{dbh}->prepare("truncate table ${prefix}releases");
+		$self->{dbh}->prepare("delete from ${prefix}releases");
 	$self->{'purge_status'} =
-		$self->{dbh}->prepare("truncate table ${prefix}status");
+		$self->{dbh}->prepare("delete from ${prefix}status");
 	$self->{'purge_symbols'} =
-		$self->{dbh}->prepare("truncate table ${prefix}symbols");
+		$self->{dbh}->prepare("delete from ${prefix}symbols");
 	$self->{'purge_usages'} =
-		$self->{dbh}->prepare("truncate table ${prefix}usages");
+		$self->{dbh}->prepare("delete from ${prefix}usages");
 
-	$self->{'purge_all'} = $self->{dbh}->prepare
-		( "truncate table ${prefix}definitions, ${prefix}usages, ${prefix}langtypes"
-		. ", ${prefix}symbols, ${prefix}releases, ${prefix}status"
-		. ", ${prefix}files"
-		.	" cascade"
+	$self->{'filenum_lastval'} = 
+		$self->{dbh}->prepare("select fid from ${prefix}filenum");
+	$self->{'filenum_lastval'}->execute();
+	$filenum = $self->{'filenum_lastval'}->fetchrow_array();
+	$self->{'filenum_lastval'} = undef;
+
+	$self->{'symnum_lastval'} = 
+		$self->{dbh}->prepare("select sid from ${prefix}symnum");
+	$self->{'symnum_lastval'}->execute();
+	$symnum = $self->{'symnum_lastval'}->fetchrow_array();
+	$self->{'symnum_lastval'}  = undef;
+
+	$self->{'typenum_lastval'} = 
+		$self->{dbh}->prepare("select tid from ${prefix}typenum");
+	$self->{'typenum_lastval'}->execute();
+	$typenum = $self->{'typenum_lastval'}->fetchrow_array();
+	$self->{'typenum_lastval'} = undef;
+
+	$fileini = $filenum;
+	$symini  = $symnum;
+	$typeini = $typenum;
+
+	$self->{'filenum_newval'} =
+		$self->{dbh}->prepare("insert or replace"
+			. " into ${prefix}filenum"
+			. " (rcd, fid) values (0, $filenum)"
+		);
+	$self->{'symnum_newval'} =
+		$self->{dbh}->prepare("insert or replace"
+			. " into ${prefix}symnum"
+			. " (rcd, sid) values (0, $symnum)"
+		);
+	$self->{'typenum_newval'} =
+		$self->{dbh}->prepare("insert or replace"
+			. " into ${prefix}typenum"
+			. " (rcd, tid) values (0, $typenum)"
 		);
 
 	return $self;
@@ -152,6 +173,17 @@ sub new {
 
 sub DESTROY {
 	my ($self) = @_;
+
+	if ($filenum != $fileini) {
+		$self->{'filenum_newval'}->execute();
+	}
+	if ($symnum != $symini) {
+		$self->{'symnum_newval'}->execute();
+	}
+	if ($typenum != $typeini) {
+		$self->{'typenum_newval'}->execute();
+	}
+
 	$self->{'files_insert'}       = undef;
 	$self->{'files_select'}       = undef;
 	$self->{'symbols_byname'}     = undef;
@@ -181,6 +213,9 @@ sub DESTROY {
 	$self->{'purge_symbols'}      = undef;
 	$self->{'purge_usages'}       = undef;
 	$self->{'purge_all'}          = undef;
+	$self->{'filenum_newval'}    = undef;
+	$self->{'symnum_newval'}     = undef;
+	$self->{'typenum_newval'}    = undef;
 
 	if ($self->{dbh}) {
 		$self->{dbh}->disconnect() or die "Disconnect failed: $DBI::errstr";
@@ -192,17 +227,65 @@ sub DESTROY {
 # LXR::Index API Implementation
 #
 
+sub fileid {
+	my ($self, $filename, $revision) = @_;
+	my ($fileid);
+
+	unless (defined($fileid = $Index::files{"$filename\t$revision"})) {
+		$self->{'files_select'}->execute($filename, $revision);
+		$fileid = ++$filenum;
+		$self->{'files_insert'}->execute($filename, $revision, $fileid);
+		$self->{'status_insert'}->execute($fileid, 0);
+		$Index::files{"$filename\t$revision"} = $fileid;
+#        $self->{files_select}->finish();
+	}
+	return $fileid;
+}
+
+sub symid {
+	my ($self, $symname) = @_;
+	my ($symid);
+
+	unless (defined($symid = $Index::symcache{$symname})) {
+		$self->{'symbols_byname'}->execute($symname);
+		$symid = ++$symnum;
+		$self->{'symbols_insert'}->execute($symname, $symid);
+		$Index::symcache{$symname} = $symid;
+	}
+
+	return $symid;
+}
+
+sub decid {
+	my ($self, $lang, $string) = @_;
+
+	my $rows = $self->{'langtypes_select'}->execute($lang, $string);
+	$self->{'langtypes_select'}->finish();
+
+	unless ($rows > 0) {
+		my $declid = ++$typenum;
+		$self->{'langtypes_insert'}->execute($declid, $lang, $string);
+	}
+
+	$self->{'langtypes_select'}->execute($lang, $string);
+	my $id = $self->{'langtypes_select'}->fetchrow_array();
+	$self->{'langtypes_select'}->finish();
+
+	return $id;
+}
+
 sub purgeall {
 	my ($self) = @_;
 
-	# special sub for a clean '--allversions' indexation with VCSes
-	$self->{'purge_langtypes'}->execute();
-	$self->{'purge_files'}->execute();
+	$self->{dbh}->begin_work;
 	$self->{'purge_definitions'}->execute();
+	$self->{'purge_usages'}->execute();
+	$self->{'purge_langtypes'}->execute();
+	$self->{'purge_symbols'}->execute();
 	$self->{'purge_releases'}->execute();
 	$self->{'purge_status'}->execute();
-	$self->{'purge_symbols'}->execute();
-	$self->{'purge_usage'}->execute();
+	$self->{'purge_files'}->execute();
+	$self->{dbh}->commit;
 }
 
 1;
