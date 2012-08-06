@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Config.pm,v 1.50 2012/05/04 08:14:43 ajlittoz Exp $
+# $Id: Config.pm,v 1.51 2012/08/03 16:33:47 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ an abstract interface to the C<'variables'>.
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.50 2012/05/04 08:14:43 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.51 2012/08/03 16:33:47 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -43,6 +43,21 @@ use vars qw($AUTOLOAD $confname);
 
 $confname = 'lxr.conf';
 
+
+=head2 C<new (@parms)>
+
+Method C<new> creates a new configuration object.
+
+=over
+
+=item 1 C<@parms>
+
+the paramaters I<array> (just passed to C<_initialize>
+
+=back
+
+=cut
+
 sub new {
 	my ($class, @parms) = @_;
 	my $self = {};
@@ -53,6 +68,26 @@ sub new {
 		return undef;
 	}
 }
+
+
+=head2 C<readconfig ()>
+
+Method C<readconfig> returns the content of the configuration
+file as a list.
+
+B<Note:>
+
+=over
+
+This method should only be used in cases when it is relevant to
+make distinction between the different blocks (such as I<showconfig>
+or the need to create links to other trees).
+In all other circumstances, the configuration file should only be
+accessed through the public methods.
+
+=back
+
+=cut
 
 sub readconfig {
 	my $self = shift;
@@ -72,6 +107,34 @@ sub readconfig {
 	return wantarray ? @config : $config[0];
 }
 
+
+=head2 C<readfile ($file)>
+
+Function C<readfile> returns the content of the designated
+file as a list of "words" ("words" are delimited by spaces).
+
+=over
+
+=item 1 C<$file>
+
+a I<string> containing the file name, relative to the LXR root
+directory or absolute
+
+=back
+
+B<Note:>
+
+=over
+
+This is not a "method", it is a standard function.
+Its main goal is to provide an easy way to initialize the
+configuration C<'variables'> by reading the set of values from
+a text file.
+
+=back
+
+=cut
+
 sub readfile {
 	local ($/) = undef;    # Just in case; probably redundant.
 	my $file = shift;
@@ -86,6 +149,32 @@ sub readfile {
 	return wantarray ? @data : $data[0];
 }
 
+
+=head2 C<_initialize ($url, $confpath)>
+
+Internal method C<_initialize> does the real object initialization.
+
+=over
+
+=item 1 C<$url>
+
+a I<string> containing the initial part of the URL
+(truncated at the invoking script)
+
+=item 1 C<$confpath>
+
+a I<string> containing the path of the configuration file
+(either relative to the LXR root directory or absolute)
+
+=back
+
+If C<$confpath> is not defined, use the internal C<$confname>.
+
+If C<$url> is not defined, try to extract something meaningful
+from the invoking URL.
+
+=cut
+
 sub _initialize {
 	my ($self, $url, $confpath) = @_;
 	my ($dir,  $arg);
@@ -97,7 +186,7 @@ sub _initialize {
 
 	$url =~ s!^//!http://!;		# allow a shortened form in genxref
 	$url =~ s!^http://([^/]*):443/!https://$1/!;
-	$url .= '/' unless $url =~ m#/$#;    # append / if necessary
+	$url =~ s!/*$!/!;			# append / if necessary
 
 	unless ($confpath) {
 		($confpath) = ($0 =~ /(.*?)[^\/]*$/);
@@ -117,11 +206,16 @@ sub _initialize {
 	my @config = eval("\n#line 1 \"configuration file\"\n" . $config_contents);
 	die($@) if $@;
 
-	my $config;
+		# Store the global parameter group
 	if (scalar(@config) > 0) {
 		%$self = (%$self, %{ $config[0] });
 	}
 
+#	Find the applicable parameter group
+#	"Modern" identification is based on 'host_names' and 'virtroot'
+#	parameters (which needs to spplit $url); "compatibility"
+#	identification uses 'baseurl' and 'baseurl_aliases'.
+#	The target id ends up in 'baseurl' in both cases.
 	$url =~ m!(^.*?://.*?)/!;	# host name and port used to access server
 	my $host = $1;
 		# To allow simultaneous Apache and lighttpd operation
@@ -137,9 +231,13 @@ sub _initialize {
 	$script_path =~ s!/[^/]*$!!;	# path to script
 	$script_path =~ s!^/*!/!;		# ensure a single starting /
 	my $parmgroup = 0;
-  CANDIDATE: foreach $config (@config[1..$#config]) {
+		# Test every parameter group in turn
+CANDIDATE: foreach my $config (@config[1..$#config]) {
 		$parmgroup++;				# next parameter group
 		my @hostnames;
+		# If no 'host_names' in the current parameter group,
+		# revert to the the global 'host_names' already loaded
+		# in $self.
 		if (exists($config->{'host_names'})) {
 			@hostnames = @{$config->{'host_names'}};
 		} elsif (exists($self->{'host_names'})) {
@@ -190,12 +288,12 @@ sub _initialize {
 		}
 	}
 
+#	Have we found our target?
 	if(!exists $self->{'baseurl'}) {
 		$0 =~ m/([^\/]*)$/;
 		if("genxref" ne $1) {
 			return 0;
-		}
-		elsif($url =~ m!https?://.+\.!) {
+		} elsif($url =~ m!https?://.+\.!) {
 			die "Can't find config for $url: make sure there is a 'baseurl' line that matches in lxr.conf\n";
 		} else {
 			# wasn't a url, so probably genxref with a bad --url parameter
@@ -206,6 +304,7 @@ sub _initialize {
 
 	$$self{'encoding'} = "iso-8859-1" unless (exists $self->{'encoding'});
 
+#	Final checks on the parsing dispatcher
 	if (!exists $self->{'filetype'}) {
 		if (exists $self->{'filetypeconf'}) {
 			unless (open(FILETYPE, $self->{'filetypeconf'})) {
@@ -234,6 +333,7 @@ sub _initialize {
 	# Set-up various directories as necessary
 	_ensuredirexists($self->{'tmpdir'});
 
+#	See if there is ambiguity on the free-text search engine
 	if (exists $self->{'glimpsebin'} and exists $self->{'swishbin'}) {
 		die "Both Glimpse and Swish have been specified in $confpath.\n"
 			."Please choose one of them by commenting out either glimpsebin or swishbin.\n";
@@ -262,52 +362,156 @@ sub _initialize {
 	return 1;
 }
 
+
+=head2 C<allvariables ()>
+
+Method C<allvariables> returns the list of all defined variables.
+
+=cut
+
 sub allvariables {
 	my $self = shift;
 
-	return keys(%{ $self->{variables} || {} });
+	return keys(%{ $self->{'variables'} || {} });
 }
+
+
+=head2 C<variable ($var, $val)>
+
+Method C<variable> returns the current value of the designated variable.
+
+=over
+
+=item 1 C<$var>
+
+a I<string> containing the name of the variable
+
+=item 1 C<$val>
+
+optional value; if present, replaces the current value
+
+=back
+
+If no current value has already been set, the default value is returned.
+
+=cut
 
 sub variable {
 	my ($self, $var, $val) = @_;
 
-	$self->{variables}{$var}{value} = $val if defined($val);
-	return $self->{variables}{$var}{value}
+	$self->{'variables'}{$var}{'value'} = $val if defined($val);
+	return $self->{'variables'}{$var}{'value'}
 	  || $self->vardefault($var);
 }
+
+
+=head2 C<vardefault ($var)>
+
+Method C<variable> returns the default value of the designated variable.
+
+=over
+
+=item 1 C<$var>
+
+a I<string> containing the name of the variable
+
+=back
+
+If no default value has been defined, the first value in C<'range'>
+is returned.
+
+=cut
 
 sub vardefault {
 	my ($self, $var) = @_;
 
-	if (exists($self->{variables}{$var}{default})) {
-		return $self->{variables}{$var}{default}
+	if (exists($self->{'variables'}{$var}{'default'})) {
+		return $self->{'variables'}{$var}{'default'}
 	}
-	if (ref($self->{variables}{$var}{range}) eq "CODE") {
+	if (ref($self->{'variables'}{$var}{'range'}) eq "CODE") {
 		my @vr = varrange($var);
 		return $vr[0] if scalar(@vr)>0; return "head"
 	}
-	return	$self->{variables}{$var}{range}[0];
+	return	$self->{'variables'}{$var}{'range'}[0];
 }
+
+
+=head2 C<vardefault ($var, $val)>
+
+Method C<variable> returns the description of the designated variable.
+
+=over
+
+=item 1 C<$var>
+
+a I<string> containing the name of the variable
+
+=item 1 C<$val>
+
+optional value; if present, replaces the description
+
+=back
+
+B<Note:>
+
+=over
+
+Don't be confused! The word "description" is human semantic meaning
+for this data. It is stored in the C<'data'> element of the hash
+representing the variable and its state.
+
+=back
+
+=cut
 
 sub vardescription {
 	my ($self, $var, $val) = @_;
 
-	$self->{variables}{$var}{name} = $val if defined($val);
+	$self->{'variables'}{$var}{'name'} = $val if defined($val);
 
-	return $self->{variables}{$var}{name};
+	return $self->{'variables'}{$var}{'name'};
 }
+
+
+=head2 C<varrange ($var)>
+
+Method C<variable> returns the set of values of the designated variable.
+
+=over
+
+=item 1 C<$var>
+
+a I<string> containing the name of the variable
+
+=back
+
+=cut
 
 sub varrange {
 	my ($self, $var) = @_;
-	no strict "refs";	# ajl: temporary, I hope. Without it
-						# following line fails in $var!
-
-	if (ref($self->{variables}{$var}{range}) eq "CODE") {
-		return &{ $self->{variables}{$var}{range} };
+no strict "refs";
+	if (ref($self->{'variables'}{$var}{'range'}) eq "CODE") {
+		return &{ $self->{'variables'}{$var}{'range'} };
 	}
 
-	return @{ $self->{variables}{$var}{range} || [] };
+	return @{ $self->{'variables'}{$var}{'range'} || [] };
 }
+
+
+=head2 C<varexpand ($exp)>
+
+Method C<variable> returns its argument with all occurrences of
+C<$xxx> replaced by the current value of variable C<'xxx'>.
+
+=over
+
+=item 1 C<$exp>
+
+a I<string> to expand
+
+=back
+
+=cut
 
 sub varexpand {
 	my ($self, $exp) = @_;
@@ -315,6 +519,23 @@ sub varexpand {
 
 	return $exp;
 }
+
+
+=head2 C<value ($var)>
+
+Method C<variable> returns the value of a configuration parameter
+with occurrences of C<$xxx> replaced by the current value of
+variable C<'xxx'>.
+
+=over
+
+=item 1 C<$var>
+
+a I<string> containing the configuration parameter name
+
+=back
+
+=cut
 
 sub value {
 	my ($self, $var) = @_;
@@ -334,6 +555,29 @@ sub value {
 	}
 }
 
+
+=head2 C<AUTOLOAD (@parms)>
+
+Magical Perl method C<AUTOLOAD> to instantiate unknown barewords.
+
+=over
+
+=item 1 C<@parms>
+
+optional arguments I<array> passed to instantiated function
+
+=back
+
+When a bareword is encountered in a construct like C<$config->bareword>,
+this method is called. It tries to get the expanded value of
+configuration parameter C<'bareword'> with method C<value>.
+If the value itself is a function, that function is called with
+the parameters provided to C<bareword>.
+
+The final value is returned to the caller.
+
+=cut
+
 sub AUTOLOAD {
 	my $self = shift;
 	(my $var = $AUTOLOAD) =~ s/.*:://;
@@ -347,12 +591,44 @@ sub AUTOLOAD {
 	}
 }
 
+
+=head2 C<mappath ($path, @args)>
+
+Method C<mappath> returns its argument path transformed by
+the C'maps'> rules.
+
+=over
+
+=item 1 C<$path>
+
+a I<string> containing the path to transform
+
+=item 1 C<@args>
+
+an I<array> containing strings of the form var=value forcing
+a context in which the C<'maps'> rules are applied
+
+=back
+
+B<Note:>
+
+=over
+
+The rules are applied once only in the path.
+Should they be globally applied (with flag C<g> on the regexp)?
+Does this make sense?
+
+=back
+
+=cut
+
 sub mappath {
 	my ($self, $path, @args) = @_;
 	return $path if !exists($self->{'maps'});
 	my %oldvars;
 	my ($m, $n);
 
+	# Protect the current context
 	foreach $m (@args) {
 		if ($m =~ /(.*?)=(.*)/) {
 			$oldvars{$1} = $self->variable($1);
@@ -367,6 +643,7 @@ sub mappath {
  		$path =~ s/$m/$self->varexpand($n)/e;
 	}
 
+	# Restore the initial context
 	while (($m, $n) = each %oldvars) {
 		$self->variable($m, $n);
 	}
@@ -377,7 +654,7 @@ sub mappath {
 
 =head2 C<unmappath ($path, @args)>
 
-Function C<unmappath> attempts to undo the effects of C<mappath>.
+Method C<unmappath> attempts to undo the effects of C<mappath>.
 It returns an abstract path suitable for a new processing by
 C<mappath> with a new set of variables values.
 
@@ -641,7 +918,7 @@ sub unmappath {
 
 =head2 C<_ensuredirexists ($chkdir)>
 
-Function C<_ensuredirexists> checks that directory C<$dir> exists
+Internal function C<_ensuredirexists> checks that directory C<$dir> exists
 and creates it if not in a way similar to "C<mkdir -p>".
 
 =over
@@ -668,6 +945,7 @@ sub _ensuredirexists {
 		if(!-d $dir) {
 			mkpath($dir)
 			or die "Couldn't make the directory $dir: ?!";
+			chmod 0777, $dir;
 		}
 	}  
 }

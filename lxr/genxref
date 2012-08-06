@@ -37,7 +37,7 @@ GetOptions	(\%option
 			, "allurls!"
 			, "allversions:s"
 			, "gensearch-only!"
-			, "genindex-only!"
+			, "gendefs-only!"
 			, "genrefs-only!"
 			, "purge=s",
 			, "reindex=s"
@@ -65,7 +65,7 @@ Valid options are:
   --version=VERSION  Generate tokens for the given version of the code.
   --allversions      Generate tokens for all versions of the code (default).
   --gensearch-only   used with --version=<VERSION>, update swish full text files
-  --genindex-only    used with --version=<VERSION>, update db index
+  --gendefs-only    used with --version=<VERSION>, update db definitions
   --genrefs-only     used with --version=<VERSION>, update db refs
   --purge=VERSION    Purge VERSION data from database
   --reindex=VERSION  Purge and reindex VERSION
@@ -362,8 +362,8 @@ if ($option{'purge'}) {
 		@versions = $config->varrange('v');
 		print "Processing all versions\n";
 		die
-		  "${VTred}Option --allversions cannot be used because no versions found automatically.${VTnorm}  Use --version=VERSION or fix lxr.conf.\n"
-		  if scalar @versions <= 0;
+		"${VTred}Option --allversions cannot be used because no versions found automatically.${VTnorm}  Use --version=VERSION or fix lxr.conf.\n"
+		if scalar @versions <= 0;
 	}
 } else {
 	@versions = $option{'version'};
@@ -389,16 +389,16 @@ foreach my $version (@versions) {
 		print("Purging version $version \n");
 		$index->purge($version);
 	}
-	if (!$option{'purge'} && !$option{'gensearch-only'} && !$option{'genindex-only'} && !$option{'genrefs-only'}) {
+	if (!$option{'purge'} && !$option{'gensearch-only'} && !$option{'gendefs-only'} && !$option{'genrefs-only'}) {
 		if ($files->isa("LXR::Files::Plain")) {
-		  gensearch($version);
+			gensearch($version);
 		}
 		genindex('/', $version);
 		genrefs('/', $version);
 	}
 
 	# gensearch($version)     if ($option{'gensearch-only'} || $files->isa("LXR::Files::Plain"));
-	genindex('/', $version) if $option{'genindex-only'};
+	genindex('/', $version) if $option{'gendefs-only'};
 	genrefs('/', $version)  if $option{'genrefs-only'};
 
 	$index->commit;

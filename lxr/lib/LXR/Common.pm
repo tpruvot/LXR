@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Common.pm,v 1.97 2012/04/20 19:56:19 ajlittoz Exp $
+# $Id: Common.pm,v 1.98 2012/08/03 16:33:47 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,18 +16,35 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+###############################################
+
+=head1 Common module
+
+This module contains HTTP initialisation and various HTML tag generation.
+
+I<Note:>
+
+=over
+
+I<It initially contained nearly all support routines,
+but for the "object" collections (files, index, lang), and was
+then correctly the "common" module.
+Its size grew beyond maintanability and readability and forced a
+split into smaller, specialized modules.
+Consequently, its name should be changed to reflect its present
+content.>
+
+=back
+
+=cut
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.97 2012/04/20 19:56:19 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.98 2012/08/03 16:33:47 ajlittoz Exp $ ';
 
 use strict;
 
 require Exporter;
-
-# use vars qw(@ISA @EXPORT @EXPORT_OK %EXPORT_TAGS
-#   $files $index $config $pathname $identifier $releaseid
-#   $HTTP $wwwdebug $tmpcounter);
 
 our @ISA = qw(Exporter);
 
@@ -36,7 +53,7 @@ our @EXPORT = qw(
 	$HTTP
 	$pathname $releaseid $identifier
 	&warning &fatal
-	 &fflush
+	&fflush
 	&urlargs &nonvarargs &fileref &diffref &idref &incref
 	&httpinit &httpclean
 );
@@ -65,7 +82,44 @@ our $HTTP;
 
 my $wwwdebug = 0;
 
+# Initial value of temp file counter (see sub tmpcounter below)
 my $tmpcounter = 23;
+
+
+#######################################
+#
+#	Debugging display functions
+#
+# HTML display is effective only when $wwwdebug is non zero
+
+# TODO:	update these functions so that they can be used
+#		even before sub httpinit has been called to provide
+#		a safe and reliable debugging display.
+# Hint:	create a flag telling if HTTP headers have already been
+#		sent; if not, ouput a minimal set of headers to allow
+#		for HTML environment.
+
+
+=head2 C<warning ($msg)>
+
+Function C<warning> issues a warning message and
+returns to the caller.
+
+=over
+
+=item 1 C<$msg>
+
+a I<string> containing the message
+
+=back
+
+The message is prefixed with Perl context information.
+It is printed both on STDERR and in the HTML stream.
+
+To prevent HTML mayhem, HTML tag delimiters are replaced by their
+entity name equivalent.
+
+=cut
 
 sub warning {
 	my $msg = shift;
@@ -73,41 +127,142 @@ sub warning {
 	print(STDERR "[", scalar(localtime), "] warning: $c: $msg\n");
 	$msg =~ s/</&lt;/g;
 	$msg =~ s/>/&gt;/g;
-	return ("<h4 class=\"warning\"><i>** Warning: $msg</i></h4>\n") if $wwwdebug;
+	return ("<h4 class=\"warning\"><i>** Warning: $msg</i></h4>\n")
+		if $wwwdebug;
 	return '';
 }
+
+
+=head2 C<fatal ($msg)>
+
+Function C<fatal> issues an error message and quits.
+
+=over
+
+=item 1 C<$msg>
+
+a I<string> containing the message
+
+=back
+
+Full Perl context information is given
+and tentative LXR configuration data is dumped (on STDERR).
+
+The message is printed both on STDERR and in the HTML stream.
+
+B<Notes:>
+
+=over
+
+The message should be protected against HTML abuse by replacing
+the HTML tag delimiters by their entity name equivalent.
+
+Since LXR is exited immediately, the HTML stream is not properly
+closed. This may cause problem in some browsers.
+
+=back
+
+=cut
 
 sub fatal {
 	my $c = join(", line ", (caller)[ 0, 2 ]);
 	print(STDERR "[", scalar(localtime), "] fatal: $c: $_[0]\n");
 	print(STDERR '[@INC ', join(" ", @INC), ' $0 ', $0, "\n");
 	print(STDERR '$config', join(" ", %$config), "\n") if ref($config) eq "HASH";
-	print("<h4 class=\"fatal\"><i>** Fatal: $_[0]</i></h4>\n") if $wwwdebug;
+	print("<h4 class=\"fatal\"><i>** Fatal: $_[0]</i></h4>\n")
+		if $wwwdebug;
 	exit(1);
 }
+
+
+=head2 C<abortall ($msg)>
+
+Function C<abortall> issues an error message and quits.
+
+=over
+
+=item 1 C<$msg>
+
+a I<string> containing the message
+
+=back
+
+Perl context information is given (on STDERR).
+
+A minimal error page is sent to the user (if $wwwdebug is non zero).
+
+B<Notes:>
+
+=over
+
+The message should be protected against HTML abuse by replacing
+the HTML tag delimiters by their entity name equivalent.
+
+=back
+
+=cut
 
 sub abortall {
 	my $c = join(", line ", (caller)[ 0, 2 ]);
 	print(STDERR "[", scalar(localtime), "] abortall: $c: $_[0]\n");
-	print(
-		"Content-Type: text/html; charset=iso-8859-1\n\n",
-		"<html>\n<head>\n<title>Abort</title>\n</head>\n",
-		"<body><h1>Abort!</h1>\n",
-		"<b><i>** Aborting: $_[0]</i></b>\n",
-		"</body>\n</html>\n"
-	  )
-	  if $wwwdebug;
+	print	( "Content-Type: text/html; charset=iso-8859-1\n\n"
+			, "<html>\n<head>\n<title>Abort</title>\n</head>\n"
+			, "<body><h1>Abort!</h1>\n"
+			, "<b><i>** Aborting: $_[0]</i></b>\n"
+			, "</body>\n</html>\n"
+			)
+		if $wwwdebug;
 	exit(1);
 }
+
+
+=head2 C<fflush ()>
+
+Function C<fflush> sets STDOUT in autoflush mode.
+
+B<Note:>
+
+=over
+
+This sub is no longer needed and is a candidate for removal.
+
+=back
+
+=cut
 
 sub fflush {
 	$| = 1;
 	print('');
 }
 
+
+=head2 C<tmpcounter ()>
+
+Function C<tmpcounter> returns a unique id for numbering temporary files.
+
+=cut
+
 sub tmpcounter {
 	return $tmpcounter++;
 }
+
+
+#######################################
+#
+#	Link generating functions
+#
+
+
+=head2 C<nonvarargs ()>
+
+Function C<nonvarargs> returns an arrray containing
+"key=value" elements from the original URL query string not
+related with LXR "variables".
+
+A non "variable" key is identified by its "sigil", an underscore
+("_"). Any other key is ignored.
+
+=cut
 
 sub nonvarargs {
 	my @args;
@@ -122,6 +277,31 @@ sub nonvarargs {
 
 	return @args;
 }
+
+
+=head2 C<urlargs (@args)>
+
+Function C<urlargs> returns a string representing its argument
+and the current state of the "variables" set suitable for use
+as the query part of an URL.
+
+=over
+
+=item 1 C<@args>
+
+an I<array> containing "key=value" elements
+
+=back
+
+To avoid progressive lengthening of the resulting string, the
+"key=value" strings for default variable values are deleted
+from the array.
+
+All elements are concatenated with standard ampersand separator
+("&") and prefixed with question mark ("?").
+This string can be used as is in an URL.
+
+=cut
 
 sub urlargs {
 	my @args = @_;
@@ -146,6 +326,55 @@ sub urlargs {
 	return ($#args < 0 ? '' : '?' . join('&', @args));
 }
 
+
+=head2 C<fileref ($desc, $css, $path, $line, @args)>
+
+Function C<fileref> returns an C<< E<lt>AE<gt> >> link to a specific line
+of a source file.
+
+=over
+
+=item 1 C<$desc>
+
+a I<string> for the user-visible part of the link,
+usually the file name
+
+=item 1 C<$css>
+
+a I<string> containing the CSS class for the link
+
+=item 1 C<$path>
+
+a I<string> containing HTML path to the source file
+
+=item 1 C<$line>
+
+an I<integer> containing the line number to reference (or void)
+
+=item 1 C<@args>
+
+an I<array> containing "key=value" elements
+
+=back
+
+Notes:
+
+=over
+
+=item 1 All non alphanumeric characters in C<$path> are URL-quoted
+to avoid conflicts between unconstrained file name and URL reserved
+characters.
+
+=item 1 Since line anchor ids in LXR are at least 4 characters in length,
+the line number is eventually extended with zeros on the left.
+
+= item 1 The @args argument is used to pass state and makes use of sub
+C<urlargs>.
+
+=back
+
+=cut
+
 sub fileref {
 	my ($desc, $css, $path, $line, @args) = @_;
 
@@ -159,23 +388,93 @@ sub fileref {
 		$line = ('0' x (4 - length($line))) . $line;
 	}
 
-	return ("<a class='$css' href=\"$config->{virtroot}/source$path"
-		  . &urlargs(@args)
-		  . ($line > 0 ? "#$line" : "")
-		  . "\"\>$desc</a>");
+	return	( "<a class='$css' href=\"$config->{virtroot}/source$path"
+			. &urlargs(@args)
+			. ($line > 0 ? "#$line" : "")
+			. "\"\>$desc</a>"
+			);
 }
+
+
+=head2 C<diffref ($desc, $css, $path, @args)>
+
+Function C<diffref> returns an C<< E<lt>AE<gt> >> link for the first
+step of difference display selection.
+
+=over
+
+=item 1 C<$desc>
+
+a I<string> for the user-visible part of the link,
+usually the file name
+
+=item 1 C<$css>
+
+a I<string> containing the CSS class for the link
+
+=item 1 C<$path>
+
+a I<string> containing the HTML path to the source file
+
+=item 1 C<@args>
+
+an I<array> containing "key=value" elements
+
+=back
+
+But for the C<$line> argument, the interface is identical to sub
+C<fileref>'s. See notes above.
+
+Since script C<diff> can be controlled through some URL arguments,
+a call is made to sub C<nonvarargs> to keep the values of these
+arguments between calls.
+
+=cut
 
 sub diffref {
 	my ($desc, $css, $path, @args) = @_;
-	my ($darg, $dval);
 
-#	($darg, $dval) = $args[0] =~ /(.*?)=(.*)/ if (defined $args[0]);
-	return ("<a class='$css' href=\"$config->{virtroot}/diff$path"
-		  . &urlargs	( &nonvarargs()
+	$path =~ s|([^-a-zA-Z0-9.\@/_\r\n])|sprintf("%%%02X", ord($1))|ge;
+	return	( "<a class='$css' href=\"$config->{virtroot}/diff$path"
+			. &urlargs	( &nonvarargs()
 						, @args
 						)
-		  . "\"\>$desc</a>");
+			. "\"\>$desc</a>"
+			);
 }
+
+
+=head2 C<idref ($desc, $css, $id, @args)>
+
+Function C<idref> returns an C<< E<lt>AE<gt> >> link to the cross
+reference list of an identifier.
+
+=over
+
+=item 1 C<$desc>
+
+a I<string> for the user-visible part of the link,
+usually the identifier
+
+=item 1 C<$css>
+
+a I<string> containing the CSS class for the link
+
+=item 1 C<$id>
+
+a I<string> containing the name of the identifier to search
+
+=item 1 C<@args>
+
+an I<array> containing "key=value" elements
+
+=back
+
+Since script C<ident> can be controlled through some URL arguments,
+a call is made to sub C<nonvarargs> to keep the values of these
+arguments between calls.
+
+=cut
 
 sub idref {
 	my ($desc, $css, $id, @args) = @_;
@@ -186,6 +485,41 @@ sub idref {
 						)
 		  . "\"\>$desc</a>");
 }
+
+
+=head2 C<incfindfile ($filewanted, $file, @paths)>
+
+Function C<incfindfile> returns the "real" path corresponding to argument
+C<$file>.
+
+=over
+
+=item 1 C<$filewanted>
+
+a I<flag> indicating if a directory (0) or file (1) is desired
+
+=item 1 C<$file>
+
+a I<string> containing a file name
+
+=item 1 C<@paths>
+
+an I<array> containing a list of directories to search
+
+=back
+
+The list of directories from configuration parameter C<'incprefix'> is
+appended to C<@paths>. Every directory from this array is then preprended
+to the file name . The resulting string is transformed by the mapping
+rules of configuration parameter C<'maps'> (sub C<mappath>).
+
+If there is a match in the file database (file or directory according
+to the first argument), the "physical" path is returned.
+Otherwise, an C<undef> is return to signal an unknown file.
+
+I<This is an internal sub only.>
+
+=cut
 
 sub incfindfile {
 	my ($filewanted, $file, @paths) = @_;
@@ -206,12 +540,43 @@ sub incfindfile {
 	return undef;
 }
 
+
+=head2 C<incref ($name, $css, $file, @paths)>
+
+Function C<incref> returns an C<< E<lt>AE<gt> >> link to an C<include>d
+file or C<undef> if the file is unknown.
+
+=over
+
+=item 1 C<$name>
+
+a I<string> for the user-visible part of the link,
+usually the file name
+
+=item 1 C<$css>
+
+a I<string> containing the CSS class for the link
+
+=item 1 C<$file>
+
+a I<string> containing the HTML path to the include'd file
+
+=item 1 C<@paths>
+
+an I<array> containing a list of base directories to search for the file
+
+=back
+
+If the include'd file does not exist (as determined by sub C<incfindfile>),
+the function returns C<undef>.
+Otherwise, it returns an E<lt>aE<gt> link as computed by sub C<fileref>.
+
+=cut
+
 sub incref {
 	my ($name, $css, $file, @paths) = @_;
-	my ($path, $urlenc, $dirarg);
+	my $path;
 
-	($dirarg = $paths[0]) =~ s!([?&;='"])!sprintf('%%%02x',(unpack('c',$1)))!ge;
-	($urlenc = $file) =~ s!([?&;='"])!sprintf('%%%02x',(unpack('c',$1)))!ge;
 	$path = incfindfile(1, $file, @paths);
 	return undef unless $path;
 	return &fileref	( $name
@@ -220,12 +585,51 @@ sub incref {
 					);
 }
 
+
+=head2 C<incdirref ($name, $css, $file, @paths)>
+
+Function C<incdirref> returns an C<< E<lt>AE<gt> >> link to a directory
+of an C<include>d file or the directory name if it is unknown.
+
+=over
+
+=item 1 C<$name>
+
+a I<string> for the user-visible part of the link,
+usually the directory name
+
+=item 1 C<$css>
+
+a I<string> containing the CSS class for the link
+
+=item 1 C<$file>
+
+a I<string> containing the HTML path to the directory
+
+=item 1 C<@paths>
+
+an I<array> containing a list of base directories to search
+
+=back
+
+I<<This function is supposed to be called AFTER sub C<incref> on every
+subpath of the include'd file, removing successively the tail directory.
+It thus allows to compose a path where each directory is separately
+clickable.>>
+
+If the include'd directory does not exist (as determined by sub C<incfindfile>),
+the function returns the directory name. This acts as a "no-op" in the
+HTML sequence representing the full path of the include'd file.
+
+If the directory exists, the function returns the E<lt>AE<gt> link
+as computed by sub C<fileref> for the directory.
+
+=cut
+
 sub incdirref {
 	my ($name, $css, $file, @paths) = @_;
-	my ($path, $urlenc, $dirarg);
+	my $path;
 
-	($dirarg = $paths[0]) =~ s!([?&;='"])!sprintf('%%%02x',(unpack('c',$1)))!ge;
-	($urlenc = $file) =~ s!([?&;='"])!sprintf('%%%02x',(unpack('c',$1)))!ge;
 	$path = incfindfile(0, $file, @paths);
 	return $name unless $path;
 	return &fileref	( $name
@@ -233,6 +637,28 @@ sub incdirref {
 					, $path.'/'
 					);
 }
+
+
+#######################################
+#
+#	HTTP management functions
+#
+
+
+=head2 C<http_wash ($name)>
+
+Function C<http_wash> returns its argument reversing the effect
+of a URL-quote.
+
+=over
+
+=item 1 C<$name>
+
+a I<string> to URL-unquote
+
+=back
+
+=cut
 
 sub http_wash {
 	my $t = shift;
@@ -244,6 +670,41 @@ sub http_wash {
 
 	return ($t);
 }
+
+
+=head2 C<fixpaths ($node)>
+
+Function C<fixpaths> fixes its node argument to prevent unexpected
+access to files or directories.
+
+=over
+
+=item 1 C<$node>
+
+a I<string> for the path to fix
+
+=back
+
+This is a security function. If the node argument contains any
+C</../> part, it is removed with the preceding part.
+Also all repeating C</> are replaced by a single slash.
+
+The OS will then be presented only "canonical" paths without access
+computation, minimizing the risk of unwanted access.
+
+B<Note:>
+
+=over
+
+Caution! Any use of this sub before full LXR context initialisation
+(i.e. before return from sum C<httpinit>) is doomed to fail
+because the test for directory type needs a proper value in
+C<$releaseid>. This failure is invisible: it does not lead to
+run-time error, it just returns a non-sensical status.
+
+=back
+
+=cut
 
 sub fixpaths {
 	my $node = shift;
@@ -260,18 +721,25 @@ sub fixpaths {
 	return $node;
 }
 
+
+=head2 C<printhttp ()>
+
+Function C<printhttp> ouputs the HTTP headers.
+
+Presently, only a Last-Modified and a Content-Type header are output.
+
+=cut
+
 sub printhttp {
 
 	# Print out a Last-Modified date that is the larger of: the
-	# underlying file that we are presenting; and the "source" script
-	# itself (passed in as an argument to this function.)  If we can't
-	# stat either of them, don't print out a L-M header.  (Note that this
-	# stats lxr/source but not lxr/lib/LXR/Common.pm.  Oh well, I can
-	# live with that I guess...)	-- jwz, 16-Jun-98
+	# underlying file that we are presenting (passed in as an
+	# argument to this function) and the configuration file lxr.conf.
+	# If we can't stat either of them, don't print out a L-M header.
+	# (Note that this stats lxr.conf but not lxr/lib/LXR/Common.pm.
+	# Oh well, I can live with that I guess...)	-- jwz, 16-Jun-98
 
 	# Made it stat all currently loaded modules.  -- agg.
-
-	# Todo: check lxr.conf.
 
 	my $time = $files->getfiletime($pathname, $releaseid);
 	my $time2 = (stat($config->confpath))[9];
@@ -322,9 +790,7 @@ sub printhttp {
 		} else {
 			print("Content-Type: text/plain\n");
 		}
-	}
-	else
-	{
+	} else {
 		print("Content-Type: text/html; charset=", $config->{'encoding'}, "\n");
 		print("Cache-Control: no-cache, must-revalidate\n");
 	}
@@ -333,21 +799,43 @@ sub printhttp {
 	print("\n");
 }
 
-# httpinit - parses and cleans up the URL parameters and sets up the various variables
-#            Also prints the HTTP header & sets up the signal handlers
-#			This is also where we protect from malicious input
-#
-# HTTP:
-# path_info -
-# param		- Array of parameters
-# this_url	- The current url
-#
+
+=head2 C<httpinit ()>
+
+Function C<httpinit> parses the URL, cleans up the parameters and sets
+up the LXR "variables".
+
+It initializes the global variables (the LXR context) and HTTP output.
+
+Information extracted from URL is stored into I<hash> C<$HTTP>.
+
+This sub is also responsible for HTTP state transition from one
+invocation to the other. The URL (query) arguments are spread into
+4 name spaces identified by a "sigil":
+
+=over
+
+=item 1 -none-: standard C<'variables'>
+
+=item 1 exclamation mark (C<!>): override C<'variables'> value
+
+=item 1 tilde (C<~>): differrence C<'variables'>
+
+=item 1 underscore (C<_>): LXR operational parameter
+
+=back
+
+C<httpinit> deals only with the first 2 namespaces.
+
+=cut
+
 sub httpinit {
 	$SIG{__WARN__} = \&warning;
 	$SIG{__DIE__}  = \&fatal;
 
 	$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin:/usr/sbin';
 
+	# Parse and split URL
 	$HTTP->{'path_info'} = http_wash($ENV{'PATH_INFO'});
 
 	$HTTP->{'path_info'} = clean_path($HTTP->{'path_info'}) || "";
@@ -387,7 +875,8 @@ sub httpinit {
 		die "Can't find config for " . $HTTP->{'this_url'};
 	}
 
-	# override the 'variables' value if necessary
+	# Override the 'variables' value if necessary
+	# Effective variable setting is done globally after other init
 	foreach my $param (keys %{$HTTP->{'param'}}) {
 		my $var = $param;
 		next unless $var =~ s/^!//;
@@ -402,6 +891,7 @@ sub httpinit {
 	$index = LXR::Index->new($config->dbname);
 	die "Can't create Index for " . $config->dbname if !defined($index);
 
+	# Set variables now
 	foreach ($config->allvariables) {
 		$config->variable($_, $HTTP->{'param'}->{$_}) if $HTTP->{'param'}->{$_};
 		delete $HTTP->{'param'}->{$_};
@@ -423,6 +913,22 @@ sub httpinit {
 	printhttp;
 }
 
+
+=head2 C<clean_release ($releaseid)>
+
+Function C<clean_release> returns its argument if the release exists
+otherwise the default value for variable C<'v'>.
+
+=over
+
+=item 1 C<$releaseid>
+
+a I<string> containing the release (version) to check
+
+=back
+
+=cut
+
 sub clean_release {
 	my $releaseid = shift;
 	my @rels= $config->varrange('v');
@@ -434,6 +940,31 @@ sub clean_release {
 	}
 	return $releaseid;
 }
+
+
+=head2 C<clean_identifier ($id)>
+
+Function C<clean_identifier> returns its argument after removing "unusual"
+characters.
+
+=over
+
+=item 1 C<$id>
+
+a I<string> representing the identifier
+
+B<Caveat:>
+
+=over
+
+When adding new languages, check that the definition of "unusual" in
+this sub does not conflict with the lexical form of identifiers.
+
+=back
+
+=back
+
+=cut
 
 sub clean_identifier {
 	# Cleans up the identifier parameter
@@ -447,13 +978,45 @@ sub clean_identifier {
 	return $id;
 }
 
+
+=head2 C<clean_path ($path)>
+
+Function C<clean_path> returns its argument truncated to known
+good characters.
+
+=over
+
+=item 1 C<$path>
+
+a I<string> containing the path to check
+
+The path is truncated at the first non-HTML quote conformant character.
+Every sub-path equal to C</./> or C</../> is then removed.
+
+=back
+
+B<Note:>
+
+=over
+
+This erasure is not correct for C</../>.
+Moreover, this function is called before C<fixpaths> which then
+cannot do its correct job with C</../>.
+
+=back
+
+B<To do:> see if we realy need two (apparently) similar subs
+
+=cut
+
 sub clean_path {
 	# Cleans up a string to path
 	my $path = shift;
 
 	if(defined $path) {
 		# First suppress anything after a dodgy character
-	    #  Match good chars from start of string, then replace entire string with only good chars
+	    # Match good chars from start of string,
+		# then replace entire string with only good chars
 		$path =~ s!(^[\w\s_+\-,\.%\^/\!]+).*!$1!;
 		# Clean out /../
 		while ($path =~ m!/\.\.?/!) {
@@ -463,6 +1026,15 @@ sub clean_path {
 
 	return $path;
 }
+
+
+=head2 C<httpclean ()>
+
+Function C<httpclean> does the final clean up.
+
+To be called when all processing is done, but is it really necessary?
+
+=cut
 
 sub httpclean {
 	$config = undef;

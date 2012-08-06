@@ -34,7 +34,7 @@ create table if not exists %DB_tbl_prefix%releases
 	, primary key     (fileid,releaseid)
 	);
 
-create table if not exists %DB_tbl_prefix%usage
+create table if not exists %DB_tbl_prefix%usages
 	( fileid          int not null references %DB_tbl_prefix%files
 	, line            smallint not null
 	, symid           int not null references %DB_tbl_prefix%symbols
@@ -42,17 +42,18 @@ create table if not exists %DB_tbl_prefix%usage
 
 create table if not exists %DB_tbl_prefix%status
 	( fileid          int not null references %DB_tbl_prefix%files
+	, relcount        mediumint not null default '0'
 	, status          tinyint not null
 	, primary key     (fileid)
 	);
 
-create table if not exists %DB_tbl_prefix%declarations
-	( declid          smallint not null auto_increment
-	, langid          tinyint not null
-	, declaration     varchar(255) not null
-	, primary key     (declid, langid)
+create table if not exists %DB_tbl_prefix%langtypes
+	( typeid          smallint not null auto_increment
+	, langid          tinyint UNSIGNED not null
+	, declaration     MEDIUMINT UNSIGNED not null
+	, primary key     (typeid)
+	, unique key      langdecl (langid, declaration)
 	);
-
 
 create        index %DB_tbl_prefix%filelookup  on %DB_tbl_prefix%files (filename);
 
@@ -62,14 +63,14 @@ create        index %DB_tbl_prefix%indexindex  on %DB_tbl_prefix%indexes (symid)
 create        index %DB_tbl_prefix%relsym      on %DB_tbl_prefix%indexes (relsym);
 create        index %DB_tbl_prefix%fileid      on %DB_tbl_prefix%indexes (fileid);
 
-create        index %DB_tbl_prefix%usageindex  on %DB_tbl_prefix%usage (symid);
+create        index %DB_tbl_prefix%usagesindex on %DB_tbl_prefix%usages (symid);
 
 -- tables are huge, MYISAM allow delayed insert and reduce db size
 ALTER TABLE %DB_tbl_prefix%symbols ENGINE = MYISAM;
 ALTER TABLE %DB_tbl_prefix%indexes ENGINE = MYISAM;
-ALTER TABLE %DB_tbl_prefix%usage ENGINE = MYISAM;
+ALTER TABLE %DB_tbl_prefix%usages ENGINE = MYISAM;
 
-ALTER TABLE %DB_tbl_prefix%declarations ENGINE = MYISAM;
+ALTER TABLE %DB_tbl_prefix%langtypes ENGINE = MYISAM;
 ALTER TABLE %DB_tbl_prefix%releases ENGINE = MYISAM;
 ALTER TABLE %DB_tbl_prefix%status ENGINE = MYISAM;
 ALTER TABLE %DB_tbl_prefix%files ENGINE = MYISAM;
