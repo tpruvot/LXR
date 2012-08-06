@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: CVS.pm,v 1.40 2012/04/19 11:40:23 ajlittoz Exp $
+# $Id: CVS.pm,v 1.41 2012/08/03 14:35:50 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ Methods are sorted in the same order as in the super-class.
 
 package LXR::Files::CVS;
 
-$CVSID = '$Id: CVS.pm,v 1.40 2012/04/19 11:40:23 ajlittoz Exp $ ';
+$CVSID = '$Id: CVS.pm,v 1.41 2012/08/03 14:35:50 ajlittoz Exp $ ';
 
 use strict;
 use Time::Local;
@@ -55,7 +55,7 @@ sub new {
 
 		# the rcsdiff command (used in getdiff) uses parameters only supported by GNU diff
 		$ENV{'PATH'} = $self->{'path'};
-		if (`diff --version 2>/dev/null` =~ /GNU/) {
+		if (`diff --version 2>/dev/null` =~ m/GNU/) {
 			$gnu_diff = 1;
 		} else {
 			$gnu_diff = 0;
@@ -77,7 +77,7 @@ sub getdir {
 		# Skip files starting with a dot (usually invisible),
 		# ending with a tilde (editor backup)
 		# or having "orig" extension
-		next if $node =~ /^\.|~$|\.orig$/;
+		next if $node =~ m/^\.|~$|\.orig$/;
 		# Skip also CVS
 		next if $node eq 'CVS';
 		# More may be added if necessary
@@ -99,7 +99,7 @@ sub getdir {
 				  && $self->dirempty($pathname . $node . '/', $releaseid);
 			}
 		# Consider only files managed by CVS (ending with ,v)
-		} elsif ($node =~ /(.*),v$/) {
+		} elsif ($node =~ m/(.*),v$/) {
 
 			# For normal display (i.e. some revisions reachable from 'head'),
 			# check if requested version is alive. Looking for the file
@@ -172,12 +172,12 @@ sub getannotations {
 			my $dir = shift(@diff);
 
 			#	a pos nbr = add "nbr" lines at "pos" position
-			if ($dir =~ /^a(\d+)\s+(\d+)/) {
+			if ($dir =~ m/^a(\d+)\s+(\d+)/) {
 				splice(@diff, 0, $2);		# Discard real text
 				splice(@head, $1 - $off, 0, ('') x $2);
 				$off -= $2;					# Decrease adjustment
 			#	d pos nbr = remove "nbr" lines at "pos" position
-			} elsif ($dir =~ /^d(\d+)\s+(\d+)/) {
+			} elsif ($dir =~ m/^d(\d+)\s+(\d+)/) {
 				#	Record in @anno the revision the lines were entered
 				map { $anno[$_] = $lrev if $_ ne ''; } splice(@head, $1 - $off - 1, $2);
 				$off += $2;					# Increase adjustment
@@ -215,11 +215,11 @@ sub getannotations {
 			while (@diff) {
 				my $dir = shift(@diff);
 
-				if ($dir =~ /^a(\d+)\s+(\d+)/) {
+				if ($dir =~ m/^a(\d+)\s+(\d+)/) {
 					splice(@diff, 0, $2);
 					splice(@anno, $1 + $off, 0, ($hrev) x $2);
 					$off += $2;
-				} elsif ($dir =~ /^d(\d+)\s+(\d+)/) {
+				} elsif ($dir =~ m/^d(\d+)\s+(\d+)/) {
 					splice(@anno, $1 + $off - 1, $2);
 					$off -= $2;
 				} else {
@@ -252,9 +252,9 @@ sub getauthor {
 sub filerev {
 	my ($self, $filename, $releaseid) = @_;
 
-	if ($releaseid =~ /rev_([\d\.]+)/) {
+	if ($releaseid =~ m/rev_([\d\.]+)/) {
 		return $1;
-	} elsif ($releaseid =~ /^([\d\.]+)$/) {
+	} elsif ($releaseid =~ m/^([\d\.]+)$/) {
 		# Import branches are causing problem,
 		# force initial version.
 		if ($releaseid =~ m/^1\.1\.\d*\[13579]/) {
@@ -279,10 +279,10 @@ sub getfilehandle {
 
 	return undef unless defined($self->toreal($filename, $releaseid));
 
-	$rev =~ /([\d\.]*)/;
+	$rev =~ m/([\d\.]*)/;
 	$rev = $1;    # untaint
 	my $clean_filename = $self->cleanstring($self->toreal($filename, $releaseid));
-	$clean_filename =~ /(.*)/;
+	$clean_filename =~ m/(.*)/;
 	$clean_filename = $1;    # technically untaint here (cleanstring did the real untainting)
 
 	$ENV{'PATH'} = $self->{'path'};
@@ -413,7 +413,7 @@ sub toreal {
 =head2 C<getdiff ($filename, $release1, $release2)>
 
 C<getdiff> returns the "instructions" (additions and erasures)
-required to to transform the file from C<$release1> to C<$release2>
+required to transform the file from C<$release1> to C<$release2>
 version.
 
 =over
@@ -451,12 +451,12 @@ sub getdiff {
 	return () unless defined($rev2);
 
 	# Untaint arguments
-	$rev1 =~ /([\d\.]*)/;
+	$rev1 =~ m/([\d\.]*)/;
 	$rev1 = $1;    # untaint
-	$rev2 =~ /([\d\.]*)/;
+	$rev2 =~ m/([\d\.]*)/;
 	$rev2 = $1;    # untaint
 	my $clean_filename = $self->cleanstring($self->toreal($filename, $release1));
-	$clean_filename =~ /(.*)/;
+	$clean_filename =~ m/(.*)/;
 	$clean_filename = $1;    # technically untaint here (cleanstring did the real untainting)
 
 	$ENV{'PATH'} = $self->{'path'};
@@ -505,7 +505,7 @@ sub dirempty {
 		# Skip files starting with a dot (usually invisible),
 		# ending with a tilde (editor backup)
 		# or having "orig" extension
-		next if $node =~ /^\.|~$|\.orig$/;
+		next if $node =~ m/^\.|~$|\.orig$/;
 		# Skip also CVS
 		next if $node eq 'CVS';
 		# More may be added if necessary
@@ -515,7 +515,7 @@ sub dirempty {
 		# the other with CVS difference files.
 		if (-d $real . $node) {
 			push(@dirs, $node . '/');
-		} elsif ($node =~ /(.*),v$/) {
+		} elsif ($node =~ m/(.*),v$/) {
 			push(@files, $1);
 		}
 	}
@@ -559,9 +559,9 @@ sub cleanstring {
 
 	my $out = '';
 	for (split('', $in)) {
-		s/[|&!`;\$%<>[:cntrl:]]//  ||    # `drop these in particular
+		s/[|&!`;\$%<>[:cntrl:]]//  ||    # drop these in particular
 		  m/[\w\/,.-_+=]/          ||    # keep these intact
-		  s/([ '"\x20-\x7E])/\\$1/ ||    # "'escape these out
+		  s/([ '"\x20-\x7E])/\\$1/ ||    # escape these out
 		  s/.//;                         # drop everything else
 		$out .= $_;
 	}
@@ -698,7 +698,7 @@ B<Caveat:>
 =item
 
 This method is indirectly recursive through C<toreal>.
-Special precaution must be taken against infinite recursivity.
+Special precaution must be taken against infinite recursion.
 
 =back
 
@@ -714,7 +714,7 @@ It is critical for good operation of CVS class.
 sub parsecvs {
 	my ($self, $filename) = @_;
 
-	# Foolproof fence against infinite recursivity
+	# Foolproof fence against infinite recursion
 	return if $cache_filename eq $filename;
 	$cache_filename = $filename;
 
@@ -724,7 +724,7 @@ sub parsecvs {
 	open(CVS, $self->toreal($filename, undef));
 	close CVS and return if -d CVS;    # we can't parse a directory
 	while (<CVS>) {
-		if (/^text\s*$/) {
+		if (m/^text\s*$/) {
 			# stop reading when we hit the text.
 			last;
 		}
@@ -819,12 +819,12 @@ sub parsecvs {
 	# but it is not relevant here) followed by an undefined number of
 	# attributes.
 	while (@cvs && $cvs[0] !~ m/\s*desc/s) {
-		my ($r, $v) = shift(@cvs) =~ /\s*(\S+)\s*(.*)/s;
-#		                                 1rev1   2--2
+		my ($r, $v) = shift(@cvs) =~ m/\s*(\S+)\s*(.*)/s;
+#		                                  1rev1   2--2
 #		                                       attributes
-		# The attributes are a list ofkey/value pairs terminated by ;
+		# The attributes are a list of key/value pairs terminated by ;
 		# (a value may be empty). When a value needs to contain
-		# several "tokens", it is written as a à-string.
+		# several "tokens", it is written as an @-string.
 		# Since m/.../ extracts two strings each time, it effectively
 		# builds a hash pair keyword/value.
 		$cvs{'branch'}{$r} = {

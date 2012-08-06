@@ -85,7 +85,7 @@ A warning message may be inserted between $prefix and $suffix.
 Care must be taken to ensure that this message is placed in the
 E<lt>bodyE<gt> part of the HTML page.
 
-B<This> caveat B<is particularly aimed at this sub use in makeheader
+I<This> caveat I<is particularly aimed at this sub use in makeheader
 where the page has not been started yet.>
 
 =back
@@ -214,9 +214,9 @@ leaving only unnested variables, unnested function calls and
 stray unnested braces.>
 
 Then, the C<%expfunc> C<sub>s are called based on the name of
-the variables or functions. Variable C<sub>s receive an C<$undef>
+the variables or functions. Variable C<sub>s receive an C<undef>
 argument, while function C<sub>s receive the block argument with
-its braces restored (or C<$undef> if it is empty).
+its braces restored (or C<undef> if it is empty).
 If the variable or function has no corresponding key in C<%expfunc>,
 the variable or function call (including its argument) is left
 unchanged.
@@ -434,7 +434,7 @@ sub captionexpand {
 
 Function C<bannerexpand> is a "$variable" substitution function.
 It returns an HTML string displaying the path to the current
-file (C<$pathname>) with C<< <a> >> links in every portion of
+file (C<$pathname>) with C<< E<lt>AE<gt> >> links in every portion of
 the path to allow quick access to the intermediate directories.
 
 =over
@@ -549,7 +549,7 @@ sub titleexpand {
 
 Function C<thisurl> is a "$variable" substitution function.
 It returns an HTML-encoded string suitable for use as the
-target href of a C<< <link rel="stylesheet"> >> tag.
+target href of a C<< E<lt>link rel="stylesheet"E<gt> >> tag.
 
 =over
 
@@ -637,7 +637,7 @@ sub altstyleexpand {
 
 Function C<thisurl> is a "$variable" substitution function.
 It returns an HTML-encoded string suitable for use as the
-target href of a C<< <a> >> tag.
+target href of a C<< E<lt>AE<gt> >> tag.
 
 The string is the URL used to access the current page (complete
 with the ?query string).
@@ -656,7 +656,7 @@ sub thisurl {
 
 Function C<baseurl> is a "$variable" substitution function.
 It returns an HTML-encoded string suitable for use as the
-target href of a C<< <a> >> or C<< <base> >> tag.
+target href of a C<< E<lt>AE<gt> >> or C<< E<lt>baseE<gt> >> tag.
 
 The string is the base URL used to access the LXR server.
 
@@ -1264,7 +1264,7 @@ sub varlinks {
 
 Function C<varmenuexpand> is a "$function" substitution function.
 It returns an HTML string which is the concatenation of
-C<< <option> >> tags, each one corresponding to the values
+C<< E<lt>optionE<gt> >> tags, each one corresponding to the values
 defined in variable $var's 'range'.
 
 =over
@@ -1314,7 +1314,7 @@ sub varmenuexpand {
 
 Function C<varbtnaction> is a "$variable" substitution function.
 It returns a string suitable for use in the C< action > attribute
-of a C<< <form> >> tag.
+of a C<< E<lt>formE<gt> >> tag.
 
 =over
 
@@ -1479,7 +1479,7 @@ sub devinfo {
 =head2 C<atticlink ($templ)>
 
 Function C<atticlink> is a "$variable" substitution function.
-It returns an HTML-string containing an C<< <a> >> link to
+It returns an HTML-string containing an C<< E<lt>AE<gt> >> link to
 display/hide CVS files in the "attic" directory.
 
 =over

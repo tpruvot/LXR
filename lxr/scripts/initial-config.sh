@@ -1,5 +1,5 @@
 #!/bin/bash
-# $Id: initial-config.sh,v 1.8 2012/04/03 16:06:27 ajlittoz Exp $
+# $Id: initial-config.sh,v 1.9 2012/08/05 11:45:34 ajlittoz Exp $
 
 shopt -s extglob
 . ${0%%+([^/])}ANSI-escape.sh
@@ -16,9 +16,8 @@ while [[ $# > 0 ]] ; do
 	case "$1" in
 		--help | -h )
 			echo "$cmdname [OPTION]... [lxr-conf-template]"
-			echo "Creates in ${confdir} files containing lists of Linux kernel architectures"
-			echo "and sub-architectures suitable for reading by readfile() in variables 'range'"
-			echo "attribute"
+			echo "Sets up the initial content of ${confdir} and copies tree-independent"
+			echo "files to their proper location"
 			echo
 			echo "OPTION:"
 			echo "  -h, --help     print this reminder and stop"
@@ -51,7 +50,7 @@ if [[ ! -f "templates/$lxt" ]] ; then
 	exit 1
 fi
 
-echo "${VTyellow}***${VTnorm} Initial phase configurator for LXR (\$Revision: 1.8 $) ${VTyellow}***${VTnorm}"
+echo "${VTyellow}***${VTnorm} Initial phase configurator for LXR (\$Revision: 1.9 $) ${VTyellow}***${VTnorm}"
 echo
 
 if [ "$everything" == 1 ] ; then
