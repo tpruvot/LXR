@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: source,v 1.57 2012/04/19 09:34:09 ajlittoz Exp $
+# $Id: source,v 1.60 2012/09/17 11:51:17 ajlittoz Exp $
 
 # source --	Present sourcecode as html, complete with references
 #  the '/icons' images are available in any standard Apache installation
@@ -24,7 +24,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: source,v 1.57 2012/04/19 09:34:09 ajlittoz Exp $ ';
+$CVSID = '$Id: source,v 1.60 2012/09/17 11:51:17 ajlittoz Exp $ ';
 
 use strict;
 use lib '.';    # for Local.pm
@@ -170,13 +170,17 @@ sub modtime {
 
 	return '-' unless defined($file_time);
 
-	my @t = gmtime($file_time);
-	my ($sec, $min, $hour, $mday, $mon, $year) = @t;
-	return sprintf(
-		"%04d-%02d-%02d %02d:%02d:%02d",
-		$year + 1900,
-		$mon + 1, $mday, $hour, $min, $sec
-	);
+	if ($file_time =~ m/:/) { # Was a formatted string returned?
+		return $file_time;
+	} else {
+		my @t = gmtime($file_time);
+		my ($sec, $min, $hour, $mday, $mon, $year) = @t;
+		return sprintf(
+			"%04d-%02d-%02d %02d:%02d:%02d",
+			$year + 1900,
+			$mon + 1, $mday, $hour, $min, $sec
+		);
+	}
 }
 
 sub rowclass {
@@ -192,13 +196,20 @@ sub direxpand {
 	my @nodes;
 	my $node;
 
-	@nodes = $files->getdir($dir, $releaseid);
+#	Since CVS does not manage directory version,
+#	ensure we always request 'head' for directories.
+	@nodes = $files->getdir
+		( $dir
+		, $files->isa('LXR::Files::CVS')
+			? 'head'
+			: $releaseid
+		);
 	unless (@nodes) {
 		print(  "<p class=\"error\">\n<i>The directory " . $dir
 			  . " does not exist.</i>\n</p>\n");
-		if ($files->isa("LXR::Files::CVS")
-			and !$HTTP->{'param'}->{'_showattic'})
-		{
+		if	(  $files->isa("LXR::Files::CVS")
+			&& !$HTTP->{'param'}{'_showattic'}
+			) {
 			print("<p class=\"error\">\n");
 			print("<i>This directory might exist in other versions,");
 			print	( " try 'Show attic files' or select a different",
@@ -318,7 +329,7 @@ sub printfile {
 						next;
 						}
 						$r = $rev;
-						my $auth = $files->getauthor($pathname, $rev);
+						my $auth = $files->getauthor($pathname, $releaseid, $rev);
 						my $la = length($auth);
 						my $lr = length($rev);
 						if ($lr+$la > 15) {	# sum of 2 fields too long
@@ -370,9 +381,9 @@ sub printfile {
 			print(
 				"<p class=\"error\">\n<i>The file $pathname does not exist.</i>\n</p>\n"
 			);
-			if ($files->isa("LXR::Files::CVS")
-				and !$HTTP->{'param'}->{'_showattic'})
-			{
+			if	(  $files->isa("LXR::Files::CVS")
+				&& !$HTTP->{'param'}{'_showattic'}
+				) {
 				print("<p class=\"error\">\n");
 				print("<i>This directory might exist in other versions,");
 				print	( " try 'Show attic files' or select a different",
@@ -397,7 +408,7 @@ if ($config->filter && $pathname !~ $config->filter) {
 # Formerly, if the file was html, it was sent out as is.
 # Now, since we want to parse HTML files too, use URL parameter _raw
 # to interpret it through the browser, the same as for other files.
-if ($HTTP->{'param'}->{'_raw'}) {
+if ($HTTP->{'param'}{'_raw'}) {
 	printfile(1);
 } else {
 	my $type = ($pathname !~ m|/$| ? 'source' : 'sourcedir');

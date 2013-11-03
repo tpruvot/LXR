@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*- mode: perl -*-
 ###############################################
 #
-# $Id: Local.pm,v 1.1 2012/01/23 08:55:02 ajlittoz Exp $
+# $Id: Local.pm,v 1.2 2012/09/17 11:56:14 ajlittoz Exp $
 #
 # Local.pm -- Subroutines that need to be customized for each installation
 #
@@ -29,7 +29,7 @@
 
 package Local;
 
-$CVSID = '$Id: Local.pm,v 1.1 2012/01/23 08:55:02 ajlittoz Exp $ ';
+$CVSID = '$Id: Local.pm,v 1.2 2012/09/17 11:56:14 ajlittoz Exp $ ';
 
 use strict;
 
@@ -285,7 +285,7 @@ sub fdescexpand {
 # like the ones used in source code: "directoryname --- A short description"
 sub descexpand {
 	my ($templ, $node, $dir, $releaseid) = @_;
-	if ($files->isdir($dir . $node, $releaseid)) {
+	if ($node =~ m!/$!) {
 		return LXR::Template::expandtemplate($templ,
 			('desctext' => sub { return dirdesc($dir . $node, $releaseid); }));
 	} else {
@@ -304,26 +304,26 @@ sub descexpand {
 # inventing strict rules which create gobbeldygook when they're broken.
 sub dirdesc {
 	my ($path, $releaseid) = @_;
-	if ($files->isfile($path . "README.txt", $releaseid)) {
-		return descreadme($path, "README.txt", $releaseid);
-	} elsif ($files->isfile($path . "README", $releaseid)) {
-		return descreadme($path, "README", $releaseid);
-	} elsif ($files->isfile($path . "README.html", $releaseid)) {
-		return descreadmehtml($path, "README.html", $releaseid);
+	my $readh;
+	if ($readh = $files->getfilehandle($path . "README.txt", $releaseid)) {
+		return descreadme($path, "README.txt", $readh);
+	}
+	if ($readh = $files->getfilehandle($path . "README", $releaseid)) {
+		return descreadme($path, "README", $readh);
+	}
+	if ($readh = $files->getfilehandle($path . "README.html", $releaseid)) {
+		return descreadmehtml($path, "README.html", $readh);
 	}
 	return "&nbsp;";
 }
 
 sub descreadmehtml {
-	my ($dir, $file, $releaseid) = @_;
-	my $desc;
+	my ($dir, $file, $desc) = @_;
 
 	my $string = "";
-	return if !($desc = $files->getfilehandle($dir . $file, $releaseid));
 
 	    undef $/;
 	$string = <$desc>;
-
 	    $/ = "\n";
 	close($desc);
 
@@ -359,8 +359,7 @@ sub descreadmehtml {
 }
 
 sub descreadme {
-	my ($dir, $file, $releaseid) = @_;
-	my $desc;
+	my ($dir, $file, $desc) = @_;
 
 	my $string = "";
 
@@ -373,11 +372,8 @@ sub descreadme {
 	my $minlines = 5;     # Too small. Go back and add another paragraph.
 	my $chopto   = 10;    # Truncate long READMEs to this length
 
-	return if !($desc = $files->getfilehandle($dir . $file, $releaseid));
-
 	    undef $/;
 	$string = <$desc>;
-
 	    $/ = "\n";
 	close($desc);
 

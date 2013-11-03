@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Config.pm,v 1.51 2012/08/03 16:33:47 ajlittoz Exp $
+# $Id: Config.pm,v 1.53 2012/09/21 08:18:02 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ an abstract interface to the C<'variables'>.
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.51 2012/08/03 16:33:47 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.53 2012/09/21 08:18:02 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -293,8 +293,8 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 		$0 =~ m/([^\/]*)$/;
 		if("genxref" ne $1) {
 			return 0;
-		} elsif($url =~ m!https?://.+\.!) {
-			die "Can't find config for $url: make sure there is a 'baseurl' line that matches in lxr.conf\n";
+		} elsif($url =~ m!(https?:)?//.+!) {
+			die "Can't find config for $url: make sure there is a 'host_names' + 'virtroot' combination or a 'baseurl' line that matches in lxr.conf\n";
 		} else {
 			# wasn't a url, so probably genxref with a bad --url parameter
 			die "Can't find config for $url: " . 
@@ -360,6 +360,138 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 		unless $self->{'sourceroot'} =~ m!^[^/]+:! ;
 	}
 	return 1;
+}
+
+
+=head2 C<treeurl ($group, $global)>
+
+Method C<treeurl> returns an URL for the tree described by
+parameter group C<$group>.
+This URL tries to match the present hostname used to invoke LXR.
+
+=over
+
+=item 1 C<$group>
+
+a I<reference> to the tree-specific parameter group
+
+=item 1 C<$global>
+
+a I<reference>to the global parameter group to provide default values
+for parameters not present in the tree-specific group
+
+=back
+
+=head3 Algorithm
+
+Parameters C<'host_names'> and C<'virtroot'> are retrieved to build
+an URL to launch LXR on that tree.
+
+It compares the hosts (in a list composed of C<'host_names'> from
+the tree-specific or global parameter group) + C<'virtroot'> to
+C<'script_path'> (with the script name removed).
+
+If a match is found, C<undef> is returned, meaning that an
+HTML-relative URL may be used.
+
+If no match, a second attempt is made with the hosts only to test
+for a target tree different from the current one.
+
+If a host matches, an HTML-absolute URL is returned.
+
+Otherwise, the first hostname in the list is selected for the returned
+HTML-absolute URL.
+
+B<Potential problems:>
+
+=over
+
+=item 1 Presently, only parameter C<'hostnames'> is used
+because the automatic configurator does not use C<'baseurl'>
+nor C<'baseurl_aliases'>, which are deprecated.
+
+If file I<lxr.conf> is C<'baseurl'> based, the returned URL will
+contain garbage.
+
+=item 1 The LXR server may be accessed simultaneously under different names,
+e.g. C<localhost> on the computer, a short name on the LAN and a full
+URL from the Net.
+
+Choosing the first name in C<'host_names'> may not give the correct name
+for the current user (C<localhost> instead of a fully qualified URL).
+But extracting the hostname from the page URL is not guaranteed to
+be the correct choice in all circumstances.
+
+This might be solved with a more complex structure in C<'host_names'>
+made of 2 lists, one for "local" mode, the other for "remote" mode.
+But, once again, how to chose reliably and automatically the correct
+option?
+
+With these two lists, an approach could be to note the index of the
+hostname for the successfully identified trees.
+If it is always the same, then determine if this is a local or remote
+hostname and use the first hostname in the corresponding list for
+the unknown tree.
+
+=back
+
+=cut
+
+sub treeurl {
+	my ($self, $group, $global) = @_;
+
+	my ($accesshost, $accessport) =
+		$HTTP->{'script_path'} =~ m!(^.+?://[^/:]+)(:\d+)?!;
+	(my $scriptpath = $HTTP->{'script_path'}) =~ s!(^.+?://[^/:]+)(:\d+)?!$1!;
+	my @hosts = @{$group->{'host_names'} || $global->{'host_names'}};
+	my $virtroot =  $group->{'virtroot'};
+	my $url;
+	my $port;
+	for my $hostname (@hosts) {
+		$hostname =~ s!/*$!!;		# remove trailing /
+		$hostname =~ s/(:\d+)$//;	# remove port
+		my $port = $1;
+	# Add http: if it was dropped in the hostname
+		if ($hostname !~ m!^.+?://!) {
+			$hostname = "http:" . $hostname;
+		}
+		$url = $hostname . $virtroot;
+	# Is this the presently used hostname?
+		last if $url eq $scriptpath;
+		$url = undef;
+	}
+	# The current tree has been found, tell the caller
+	return undef if defined($url);
+
+	# This is an alternate tree, try to see if the current hostname
+	# is on the list for this tree
+	$url = undef;
+	for my $hostname (@hosts) {
+		$hostname =~ s!/*$!!;		# remove trailing /
+		$hostname =~ s/(:\d+)$//;	# remove port
+		$port = $1;
+	# Add http: if it was dropped in the hostname
+		if ($hostname !~ m!^.+?://!) {
+			$hostname = "http:" . $hostname;
+		}
+		if ($hostname eq $accesshost) {
+			$url = $hostname;
+			last;
+		}
+	}
+	# The current hostname is not on the list for this tree.
+	# Take the first name but NOTE it is not reliable
+	if (!defined($url)) {
+		$url = $group->{'host_names'}[0]
+			|| $global->{'host_names'}[0];
+		$url =~ s/(:\d+)$//;
+		$port = $1;
+	}
+	# If a port is given on 'host_names', use it.
+	# Otherwise, use the incoming request port
+	$url .= $port || $accessport;
+	$url = "http:" . $url unless ($url =~ m!^.+?://!);
+	return $url . $virtroot;
 }
 
 

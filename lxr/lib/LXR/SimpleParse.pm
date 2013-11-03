@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*- #
 ##############################################
 #
-# $Id: SimpleParse.pm,v 1.20 2012/08/04 14:26:32 ajlittoz Exp $
+# $Id: SimpleParse.pm,v 1.21 2012/08/18 15:47:21 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ source file into homogeneous regions (i.e. fragments defined by
 
 package LXR::SimpleParse;
 
-$CVSID = '$Id: SimpleParse.pm,v 1.20 2012/08/04 14:26:32 ajlittoz Exp $ ';
+$CVSID = '$Id: SimpleParse.pm,v 1.21 2012/08/18 15:47:21 ajlittoz Exp $ ';
 
 use strict;
 use integer;
@@ -340,6 +340,7 @@ sub nextfrag {
 						unshift(@frags, $+{'TAIL'});	# Requeue last part
 					}
 					$frag .= $+{'HEAD'};
+			# End of group
 					last;						# We are done, terminator met
 				}
 #	An anonymous region is in the buffer (it defaults to "code").
@@ -367,6 +368,7 @@ sub nextfrag {
 					}
 					unshift(@frags, $+{'OPEN'});		# Requeue open delimiter
 					$next = $+{'HEAD'}
+			# End of group
 				}
 			}
 			$frag .= $next;
@@ -399,6 +401,7 @@ sub nextfrag {
 				} else {
 					$frag = $+{'OPEN'};
 				}
+			# End of group
 			} else {								# Full fragment (no delim)
 				$frag = $next;
 			}

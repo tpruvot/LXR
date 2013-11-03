@@ -1,9 +1,9 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Perl.pm,v 1.10 2012/09/17 12:15:43 ajlittoz Exp $
+# $Id: Python.pm,v 1.6 2012/09/17 13:17:56 ajlittoz Exp $
 #
-# Enhances the support for the Perl language over that provided by
+# Enhances the support for the Python language over that provided by
 # Generic.pm
 #
 # This program is free software; you can redistribute it and/or modify
@@ -31,9 +31,9 @@ It only overrides C<processinclude> for efficiency.
 
 =cut
 
-package LXR::Lang::Perl;
+package LXR::Lang::Python;
 
-$CVSID = '$Id: Perl.pm,v 1.10 2012/09/17 12:15:43 ajlittoz Exp $ ';
+$CVSID = '$Id: Python.pm,v 1.6 2012/09/17 13:17:56 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -45,7 +45,7 @@ our @ISA = ('LXR::Lang::Generic');
 
 =head2 C<processinclude ($frag, $dir)>
 
-Method C<processinclude> is invoked to process a Perl I<include> directive.
+Method C<processinclude> is invoked to process a Python I<include> directive.
 
 =over
 
@@ -79,9 +79,10 @@ sub processinclude {
 	if ($source !~ s/^		# reminder: no initial space in the grammar
 					([\w]+)	# reserved keyword for include construct
 					(\s+)	# space
-					([\w:]+)
+					([\w.]+)
 					//sx) {
-		# Guard against syntax error or variant
+		# Variant that we can't (or don't want to) handle, such as
+		# from xxx import (a, b, c)
 		# Advance past keyword, so that parsing may continue without loop.
 		$source =~ s/^([\w]+)//;	# Erase keyword
 		$dirname = $1;
@@ -95,26 +96,39 @@ sub processinclude {
 	$file    = $3;
 	$path    = $file;
 
-	# Faster surrogates for 'global' and 'last'
-	$path =~ s@::@/@g;		# Replace Perl delimiters
-	$path =~ s@$@.pm@;		# Add file extension
+	# Faster surrogates 'last'
+	$path =~ s@\.@/@g;		# Replace Perl delimiters
+	$path =~ s@$@.py@;		# Add file extension
 
 	# Create the hyperlinks
-	$link = &LXR::Common::incref($file, "include", $path, $dir);
+	$link = &LXR::Common::incref($file, "include" ,$path ,$dir);
+	if (!defined($link)) {
+		# Can it be a directory ('from ... import ...' instruction ?)
+		$path =~ s@\.py$@@;	# Remove file extension
+		$link = &LXR::Common::incdirref($file, "include", $path, $dir);
+		# Erase last path separator from <a> link to enable
+		# following partial path processing.
+		# NOTE: this creates a dependency of link structure from incref!
+		if (substr($link, 0, 3) eq '<a ') {
+			$link =~ s!/">!">!;
+		} else {
+			$link = undef;
+		}
+	}
 	if (defined($link)) {
-		while ($file =~ m!::!) {
-			$link =~ s!^([^>]+>)([^:]*::)+!$1!;
-			$file =~ s!::[^:]*$!!;
+		while ($file =~ m!\.!) {
+			$link =~ s!^([^>]+>)([^.]*\.)+?([^.<]+<)!$1$3!;
+			$file =~ s!\.[^.]*$!!;
 			$path =~ s!/[^/]+$!!;
-			$link = &LXR::Common::incdirref($file, "include" ,$path ,$dir)
-					. "::"
+			$link = &LXR::Common::incdirref($file, "include", $path, $dir)
+					. "."
 					. $link ;
 		}
 	} else {
-		$link = $file;
+		$link = join('.', map {$self->processcode(\$_)} split(/\./, $file));
 	}
 
-	# As a goodie, rescan the tail of use/require for Perl code
+	# As a goodie, rescan the tail of import/from for Python code
 	&LXR::SimpleParse::requeuefrag($source);
 
 	# Assemble the highlighted bits

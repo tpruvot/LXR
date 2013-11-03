@@ -1,8 +1,119 @@
 This file draws your attention on changes made for
 
-        ==========================
+        ======================
+        LXR 0.11  -->  LXR 1.0
+        ======================
+
+User'Manual
+-----------
+Simultaneously available; separately downloadable on SourceFourge.
+Please, read it; a lot of time has been invested in its writing.
+
+Directory renaming: CAUTION - INCOMPATIBLE CHANGE - CAUTION
+------------------
+Former directory 'lxrconf.d' changed to 'custom.d' to reduce
+confusion with configuration file 'lxr.conf'.
+												=> no impact for new users
+
+configure-lxr.pl: NEW - NEW - NEW
+----------------
+Script to configure lxr.conf and databases. Having an operational LXR is now
+only a matter of a few minutes.
+
+recreatedb.pl: NEW - NEW - NEW
+--------------
+Script to recreate databasese descriptions from lxr.conf instead of
+reconfiguring everything from scratch with configure-lxr.pl above.
+Useful e.g. after a system upgrade when the dbengine has been replaced
+(provided you backuped at least the LXR root directory).
+
+Git.pm
+------
+Git support operational! Use of CPAN module git.pm given up; interactions
+with git have been recoded.
+
+Plain.pm
+--------
+Performance improvement on plain files source-trees: file
+copying suppressed.
+Improvement also when diff'ing two files but not noticeable since diff
+is rather rare and used on a single file at a time.
+
+Subversion.pl: NEW - NEW - NEW
+--------------
+Adds support for Subversion VCS.
+Repository restricted to directory in the local file system, no network
+access allowed.
+
+Index.pm, DB drivers and DB templates
+-------------------------------------
+Rewritten to better take benefit of SQL standardisation; record reference
+counts added in the tables to facilitate individual version removal;
+queries optimised to improve indexing speed (or, at least, not to
+slow it despite the new fields and key checks)
+												=> reindexing required
+
+SQLite.pm
+---------
+New database interface (for small projects): avoids the pain of installing
+a full-fledged DB server at the cost of lower performance.
+
+search script
+------
+'Case sensitive' check box now effective (with glimpse since swish-e is
+always case-insensitive).
+Role of 'advanced' box clarified: applies only to file name.
+												=> no impact on indexing
+
+diff script
+----
+Can now compare two files (with basically the same "virtual" name) differing
+in any number of variables (not only 'v') if that makes sense.
+Note: this is only possible with "buttons-and-menus" interface.
+												=> no impact on indexing
+
+genxref script
+-------
+Progress output reduced and reorganized with color highlighting
+to be useful (see User's Manual)
+
+Languages
+---------
+Scanners and definitions improved (notably JavaScript, Perl, PHP and Python;
+'href=' and the like hyperlinked in HTML files)
+												=> reindex for new keywords
+												   otherwise no impact
+
+lxr.conf
+--------
+Parameter 'maps' changed from 'Perl-hash' to mere 'array' so that order
+of rule application can be controlled.
+Variables can now have a 'when' attribute to display them only
+when they are relevant to current context.
+												=> no impact on indexing
+
+lxr.css
+-------
+Color syntax highlighting changed to Peter Zotov's settings. Thanks to him
+for spending the time to find much nicer colors (in my opinion, but that's
+personal taste). Classic colors still available in classic.css.
+												=> no impact on indexing
+
+Config.pm
+---------
+Modified to handle new 'maps' type.
+This allows also to "reverse" the effects of the rules and compute an
+associated file name when variables are changed (at least if rules are not
+too complex).
+												=> no impact on indexing
+
+New lxrkernel.conf template and kernel-grab-vars.sh script
+    --------------              -------------------
+Provided as goodies to help configuring for the Linux kernel
+
+        =======================
         LXR 0.10  -->  LXR 0.11
-        ==========================
+        =======================
 
 This version begins reorganizing the root directory. As a user remarked, it is becoming a mess.
 New subdirectories are created:
@@ -70,9 +181,9 @@ Substitution marker name (in HTML templates) changes
 												=> no impact
 			(unless you developed your own templates and lxr.css)
 
-        ==========================
+        ========================
         LXR 0.9.9  -->  LXR 0.10
-        ==========================
+        ========================
 
 This version contains new features.
 
@@ -110,7 +221,7 @@ Results are now presented in tabular form for better readability
 												=> no impact on indexing
 
 Languages
-JavaScript and Ruby adde						=> re-index your tree
+JavaScript and Ruby added						=> re-index your tree
 
 
 genxref script

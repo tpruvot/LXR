@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Plain.pm,v 1.29 2012/04/19 11:40:23 ajlittoz Exp $
+# $Id: Plain.pm,v 1.30 2012/09/21 17:11:54 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ Methods are sorted in the same order as in the super-class.
 
 package LXR::Files::Plain;
 
-$CVSID = '$Id: Plain.pm,v 1.29 2012/04/19 11:40:23 ajlittoz Exp $ ';
+$CVSID = '$Id: Plain.pm,v 1.30 2012/09/21 17:11:54 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
@@ -73,7 +73,7 @@ sub getdir {
 
 		# Check directories to ignore
 		if (-d $dir . $node) {
-			foreach my $ignoredir ($config->ignoredirs) {
+			foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
 				next FILE if $node eq $ignoredir;
 			}
 			# Directory to keep: suffix name with a slash
@@ -245,8 +245,8 @@ sub toreal {
 	my ($self, $pathname, $releaseid) = @_;
 
 # nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
-	foreach my $ignoredir ($config->ignoredirs) {
-		return undef if $pathname =~ m|/$ignoredir/|;
+	foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
+		return undef if $pathname =~ m!/$ignoredir(/|$)!;
 	}
 
 	return ($self->{'rootpath'} . $releaseid . $pathname);

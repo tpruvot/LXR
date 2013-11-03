@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Markup.pm,v 1.6 2012/08/03 16:33:47 ajlittoz Exp $
+# $Id: Markup.pm,v 1.7 2012/09/17 12:15:43 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ syntactic components or otherwise interesting elements of a block.
 
 package LXR::Markup;
 
-$CVSID = '$Id: Markup.pm,v 1.6 2012/08/03 16:33:47 ajlittoz Exp $';
+$CVSID = '$Id: Markup.pm,v 1.7 2012/09/17 12:15:43 ajlittoz Exp $';
 
 use strict;
 
@@ -301,8 +301,9 @@ sub markupfile {
 	my $lang = LXR::Lang->new($pathname, $releaseid, @itag);
 
 	if ($lang) {
-		my $language = $lang->language;    # To get back to the key to lookup the tabwidth.
-		&LXR::SimpleParse::init($fileh, $config->filetype->{$language}[3], $lang->parsespec);
+	# Source code file if $lang is defined, meaning a parser has been found
+		my $language = $lang->{'ltype'};	# To get back to the key to lookup the tabwidth.
+		&LXR::SimpleParse::init($fileh, ${$config->{'filetype'}{$language}}[3], $lang->parsespec);
 
 		my ($btype, $frag) = &LXR::SimpleParse::nextfrag;
 
@@ -365,10 +366,10 @@ sub markupfile {
 
 		# If it's not a script or something with an Emacs spec header and
 		# the first line is very long or containts control characters...
-		if (   !/^\#!/
-			&& !/-\*-.*-\*-/i
-			&& (length($_) > 132 || /[\000-\010\013\014\016-\037\200-�]/)
-		   ) {
+		if	(	m/^#!/
+			&&	m/-\*-.*-\*-/i
+			&&	(length($_) > 132 || m/[\x00-\x08\x0B\x0C\x0E-\x1F\x80-\x9F]/)
+			) {
 			# We postulate that it's a binary file.
 			&$outfun("<ul><b>Binary File: ");
 			# jwz: URL-quote any special characters.

@@ -1,11 +1,10 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Ruby.pm,v 1.1 2012/01/26 16:35:35 ajlittoz Exp $
+# $Id: Ruby.pm,v 1.2 2012/09/17 12:15:43 ajlittoz Exp $
 #
-# Implements generic support for any language that ectags can parse.
-# This may not be ideal support, but it should at least work until
-# someone writes better support.
+# Enhances the support for the Ruby language over that provided by
+# Generic.pm
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,7 +22,7 @@
 
 package LXR::Lang::Ruby;
 
-$CVSID = '$Id: Ruby.pm,v 1.1 2012/01/26 16:35:35 ajlittoz Exp $ ';
+$CVSID = '$Id: Ruby.pm,v 1.2 2012/09/17 12:15:43 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -44,14 +43,23 @@ sub processinclude {
 	my $lsep;		# left separator
 	my $rsep;		# right separator
 	my $link;		# link to include file
+	my $identdef = $self->langinfo('identdef');
 
-	$source =~ s/^					# reminder: no initial space in the grammar
+	if ($source =~ s/^				# Parse instruction
 				([\w\#]\s*[\w]*)	# reserved keyword for include construct
 				(\s+)				# space
-				(?|	(\")(.+?)(\")	# C syntax
-				|	(\')(.+?)(\')	# C alternate syntax
+				(?|	(\")(.+?)(\")	# double quoted string
+				|	(\')(.+?)(\')	# single quoted string
 				)
-				//sx ;
+				//sx) {		# Parse directive
+		# Guard against syntax error or unexpected variant
+		# Advance past keyword, so that parsing may continue without loop.
+		$source =~ s/^($identdef)//;	# Erase keyword
+		$dirname = $1;
+		$$frag =	"<span class='reserved'>$dirname</span>";
+		&LXR::SimpleParse::requeuefrag($source);
+		return;
+	}
 	$dirname = $1;
 	$spacer  = $2;
 	$lsep    = $3;
@@ -66,7 +74,7 @@ sub processinclude {
 			$link =~ s!^([^>]+>)([^/]*/)+!$1!g;
 			$file =~ s!/[^/]*$!!;
 			$path =~ s!/[^/]+$!!;
-			$link = &LXR::Common::incdirref($file, "include" ,$path ,$dir)
+			$link = &LXR::Common::incdirref($file, "include", $path, $dir)
 					. "/"
 					. $link ;
 		}

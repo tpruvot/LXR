@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: search,v 1.44 2012/08/03 17:25:08 ajlittoz Exp $
+# $Id: search,v 1.45 2012/09/17 11:32:54 ajlittoz Exp $
 
 # search --	Freetext search
 #
@@ -23,7 +23,7 @@
 
 ######################################################################
 
-$CVSID = '$Id: search,v 1.44 2012/08/03 17:25:08 ajlittoz Exp $ ';
+$CVSID = '$Id: search,v 1.45 2012/09/17 11:32:54 ajlittoz Exp $ ';
 
 use strict;
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
@@ -308,10 +308,10 @@ sub search {
 		die "'htmlsearch' template not configured";
 	}
 
-	my $searchtext    = $HTTP->{'param'}->{'_string'};
-	my $filetext      = $HTTP->{'param'}->{'_filestring'};
-	my $advanced      = $HTTP->{'param'}->{'_advanced'};
-	my $casesensitive = $HTTP->{'param'}->{'_casesensitive'};
+	my $searchtext    = $HTTP->{'param'}{'_string'};
+	my $filetext      = $HTTP->{'param'}{'_filestring'};
+	my $advanced      = $HTTP->{'param'}{'_advanced'};
+	my $casesensitive = $HTTP->{'param'}{'_casesensitive'};
 
 	$searchtext =~ s/\+/ /g;	# Reverse <form> space encoding
 

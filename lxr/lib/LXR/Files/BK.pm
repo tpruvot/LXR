@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: BK.pm,v 1.7 2012/04/19 11:40:23 ajlittoz Exp $
+# $Id: BK.pm,v 1.8 2012/09/17 11:44:53 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ Andre J. Littoz - April 2012
 
 package LXR::Files::BK;
 
-$CVSID = '$Id: BK.pm,v 1.7 2012/04/19 11:40:23 ajlittoz Exp $ ';
+$CVSID = '$Id: BK.pm,v 1.8 2012/09/17 11:44:53 ajlittoz Exp $ ';
 
 use strict;
 use File::Spec;
@@ -95,9 +95,9 @@ sub getannotations {
 }
 
 sub getauthor {
-	my ($self, $pathname, $releaseid) = @_;
+	my ($self, $pathname, $releaseid, $revision) = @_;
 
-	my $info = $self->getfileinfo($pathname, $releaseid);
+	my $info = $self->getfileinfo($pathname, $revision);
 	return undef if !defined $info;
 
 	if (!defined($info->{'author'})) {

@@ -1,5 +1,5 @@
 /*
- *	$Id: lxr.css,v 1.12 2012/09/22 10:17:09 ajlittoz Exp $
+ *	$Id: classic.css,v 1.1 2012/09/22 10:17:09 ajlittoz Exp $
  */
 
 /* Some definitions are grouped together to allow modification
@@ -385,18 +385,17 @@
 }
 
 /* link to other site (http, ftp and mailto) */
-  A.offshore
-{ text-decoration: underline
+  A.offshore {
 }
 
 /* link to the include file */
   A.include
-{ color: #E65C00
+{ color: #669966
 }
 
 /* link - identifier search */
   .fid
-{ color: #007ACC
+{ color: #669966
 }
 
 /* general file font etc. */
@@ -407,16 +406,14 @@
 /* comments */
   .comment
 { color: #808080
-; font-style: italic
 }
 /* strings */
   .string
-{ color: #BB0000
+{ color: #0000CC
 }
 /* reserved words */
   .reserved
-{ color: green
-; font-weight: bold
+{ color: #800000
 }
 
 /*************************/
@@ -595,10 +592,5 @@
   TD.conf_val
 { overflow: auto
 ; padding: 0pt 5pt
-}
-
-  .conf_force
-{ color: red
-; background-color: silver
 }
 

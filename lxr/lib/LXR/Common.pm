@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Common.pm,v 1.98 2012/08/03 16:33:47 ajlittoz Exp $
+# $Id: Common.pm,v 1.101 2012/09/17 12:01:34 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ content.>
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.98 2012/08/03 16:33:47 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.101 2012/09/17 12:01:34 ajlittoz Exp $ ';
 
 use strict;
 
@@ -70,7 +70,6 @@ require LXR::Files;
 require LXR::Index;
 require LXR::Lang;
 require LXR::Template;
-require LXRversion;
 
 our $config;
 our $files;
@@ -269,9 +268,9 @@ sub nonvarargs {
 
 	foreach my $param (keys %{$HTTP->{'param'}}) {
 		next unless $param =~ m!^_!;
-		my $val = $HTTP->{'param'}->{$param};
+		my $val = $HTTP->{'param'}{$param};
 		if (length($val)) {
-			push(@args, "$param=$HTTP->{'param'}->{$param}");
+			push(@args, "$param=$HTTP->{'param'}{$param}");
 		}
 	}
 
@@ -386,7 +385,12 @@ sub fileref {
 	}
 
 	return	( "<a class='$css' href=\"$config->{virtroot}/source$path"
-			. &urlargs(@args)
+			. &urlargs	( ($HTTP->{'param'}{'_showattic'}
+						  ? "_showattic=1"
+						  : ""
+						  )
+						, @args
+						)
 			. ($line > 0 ? "#$line" : "")
 			. "\"\>$desc</a>"
 			);
@@ -771,7 +775,7 @@ sub printhttp {
 			$wday, $mday, $mon, $year, $hour, $min, $sec);
 	}
 
-	if ($HTTP->{'param'}->{'_raw'}) {
+	if ($HTTP->{'param'}{'_raw'}) {
 
 		#FIXME - need more types here
 		my %type = (
@@ -832,6 +836,7 @@ sub httpinit {
 	$HTTP->{'path_info'} = http_wash($ENV{'PATH_INFO'});
 
 	$HTTP->{'path_info'} = clean_path($HTTP->{'path_info'});
+	$HTTP->{'path_info'} = '/' if $HTTP->{'path_info'} eq "";
 	$HTTP->{'this_url'} = 'http://' . $ENV{'SERVER_NAME'};
 	$HTTP->{'this_url'} .= ':' . $ENV{'SERVER_PORT'}
 	  if $ENV{'SERVER_PORT'} != 80;
@@ -849,14 +854,14 @@ sub httpinit {
 	  if defined $ENV{'QUERY_STRING'};
 
 	# But do clean up these
-	$HTTP->{'param'}->{'v'} ||= $HTTP->{'param'}->{'_version'};
-	$HTTP->{'param'}->{'a'} ||= $HTTP->{'param'}->{'_arch'};
-	$HTTP->{'param'}->{'_i'} ||= $HTTP->{'param'}->{'_identifier'};
+	$HTTP->{'param'}{'v'}	||= $HTTP->{'param'}{'_version'};
+	$HTTP->{'param'}{'a'}	||= $HTTP->{'param'}{'_arch'};
+	$HTTP->{'param'}{'_i'}	||= $HTTP->{'param'}{'_identifier'};
 
-	$identifier = clean_identifier($HTTP->{'param'}->{'_i'});
+	$identifier = clean_identifier($HTTP->{'param'}{'_i'});
 	# remove the param versions to prevent unclean versions being used
-	delete $HTTP->{'param'}->{'_i'};
-	delete $HTTP->{'param'}->{'_identifier'};
+	delete $HTTP->{'param'}{'_i'};
+	delete $HTTP->{'param'}{'_identifier'};
 
 	$config     = LXR::Config->new($script_path);
 	unless (defined $config) {
@@ -869,10 +874,10 @@ sub httpinit {
 	foreach my $param (keys %{$HTTP->{'param'}}) {
 		my $var = $param;
 		next unless $var =~ s/^!//;
-		if (exists($config->{'variables'}->{$var})) {
-				$HTTP->{'param'}->{$var} = $HTTP->{'param'}->{$param};
+		if (exists($config->{'variables'}{$var})) {
+				$HTTP->{'param'}{$var} = $HTTP->{'param'}{$param};
 		}
-		delete $HTTP->{'param'}->{$param};
+		delete $HTTP->{'param'}{$param};
 	}
 
 	$files = LXR::Files->new($config->sourceroot, $config->sourceparams);
@@ -882,8 +887,8 @@ sub httpinit {
 
 	# Set variables now
 	foreach ($config->allvariables) {
-		$config->variable($_, $HTTP->{'param'}->{$_}) if $HTTP->{'param'}->{$_};
-		delete $HTTP->{'param'}->{$_};
+		$config->variable($_, $HTTP->{'param'}{$_}) if $HTTP->{'param'}{$_};
+		delete $HTTP->{'param'}{$_};
 	}
 
 	# Egg-and-hen problem here: clean_release checks the advertised
@@ -916,16 +921,41 @@ a I<string> containing the release (version) to check
 
 =back
 
+B<Note:>
+
+=over
+
+This filtering breaks with CVS if a file is not targeted
+i.e. directory listing or identifier query.
+
+For a directory, the default release is not a pain, since it is
+easy to change it to the desired one as soon as a file is accessed.
+The provided release is however kept for the case where directory
+display comes from a link in a file and user then jumps to another
+file in the directory.
+It is assumed that usually user wants both files with same version.  
+
+For identifier query, the provided release MUST be kept, even if it
+does not exist, since there is no way in I<ident> to set a
+version (all links would then point to default version).
+
+=back
+
 =cut
 
 sub clean_release {
 	my $releaseid = shift;
-	my @rels= $config->varrange('v');
-	my %test;
-	@test{@rels} = undef;
 
-	if(!exists $test{$releaseid}) {
-		$releaseid = $config->vardefault('v');
+	if	(	!$files->isa("LXR::Files::CVS")
+		||	$pathname !~ m!/$!
+		) {
+		my @rels= $config->varrange('v');
+		my %test;
+		@test{@rels} = undef;
+
+		if(!exists $test{$releaseid}) {
+			$releaseid = $config->vardefault('v');
+		}
 	}
 	return $releaseid;
 }
@@ -1028,8 +1058,7 @@ To be called when all processing is done, but is it really necessary?
 sub httpclean {
 	$config = undef;
 	$files  = undef;
-
-	$index->DESTROY();
+	$index->final_cleanup();
 	$index  = undef;
 }
 

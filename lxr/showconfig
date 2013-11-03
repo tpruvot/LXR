@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: showconfig,v 1.1 2012/03/07 20:22:22 ajlittoz Exp $
+# $Id: showconfig,v 1.2 2012/09/21 08:18:02 ajlittoz Exp $
 
 # showconfig --	Present LXR configuration as html
 #
@@ -40,7 +40,7 @@ by a specific one.
 
 =cut
 
-$CVSID = '$Id: showconfig,v 1.1 2012/03/07 20:22:22 ajlittoz Exp $ ';
+$CVSID = '$Id: showconfig,v 1.2 2012/09/21 08:18:02 ajlittoz Exp $ ';
 
 use strict;
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" };  # if LXR modules are in ./lib
@@ -128,27 +128,28 @@ sub parmvalue {
 	my $parm = shift;
 	my $pg = shift;
 
-	if (exists($pg->{$parm})) {
-		my $val = $pg->{$parm};
-		if (ref($val) eq 'HASH') {
-			return "<pre>" . dumphash($val, 0) . "</pre>";
-		} elsif (ref($val) eq 'ARRAY') {
-			return "<pre>" . join('<br>', @$val) . "</pre>";
+	return '' if !exists($pg->{$parm});
+	my $val = $pg->{$parm};
+	if (ref($val) eq 'HASH') {
+		return "<pre>" . dumphash($val, 0) . "</pre>";
+	} elsif (ref($val) eq 'ARRAY') {
+		return "<pre>" . join('<br>', @$val) . "</pre>";
+	} else {
+		if ('dbpass' eq $parm) {
+			return "<h4>Hey, that's supposed to be a secret!</h4>";
 		} else {
-			if ('dbpass' eq $parm) {
-				return "<h4>Hey, that's supposed to be a secret!</h4>";
-			} else {
-				return "<pre>$val</pre>";
-			}
+			return "<pre>$val</pre>";
 		}
 	}
+
 }
 
 
-=head2 C<parmgrouplink ($gnr, $pgs)>
+=head2 C<parmexpand ($templ, $who, $pgs, $pgnr)>
 
 Function C<parmgrouplink> is a "$function" substitution function.
-It returns a
+It returns its block (contained in C<$tmpl>) expanded for each
+accessible configuration parameter.
 
 =over
 
@@ -177,8 +178,11 @@ since all parameters end up there.
 from the set.
 
 A parameter may be defined in an included file like C<'filetype'>
-from C<'filetypeconf'>. In this case, both specific and column are
-empty.
+from C<'filetypeconf'>. In this case, both specific and global columns
+are empty.
+
+A parameter is considered if it belongs in the global section or in the
+requested tree section.
 
 To dump values anyway, force C<$config> usage instead of a parameter
 group through query argument C<_confall> with non zero value.
@@ -188,19 +192,34 @@ group through query argument C<_confall> with non zero value.
 sub parmexpand {
 	my ($templ, $who, $pgs, $pgnr) = @_;
 	my $ret;
+	my @keylist = ();
 	my $parmgroup = @$pgs[$pgnr];
 	my $globgroup = @$pgs[0];
-	my $full = $HTTP->{'param'}->{'_confall'} || 0;
+	my $full = $HTTP->{'param'}{'_confall'} || 0;
 
-	if ($full != 0) { $full = 1; }
+	if ($full != 0) {
+		my %seen;
+		for (@$pgs) {
+			while (defined(my $key = each %{$_})) {
+				$seen{$key}++;
+			}
+		}
+		@keylist = keys(%seen);
+		$full = 1;
+	} else {
+		@keylist = keys %{{%$parmgroup, %$globgroup}};
+	}
 
-	for my $parm (sort keys %$config) {
+	for my $parm (sort @keylist) {
 		next if (	$parm eq 'confpath'
 				||	$parm eq 'parmgroupnr'
 				);
+		 my $extra =	!exists($$parmgroup{$parm})
+					&&	!exists($$globgroup{$parm});
 		$ret .= expandtemplate
 					( $templ
-					,	( 'parm' => sub{ $parm }
+					,	( 'force' => sub{ $extra ? 'conf_force' : '' }
+						, 'parm' => sub{ $parm }
 						, 'type' => sub{ 
 									my $t = ref($config->{$parm});
 									if ('HASH' eq $t || 'ARRAY' eq $t) {
@@ -210,17 +229,7 @@ sub parmexpand {
 									} }
 						, 'val'  => sub{ parmvalue($parm, $parmgroup) }
 						, 'global'=> sub{
-								if (exists($globgroup->{$parm})) {
 									parmvalue($parm, $globgroup)
-								} elsif (!exists($parmgroup->{$parm})
-										&& $full==1
-										) {
-									return '<span class="confall">'
-										. parmvalue($parm, $config)
-										. "</span>\n"
-								} else {
-									return '';
-								}
 										}
 						)
 					);
@@ -258,7 +267,9 @@ sub parmgrouplink {
 	if (0>=$pgnr || $pgnr > $#$pgs) {
 		return 'none';
 	} else {
-		return "#$pgnr <a href='showconfig?_parmgroup=$pgnr'>"
+		return "#$pgnr <a href='"
+				. $config->treeurl($$pgs[$pgnr], $$pgs[0])
+				. "/showconfig?_parmgroup=$pgnr'>"
 				. $$pgs[$pgnr]->{'virtroot'}
 				. "</a>" ;
 	}
@@ -283,7 +294,7 @@ httpinit;
 
 my $who = 'showconfig';
 my @pgs = $config->readconfig();
-my $which = $HTTP->{'param'}->{'_parmgroup'}
+my $which = $HTTP->{'param'}{'_parmgroup'}
 			|| $config->{'parmgroupnr'};
 makeheader($who);
 $templ = gettemplate	( 'htmlconfig'

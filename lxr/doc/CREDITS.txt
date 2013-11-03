@@ -28,7 +28,13 @@ Joseph Corral <joseph_corral@hp.com>
 Kristoffer Gleditsch <toffer@ping.uio.no>		Postgres patches
 Guido Sohne						Updated INSTALL document
 Jens Heimann <jens.heimann@materna.de>			Oracle database support
-Andre-Littoz <ajlittoz@users.sf.net>			User's manual
+Patrick Gerlier <page74010-sf@yahoo.fr>			en & fr User's manual
+Andre-Littoz <ajlittoz@users.sf.net>			Website
+	"						Config scripts, genxref "POST" checks
+	"						Revised INSTALL document
+	"						Directory re-org
+	"						Git & Subversion backends
+	"						SQLite backend & many DB patches
 
 
 -------------------------------------------------------------------------
@@ -36,4 +42,4 @@ To get your name added to this list, see:
  
    http://sf.net/projects/lxr
  
-Last updated: $Date: 2012/01/23 08:55:02 $
+Last updated: $Date: 2012/09/22 13:08:14 $

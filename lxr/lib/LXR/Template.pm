@@ -529,11 +529,11 @@ sub titleexpand {
 	if ($who eq 'source' || $who eq 'diff' || $who eq 'sourcedir') {
 		$ret = $config->sourcerootname . $pathname;
 	} elsif ($who eq 'ident') {
-		my $i = $HTTP->{'param'}->{'_i'};
+		my $i = $HTTP->{'param'}{'_i'};
 		$ret = $config->sourcerootname . ' identifier search'
 				. ($i ? ": $i" : '');
 	} elsif ($who eq 'search') {
-		my $s = $HTTP->{'param'}->{'_string'};
+		my $s = $HTTP->{'param'}{'_string'};
 		$ret = $config->sourcerootname . ' general search'
 				. ($s ? ": $s" : '');
 	}
@@ -723,7 +723,7 @@ The returned string is void, thus avoiding any stray legend
 in the page.
 
 Otherwise, the argument template is then expanded
-through C<expandtemplate> with a replacement rule for theœ
+through C<expandtemplate> with a replacement rule for the
 C<'treelinks'> attribute.
 
 =cut
@@ -783,49 +783,14 @@ It uses the copy of the configuration file passed as an array argument.
 The elements, except the first (index 0), are scanned to see
 if parameter 'shortcaption' is defined,
 which means this tree is shareable.
-Parameters C<'host_names'> and C<'virtroot'> are retrieved to build
-an URL to launch LXR on that tree.
 
-C<'virtroot'> is supposed to be unique for each tree.
-C<'host_names'>, if not locally defined, is fetched from the global
-parameters (index 0 element).
+Depending on the result of I<Config.pm>'s C<treeurl>,
+a mere highlighting of the name or a full link is generated.
 
-The presently used hostname is extracted from the URL.
-If it exists in the C<'host_names'> list, it is used for the link.
-Otherwise, the first name is used.
-
-If this is the case, the argument template is then expanded
+The argument template is then expanded
 through C<expandtemplate> with a replacement rule for each attribute.
 
 The result is the concatenation of the repeated expansion.
-
-No attempt is made to use C<'baseurl'> or  C<'baseurl_aliases'>
-
-B<Potential problem:>
-
-=over
-
-The LXR server may be accessed simultaneously under different names,
-e.g. C<localhost> on the computer, a short name on the LAN and a full
-URL from the Net.
-
-Choosing the first name in C<'host_names'> may not give the correct name
-for the current user (C<localhost> instead of a fully qualified URL).
-But extracting the hostname from the page URL is not guaranteed to
-be the correct choice in all circumstances.
-
-This might be solved with a more complex structure in C<'host_names'>
-made of 2 lists, one for "local" mode, the other for "remote" mode.
-But, once again, how to chose reliably and automatically the correct
-option?
-
-With these two lists, an approach could be to note the index of the
-hostname for the successfully identified trees.
-If it is always the same, then determine if this is a local or remote
-hostname and use the first hostname in the corresponding list for
-the unknown tree.
-
-=back
 
 =cut
 
@@ -836,66 +801,18 @@ sub treesexpand {
 	my $global = shift @confgroups;
 
 	$who =~ s/^sourcedir$/source/;
-	my ($accesshost, $accessport) =
-		$HTTP->{'script_path'} =~ m!(^.+?://[^/:]+)(:\d+)?!;
-	(my $scriptpath =$HTTP->{'script_path'}) =~ s!(^.+?://[^/:]+)(:\d+)?!$1!;
-
 	# Scan the configuration groups, skipping non-shareable trees
 	for my $group (@confgroups) {
 		next unless exists($group->{'shortcaption'});
 		my $shortcap =  $group->{'shortcaption'};
-		my $virtroot =  $group->{'virtroot'};
-		my @hosts = @{$group->{'host_names'} || $global->{'host_names'}};
-		my $url;
-		my $port;
-		for my $hostname (@hosts) {
-			$hostname =~ s!/*$!!;		# remove trailing /
-			$hostname =~ s/(:\d+)$//;	# remove port
-			my $port = $1;
-	# Add http: if it was dropped in the hostname
-			if ($hostname !~ m!^.+?://!) {
-				$hostname = "http:" . $hostname;
-			}
-			$url = $hostname.$virtroot;
-	# Is this the presently used hostname?
-			last if $url eq $scriptpath;
-			$url = undef;
-		}
-		if (defined($url)) {
+		my $url = $config->treeurl ($group, $global);
+		if (!defined($url)) {
 	# The current tree has been found, give it a highlight
 			$treelink = "<span class=\"tree-sel\">$shortcap</span>";
 		} else {
-	# This is an alternate tree, try to see if the current hostname
-	# is on the list for this tree
-			my $the_host = quotemeta($accesshost);
-			$url = undef;
-			for my $hostname (@hosts) {
-				$hostname =~ s!/*$!!;		# remove trailing /
-				$hostname =~ s/(:\d+)$//;	# remove port
-				$port = $1;
-	# Add http: if it was dropped in the hostname
-				if ($hostname !~ m!^.+?://!) {
-					$hostname = "http:" . $hostname;
-				}
-				if ($hostname eq $accesshost) {
-					$url = $hostname;
-					last;
-				}
-			}
-	# The current hostname is not on the list for this tree.
-	# Take the first name but NOTE it is not reliable
-			if (!defined($url)) {
-				$url = $group->{'host_names'}->[0]
-					|| $global->{'host_names'}->[0];
-				$url =~ s/(:\d+)$//;
-				$port = $1;
-			}
-	# If a port is given on 'host_names', use it.
-	# Otherwise, use the incoming request port
-			$url .= $port || $accessport;
-			$url = "http:" . $url unless ($url =~ m!^.+?://!);
+# 	# This is an alternate tree, build a link
 			$treelink =
-				"<a class=\"treelink\" href=\"$url$virtroot/$who\">$shortcap</a>";
+				"<a class=\"treelink\" href=\"$url/$who\">$shortcap</a>";
 		}
 		$tlex .= expandtemplate
 					( 	$templ
@@ -938,7 +855,7 @@ it is here considered as the "mode"
 It makes use of sub C<urlargs> to retrieve the filtered list of
 variables values.
 If necessary, other URL arguments may be added depending on the mode
-(known from C<$who>.
+(known from C<$who>).
 
 The argument template is then expanded through C<expandtemplate>
 for each URL argument with a replacement rule for its name and value.
@@ -950,18 +867,23 @@ sub urlexpand {
 	my $urlex;
 	my $args;
 
+	if ($who eq 'diff') {
 	# diff needs special processing: the currently selected version
 	# of the file is transfered with a set of "mirror" arguments
 	# (their name is the same as a variable with a ~ prefix),
 	# so that the standard selection mechanism will give
 	# the version to compare to in the current value of the variables.
-	if ($who eq 'diff') {
 		my @args = ();
 		foreach ($config->allvariables) {
 			push(@args, "~$_=".$config->variable($_));
 		}
 		diffref ("", "", $pathname, @args) =~ m!^.*?(\?.*?)"!;
 		$args = $1;
+	} elsif ($who eq 'ident') {
+	# Be kind to the user of ident: propagate the searched for
+	# identifier if defined to avoid retyping it after a version
+	# change for instance.
+		$args = &urlargs($identifier ? "_i=$identifier" : '');
 	} else {
 		$args = &urlargs();
 	}
@@ -1236,7 +1158,7 @@ sub varlinks {
 			} elsif ($who eq 'search') {
 				$vallink =
 				    "<a class=\"varlink\" href=\"$config->{virtroot}/search"
-				  . &urlargs("$var=$val", "_string=" . $HTTP->{'param'}->{'_string'})
+				  . &urlargs("$var=$val", "_string=" . $HTTP->{'param'}{'_string'})
 				  . "\">$val</a>";
 			}
 		}
@@ -1270,6 +1192,12 @@ a I<string> containing the variable name
 
 =back
 
+To handle CVS case where directories are not managed version-wise,
+the value any variable has on entry is kept, even if this value
+is not listed in its C<'range'> attribute.
+Thus, the current I<version>, for instance, is not lost through
+a disrectory display.
+
 =cut
 
 sub varmenuexpand {
@@ -1284,6 +1212,7 @@ sub varmenuexpand {
 		if ($val eq $oldval) {
 			$class = "var-sel";
 			$sel = "selected";
+			$oldval = undef;	# Current value let
 		} else {
 			$class = "varlink";
 			$sel = "";
@@ -1294,6 +1223,17 @@ sub varmenuexpand {
 					,	( 'itemclass' => sub { $class }
 						, 'itemsel'   => sub { $sel }
 						, 'varvalue'  => sub { $val }
+						)
+					);
+	}
+	# Value on entry not listed in 'range', but keep it
+	# in case this is only transient.
+	if (defined($oldval)) {
+		$menuex .= expandtemplate
+					( $templ
+					,	( 'itemclass' => sub { "var-sel" }
+						, 'itemsel'   => sub { "selected" }
+						, 'varvalue'  => sub { $oldval }
 						)
 					);
 	}
@@ -1569,7 +1509,7 @@ sub makeheader {
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
 			,	'atticlink'  => \&atticlink
-			,	'LXRversion' => sub { $LXRversion::LXRversion }
+			,	'LXRversion' => sub { "1.0.0" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
 			  # --other trees--
@@ -1635,7 +1575,7 @@ sub makefooter {
 				'caption'    => sub { captionexpand(@_, $who) }
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
-			,	'LXRversion' => sub { $LXRversion::LXRversion }
+			,	'LXRversion' => sub { "1.0.0" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
 			  # --variables buttons & links--
@@ -1701,7 +1641,7 @@ sub makeerrorpage {
 		(	$template
 		,	( 'target' =>  sub { targetexpand(@_, $who) }
 			, 'stylesheet' => \&stylesheet
-			, 'LXRversion' => sub { $LXRversion::LXRversion }
+			, 'LXRversion' => sub { "1.0.0" }
 			)
 		)
 	);

@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: CVS.pm,v 1.41 2012/08/03 14:35:50 ajlittoz Exp $
+# $Id: CVS.pm,v 1.43 2012/09/21 17:11:54 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ Methods are sorted in the same order as in the super-class.
 
 package LXR::Files::CVS;
 
-$CVSID = '$Id: CVS.pm,v 1.41 2012/08/03 14:35:50 ajlittoz Exp $ ';
+$CVSID = '$Id: CVS.pm,v 1.43 2012/09/21 17:11:54 ajlittoz Exp $ ';
 
 use strict;
 use Time::Local;
@@ -85,7 +85,7 @@ sub getdir {
 
 		# Check directories to ignore
 		if (-d $real . $node) {
-			foreach my $ignoredir ($config->ignoredirs) {
+			foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
 				next FILE if $node eq $ignoredir;
 			}
 			# The "Attic" directory is where CVS stores removed files
@@ -236,7 +236,7 @@ sub getannotations {
 }
 
 sub getauthor {
-	my ($self, $filename, $revision) = @_;
+	my ($self, $filename, $releaseid, $revision) = @_;
 
 	$self->parsecvs($filename);
 	return $cvs{'branch'}{$revision}{'author'};
@@ -372,8 +372,8 @@ sub toreal {
 	my $real = $self->{'rootpath'} . $pathname;
 
 # nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
-	foreach my $ignoredir ($config->ignoredirs) {
-		return undef if $real =~ m!/$ignoredir/!;
+	foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
+		return undef if $real =~ m!/$ignoredir(/|$)!;
 	}
 
 	# If directory, nothing more to do

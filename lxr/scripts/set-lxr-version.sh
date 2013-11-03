@@ -1,5 +1,5 @@
 #!/bin/bash
-# $Id: set-lxr-version.sh,v 1.1 2012/04/03 16:06:27 ajlittoz Exp $
+# $Id: set-lxr-version.sh,v 1.2 2012/08/27 08:59:30 ajlittoz Exp $
 
 shopt -s extglob
 . ${0%%+([^/])}ANSI-escape.sh
@@ -10,6 +10,7 @@ cmdname=${0##*/}
 #	Decode options and arguments
 version=
 user=0
+rezero=0
 while [[ $# > 0 ]] ; do
 	case "$1" in
 		--help | -h )
@@ -21,10 +22,14 @@ while [[ $# > 0 ]] ; do
 			echo
 			echo "OPTION:"
 			echo "  -h, --help     print this reminder and stop"
+			echo "  -z, --rebase   rebase to template state (developer use only)"
 			echo "  -u, --user     custom version-number is added to release number"
 			echo
 			echo "Note: this script gives no error if it can't set the version number"
 			exit 0
+		;;
+		--rebase | -z )
+			rezero=1
 		;;
 		--user | -u )
 			user=1
@@ -39,17 +44,31 @@ while [[ $# > 0 ]] ; do
 	shift
 done
 
-if [ "x$version" == "x" ] ; then
+if [ "$rezero" == 0 -a "x$version" == "x" ] ; then
 	echo "${VTred}${cmdname}:${VTnorm} no version" >/dev/stderr
 	exit 1
 fi
 
-if [[ "$user" == 1 ]] ; then
-	sed	-e "/our \$LXRversion =/s/-.*\";/\";/" \
-		-e "/our \$LXRversion =/s/\";/-${version}\";/" \
-		-i lib/LXRversion.pm
+if [[ -f lib/LXRversion.pm ]] ; then
+	if [[ "$rezero" == 1 ]] ; then
+		sed	-e "/our \$LXRversion =/s/\".*\"/\"%LXRRELEASENUMBER%\"/" \
+			-i lib/LXRversion.pm
+	elif [[ "$user" == 1 ]] ; then
+		sed	-e "/our \$LXRversion =/s/\([[:digit:].]\+\)\(-.\+\)\?\"/\1-${version}\"/" \
+			-i lib/LXRversion.pm
+	else
+		sed	-e "/our \$LXRversion =/s/%LXRRELEASENUMBER%/${version}/" \
+			-i lib/LXRversion.pm
+	fi
+fi
 
+if [[ "$rezero" == 1 ]] ; then
+	sed	-e "/'LXRversion'/s/\".*\"/\"%LXRRELEASENUMBER%\"/" \
+		-i lib/LXR/Template.pm
+elif [[ "$user" == 1 ]] ; then
+	sed	-e "/'LXRversion'/s/\([[:digit:].]\+\)\(-.\+\)\?\"/\1-${version}\"/" \
+		-i lib/LXR/Template.pm
 else
-	sed	-e "/our \$LXRversion =/s/%LXRRELEASENUMBER%/${version}/" \
-		-i lib/LXRversion.pm
+	sed	-e "/%LXRRELEASENUMBER%/s/%LXRRELEASENUMBER%/${version}/" \
+		-i lib/LXR/Template.pm
 fi

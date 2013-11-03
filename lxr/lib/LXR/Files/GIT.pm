@@ -1,8 +1,9 @@
+# -*- tab-width: 4 -*-
+###############################################
 #
 # GIT.pm - A file backend for LXR based on GIT.
 #
-# © 2006 by	Jan-Benedict Glaw <jbglaw@lug-owl.de>
-# © 2006 by	Maximilian Wilhelm <max@rfc2324.org>
+# $Id: GIT.pm,v 1.8 2012/09/21 17:14:30 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +19,6 @@
 # along with this program; if not, write to the Free Software Foundation
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA
 #
-
 ###############################################
 
 =head1 GIT module
@@ -52,7 +52,7 @@ module, but at least it works for LXR.
 
 package LXR::Files::GIT;
 
-$CVSID = '$Id: GIT.pm,v 1.5 2012/04/19 11:40:23 ajlittoz Exp $';
+$CVSID = '$Id: GIT.pm,v 1.8 2012/09/21 17:14:30 ajlittoz Exp $';
 
 use strict;
 use Time::Local;
@@ -68,7 +68,6 @@ sub new {
 	$self->{'rootpath'} = $rootpath;
 	$self->{'git_blame'} = $$params{'git_blame'};
 	$self->{'git_annotations'} = $$params{'git_annotations'};
-
 	if ($self->{'git_blame'}) {
 		# Blame support will only work when commit IDs are available,
 		# called annotations here...
@@ -103,12 +102,16 @@ sub getdir {
 			$entryname =~ s!^.*/!!;
 
 			# Weed out things to ignore
-			foreach my $ignoredir ($config->{ignoredirs}) {
+			foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
 				next if $entryname eq $ignoredir;
 			}
 			# Skip current and parent directories
 			next if $entryname =~ /^\.$/;
 			next if $entryname =~ /^\.\.$/;
+			# Skip files starting with a dot (usually invisible),
+			# ending with a tilde (editor backup)
+			# or having "orig" extension
+			next if $node =~ m/^\.|~$|\.orig$/;
 
 			if ($entrytype eq "blob") {
 				push (@files, $entryname);
@@ -125,56 +128,49 @@ sub getdir {
 sub getannotations {
 	my ($self, $filename, $releaseid) = @_;
 
-	if ($self->{'git_annotations'}) {
-		my @revlist = ();
-		# Paths on the git command lines must not start with a slash
-		# to be relative to 'rootpath'. Change LXR convention.
-		$filename =~ s,^/+,,;
+	return() unless $self->{'git_annotations'};
 
-		my $git = $self->_git_cmd ("blame", "-l", "$releaseid", "--", "$filename");
-		while (<$git>) {
-			if (m/^([[:xdigit:]]+) .*/) {
-				push (@revlist, $1);
-			} else {
-				push (@revlist, "");
-			}
+	my @revlist = ();
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$filename =~ s,^/+,,;
+
+	my $git = $self->_git_cmd ("blame", "-l", "$releaseid", "--", "$filename");
+	while (<$git>) {
+		if (m/^([[:xdigit:]]+) .*/) {
+			push (@revlist, $1);
+		} else {
+			push (@revlist, "");
 		}
-		close ($git);
-		return @revlist;
-	} else {
-		return ();
 	}
+	close ($git);
+	return @revlist;
 }
 
 sub getauthor {
-	my ($self, $pathname, $releaseid) = @_;
+	my ($self, $pathname, $releaseid, $rev) = @_;
 
 	#
-	# Note that $releaseid is a real commit this time
+	# Note that $rev is a real commit this time
 	# (returned by getannotations() above). This is
 	# _not_ a tag name!
-	# $releaseid may be empty if it comes from the initial commit.
+	# $rev may be empty if it comes from the initial commit.
 	#
-	return undef if ($releaseid eq "");
+	return undef if ($rev eq "");
+	return undef unless $self->{'git_blame'};
 
-	if ($self->{'git_blame'}) {
-		my @authorlist = ();
+	# Paths on the git command lines must not start with a slash
+	# to be relative to 'rootpath'. Change LXR convention.
+	$pathname =~ s,^/+,,;
 
-		# Paths on the git command lines must not start with a slash
-		# to be relative to 'rootpath'. Change LXR convention.
-		$pathname =~ s,^/+,,;
-
-		my $git = $self->_git_cmd ("cat-file", "commit", "$releaseid");
-		while (<$git>) {
-			if (m/^author (.*) </) {
-				close ($git);
-				return $1
-			}
+	my $git = $self->_git_cmd ("cat-file", "commit", "$rev");
+	while (<$git>) {
+		if (m/^author (.*) </) {
+			close ($git);
+			return $1
 		}
-		close ($git);
-		return undef;
 	}
-
+	close ($git);
 	return undef;
 }
 
