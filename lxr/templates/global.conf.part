@@ -2,7 +2,7 @@
 #- LXR master configuration file
 #-	Global configuration section
 #-
-#-	$Id: global.conf.part,v 1.2 2013/01/21 10:49:36 ajlittoz Exp $
+#-	$Id: global.conf.part,v 1.3 2013/03/18 13:20:57 ajlittoz Exp $
 #-
 #-
 #-	This file fragment is meant to be "included" to form the
@@ -129,30 +129,33 @@
 # 	, 'iconfolder' => 'small-icons/'
 		# Don't forget the final / above.
 # 	, 'icons' =>
-# 		{	'c|pc'				=> 'text-x-csrc.png'
+#		{	'[gm]?awk'			=> 'application-x-awk.png'
+#		,	'c|pc'				=> 'text-x-csrc.png'
 # 		,	'h|hh'				=> 'text-x-chdr.png'
 # 		,	'c\+\+|cc|cpp|cxx'	=> 'text-x-c++src.png'
 # 		,	'hpp|hxx|h\+\+'		=> 'text-x-c++hdr.png'
 # 		,	'java'				=> 'text-x-java.png'
 # 		,	'js'				=> 'application-x-javascript.png'
-# 		,	'pl|pm|perl'		=> 'application-x-perl.png'
-# 		,	'php|php3|phtml'	=> 'application-x-php.png'
-# 		,	'py|python'			=> 'text-x-python.png'
-# 		,	'sh|bsh|bash|ksh|zsh' => 'text-x-script.png'
+#		,	'ma?k'				=> 'text-x-makefile.png'
+# 		,	'plx?|pm|perl'		=> 'application-x-perl.png'
+# 		,	'php3?|phtml'		=> 'application-x-php.png'
+# 		,	'py|python|px'		=> 'text-x-python.png'
+# 		,	'sh|ba?sh|ksh|zsh|m4' => 'text-x-script.png'
 # 		,	's?html?'			=> 'text-html.png'
 # 		,	'css'				=> 'text-css.png'
-# 		,	'pdf'				=> 'application-pdf.png'
-# 		,	'txt'				=> 'text-plain.png'
 # 		,	'p|pas'				=> 'text-x-pascal.png'
 # 		,	'patch'				=> 'text-x-patch.png'
-# 		,	'sql'				=> 'text-x-sql.png'
-# 		,	'rb'				=> 'application-x-ruby.png'
+# 		,	'pdf'				=> 'application-pdf.png'
+# 		,	'sql|pk(s|b)'		=> 'text-x-sql.png'
+# 		,	'rb|ruby'			=> 'application-x-ruby.png'
+# 		,	'txt'				=> 'text-plain.png'
 # 		,	'ui'				=> 'text-xml.png'
 # 		,	'.*\~'				=> 'application-x-trash'
 # 		}
 # 	, 'graphicicon' => 'image-x-generic.png'
 # 	, 'defaulticon' => 'unknown.png'
-# 	, 'diricon' => 'inode-directory.png'
+# 	, 'diricon'     => 'inode-directory.png'
+##	, 'parenticon'  => 'go-up.png'	# this one, in the actions subdirectory
 
 		#- How to map files to languages
 	, 'filetypeconf' => '%LXRroot%/templates/filetype.conf'

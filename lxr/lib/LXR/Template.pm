@@ -981,7 +981,7 @@ sub modeexpand {
 						, 'off'  => $modeoff
 						}
 			);
-	} elsif ($who eq 'source' && $pathname !~ m|/$|) {
+	} elsif ($who eq 'source' && substr($pathname, -1) ne '/') {
 		$modelink = diffref($modename, "modes", $pathname);
 		$modecss  = "modes";
 		$modelink =~ m!href="(.*?)(\?|">)!;	# extract href target as action
@@ -1520,7 +1520,7 @@ sub makeheader {
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
 			,	'atticlink'  => \&atticlink
-			,	'LXRversion' => sub { "1.1.0" }
+			,	'LXRversion' => sub { "1.2.0" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
 			  # --other trees--
@@ -1586,7 +1586,7 @@ sub makefooter {
 				'caption'    => sub { captionexpand(@_, $who) }
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
-			,	'LXRversion' => sub { "1.1.0" }
+			,	'LXRversion' => sub { "1.2.0" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
 			  # --variables buttons & links--
@@ -1652,7 +1652,7 @@ sub makeerrorpage {
 		(	$template
 		,	( 'target' =>  sub { targetexpand(@_, $who) }
 			, 'stylesheet' => \&stylesheet
-			, 'LXRversion' => sub { "1.1.0" }
+			, 'LXRversion' => sub { "1.2.0" }
 			)
 		)
 	);

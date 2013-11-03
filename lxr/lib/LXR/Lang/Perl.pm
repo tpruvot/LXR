@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Perl.pm,v 1.11 2012/11/21 15:08:48 ajlittoz Exp $
+# $Id: Perl.pm,v 1.13 2013/04/12 15:01:09 ajlittoz Exp $
 #
 # Enhances the support for the Perl language over that provided by
 # Generic.pm
@@ -33,7 +33,7 @@ It only overrides C<processinclude> for efficiency.
 
 package LXR::Lang::Perl;
 
-$CVSID = '$Id: Perl.pm,v 1.11 2012/11/21 15:08:48 ajlittoz Exp $ ';
+$CVSID = '$Id: Perl.pm,v 1.13 2013/04/12 15:01:09 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -91,19 +91,14 @@ sub processinclude {
 		$path =~ s@$@.pm@;		# Add file extension
 
 		# Create the hyperlinks
-		$link = &LXR::Common::incref($file, "include", $path, $dir);
-		if (defined($link)) {
-			while ($file =~ m!::!) {
-				$link =~ s!^([^>]+>)([^:]*::)+!$1!;
-				$file =~ s!::[^:]*$!!;
-				$path =~ s!/[^/]+$!!;
-				$link = &LXR::Common::incdirref($file, "include" ,$path ,$dir)
-						. "::"
-						. $link ;
-			}
-		} else {
-			$link = $file;
-		}
+		$link = $self->_linkincludedirs
+					( &LXR::Common::incref
+						($file, "include", $path, $dir)
+					, $file
+					, '::'
+					, $path
+					, $dir
+					);
 	} elsif ($source =~ s/^	# reminder: no initial space in the grammar
 					([\w]+	# reserved keyword for include construct
 					\s+)	#   and space in same capture
@@ -120,28 +115,22 @@ sub processinclude {
 		$path    = $file;
 
 		# Create the hyperlinks
-		$link = &LXR::Common::incref($file, "include", $path, $dir);
-		if (defined($link)) {
-			while ($file =~ m!/!) {
-				$link =~ s!^([^>]+>)([^/]*/)+!$1!;
-				$file =~ s!/[^/]*$!!;
-				$path =~ s!/[^/]+$!!;
-				$link = &LXR::Common::incdirref($file, "include" ,$path ,$dir)
-						. "/"
-						. $link ;
-			}
-		} else {
-			$link = $file;
-		}
+# 		$link = &LXR::Common::incref($file, "include", $path, $dir);
+		$link = $self->_linkincludedirs
+					( &LXR::Common::incref
+						($file, "include", $path, $dir)
+					, $file
+					, '/'
+					, $path
+					, $dir
+					);
 		$link = $delim . $link . $delim;
 	} else {
 		# Guard against syntax error or variant
 		# Advance past keyword, so that parsing may continue without loop.
 		$source =~ s/^([\w]+)//;	# Erase keyword
 		$dirname = $1;
-		$$frag =	"<span class='reserved'>$dirname</span>";
-		&LXR::SimpleParse::requeuefrag($source);
-		return;
+		$link = '';
 	}
 
 	# As a goodie, rescan the tail of use/require for Perl code

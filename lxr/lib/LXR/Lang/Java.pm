@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Java.pm,v 1.9 2012/11/21 15:08:48 ajlittoz Exp $
+# $Id: Java.pm,v 1.11 2013/04/12 15:01:09 ajlittoz Exp $
 #
 # Enhances the support for the Java language over that provided by
 # Generic.pm
@@ -23,7 +23,7 @@
 
 package LXR::Lang::Java;
 
-my $CVSID = '$Id: Java.pm,v 1.9 2012/11/21 15:08:48 ajlittoz Exp $ ';
+my $CVSID = '$Id: Java.pm,v 1.11 2013/04/12 15:01:09 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -56,7 +56,14 @@ sub processinclude {
 		$file    = $2;
 		$path    = $file;
 		$path =~ s@\.@/@g;		# Replace Java delimiters
-		$link = _packagelinks ($file, $path, $dir);
+		$link = $self->_linkincludedirs
+					( &LXR::Common::incdirref
+							($file, "include", $path, $dir)
+					, $file
+					, '.'
+					, $path
+					, $dir
+					);
 	}
 
 	# Deal with import declaration of the form
@@ -66,7 +73,7 @@ sub processinclude {
 	# "import java.awt.classname" by providing links to the
 	# package and the class
 	elsif ($source =~ s/^
-				(import\s+)
+				(import\s+(?:static\s+)?)
 				([\w.]+)	# package 'path'
 				\.(\*|\w+)	# class or *
 				//sx) {
@@ -75,43 +82,33 @@ sub processinclude {
 		$path    = $file;
 		$class   = $3;
 		$path =~ s@\.@/@g;		# Replace Java delimiters
-		$link = _packagelinks ($file, $path, $dir)
+		$link = $self->_linkincludedirs
+					( &LXR::Common::incdirref
+							($file, "include", $path, $dir)
+					, $file
+					, '.'
+					, $path
+					, $dir
+					)
 			.	'.'
 			.	( $index->issymbol($class, $releaseid)
 				? join($class, @{$$self{'itag'}})
 				: $class
 				);
-	}
-
-		# As a goodie, rescan the tail of use/require for Perl code
-		&LXR::SimpleParse::requeuefrag($source);
-
-		# Assemble the highlighted bits
-		$$frag =	"<span class='reserved'>$dirname</span>"
-				.	( defined($link)
-					? $link
-					: $file
-					);
-}
-
-sub _packagelinks {
-	my ($file, $path, $dir) = @_;
-
-	my $link = &LXR::Common::incdirref
-				($file, "include", $path, $dir);
-	if (defined($link)) {
-		while ($file=~m!\.!) {
-			$link =~ s!^([^>]+>)([^.]*\.)+?([^.<]+<)!$1$3!;
-			$file =~ s!\.[^.]*$!!;
-			$path =~ s!/[^/]+$!!;
-			$link = &LXR::Common::incdirref($file, "include", $path, $dir)
-					. "."
-					. $link ;
-		}
 	} else {
-		$link = $file;
+		# Guard against syntax error or variant
+		# Advance past keyword, so that parsing may continue without loop.
+		$source =~ s/^([\w]+)//;	# Erase keyword
+		$dirname = $1;
+		$link = '';
 	}
-	return $link;
+
+	# As a goodie, rescan the tail of package/import for Java code
+	&LXR::SimpleParse::requeuefrag($source);
+
+	# Assemble the highlighted bits
+	$$frag =	"<span class='reserved'>$dirname</span>"
+			.	$link;
 }
 
 1;

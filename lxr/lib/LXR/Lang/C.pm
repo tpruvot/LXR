@@ -1,9 +1,9 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Ruby.pm,v 1.4 2013/04/12 15:01:09 ajlittoz Exp $
+# $Id: C.pm,v 1.12 2013/04/12 15:01:08 ajlittoz Exp $
 #
-# Enhances the support for the Ruby language over that provided by
+# Enhances the support for the C language over that provided by
 # Generic.pm
 #
 # This program is free software; you can redistribute it and/or modify
@@ -20,18 +20,18 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
-package LXR::Lang::Ruby;
+package LXR::Lang::C;
 
-$CVSID = '$Id: Ruby.pm,v 1.4 2013/04/12 15:01:09 ajlittoz Exp $ ';
+$CVSID = '$Id: C.pm,v 1.12 2013/04/12 15:01:08 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
 use LXR::Lang;
 require LXR::Lang::Generic;
 
-@LXR::Lang::Ruby::ISA = ('LXR::Lang::Generic');
+@LXR::Lang::C::ISA = ('LXR::Lang::Generic');
 
-# Process a Ruby include directive
+# Process a C/C++ include directive
 sub processinclude {
 	my ($self, $frag, $dir) = @_;
 
@@ -45,11 +45,11 @@ sub processinclude {
 	my $link;		# link to include file
 	my $identdef = $self->langinfo('identdef');
 
-	if ($source =~ s/^				# Parse instruction
-				([\w]+)				# reserved keyword for include construct
+	if ($source !~ s/^				# Parse instruction
+				([\w\#]\s*[\w]*)	# reserved keyword for include construct
 				(\s+)				# space
-				(?|	(\")(.+?)(\")	# double quoted string
-				|	(\')(.+?)(\')	# single quoted string
+				(	(\")(.+?)(\")	# C syntax
+				|	(\0<)(.+?)(\0>)	# C alternate syntax
 				)
 				//sx) {		# Parse directive
 		# Guard against syntax error or unexpected variant
@@ -62,12 +62,11 @@ sub processinclude {
 	}
 	$dirname = $1;
 	$spacer  = $2;
-	$lsep    = $3;
-	$file    = $4;
+	$lsep    = $4 . $7;
+	$file    = $5 . $8;
 	$path    = $file;
-	$rsep    = $5;
+	$rsep    = $6 . $9;
 
-	$path =~ s@(?<!\.rb)$@.rb@;
 	$link = $self->_linkincludedirs
 				( &LXR::Common::incref
 					($file, "include", $path, $dir)
@@ -76,9 +75,6 @@ sub processinclude {
 				, $path
 				, $dir
 				);
-
-	# Rescan the unused part of the source line
-	&LXR::SimpleParse::requeuefrag($source);
 
 	$$frag =	"<span class='reserved'>$dirname</span>"
 			.	$spacer

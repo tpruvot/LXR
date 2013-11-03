@@ -10,6 +10,9 @@
      First time installation for a single source-tree
      -------------------------------------------------
 (revised September 2012 for 1.0 release)
+(configuration wizard for release 1.2 modified March 2013 to cope with
+a change in Apache configuration; otherwise unchanged)
+
 These instructions are also available on the web site at
             http://lxr.sourceforge.net
 

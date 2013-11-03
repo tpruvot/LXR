@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: source,v 1.63 2013/01/17 09:30:00 ajlittoz Exp $
+# $Id: source,v 1.65 2013/04/08 16:11:29 ajlittoz Exp $
 #
 # source --	Present sourcecode as html, complete with references
 #  the '/icons' images are available in any standard Apache installation
@@ -24,7 +24,7 @@
 #
 ######################################################################
 
-$CVSID = '$Id: source,v 1.63 2013/01/17 09:30:00 ajlittoz Exp $ ';
+$CVSID = '$Id: source,v 1.65 2013/04/08 16:11:29 ajlittoz Exp $ ';
 
 use strict;
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" };  # if LXR modules are in ./lib
@@ -75,7 +75,13 @@ sub diricon {
 	my $img;
 
 	if ($node eq '../') {
-		$img = "/icons/back.gif";
+		if (exists $config->{'iconfolder'}
+		&&  exists $config->{'parenticon'}
+		) {
+			$img = $config->{'iconfolder'} . $config->{'parenticon'};
+		} else {
+			$img = "/icons/back.gif";
+		}
 	} else {
 		if (exists $config->{'iconfolder'}
 		&&  exists $config->{'diricon'}
@@ -324,7 +330,7 @@ an I<integer> containing an UTC time in seconds since the epoch
 sub _edittime {
 	my ($thetime) = @_;
 
-	if ($thetime =~ m/:/) { # Was a formatted string provided?
+	if (0 <= index($thetime, ':')) { # Was a formatted string provided?
 		return $thetime;
 	} else {
 		my @t = gmtime($thetime);
@@ -690,7 +696,7 @@ sub next_annot {
 sub printfile {
 	my $raw = shift;
 
-	if ($pathname =~ m|/$|) {
+	if (substr($pathname, -1) eq '/') {
 		printdir($pathname);
 	} else {
 
@@ -768,7 +774,7 @@ httpinit;
 
 if ($config->filter && $pathname !~ $config->filter) {
 	makeheader('source');
-	print("<p class=\"error\">\n<i>The file $pathname does not exist.</i>\n</p>\n");
+	print("<p class=\"error\">\n<i>Filename $pathname is discarded by the present <code>'filter'</code> rule.</i>\n</p>\n");
 	makefooter('source');
 	exit;
 }
@@ -779,7 +785,7 @@ if ($config->filter && $pathname !~ $config->filter) {
 if ($HTTP->{'param'}{'_raw'}) {
 	printfile(1);
 } else {
-	my $type = ($pathname !~ m|/$| ? 'source' : 'sourcedir');
+	my $type = ((substr($pathname, -1) ne '/') ? 'source' : 'sourcedir');
 
 	makeheader($type);
 	printfile(0);

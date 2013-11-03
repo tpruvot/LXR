@@ -1,3 +1,87 @@
+2013-04-21 07:45  ajlittoz
+
+	* doc/: CHANGES, INSTALL: doc/CHANGES & INSTALL: updates before
+	  1.2.0 release
+
+2013-04-19 12:39  ajlittoz
+
+	* lib/LXR/Lang/HTML.pm, lib/LXR/Lang.pm, lib/LXR/Lang/generic.conf,
+	  templates/filetype.conf: Lang.pm, Lang/HTML.pm,
+	  Lang/generic.conf: fix for bug #234 (endless loop on href= in
+	  HTML)
+
+	  HTML hyperlink on href= can't be processed by the generic parser
+	  through an 'include' => { } due to multiple checks needed to
+	  distinguish between the different cases. Separate HTML parser
+	  created.
+
+2013-04-12 15:13  ajlittoz
+
+	* lib/LXR/Lang/generic.conf, templates/filetype.conf:
+	  filetype.conf, Lang/generic.conf
+
+	  Various improvements in language descriptions Enable C and Awk
+	  parsers
+
+2013-04-12 15:01  ajlittoz
+
+	* lib/LXR/: Lang.pm, Lang/C.pm, Lang/Generic.pm, Lang/Java.pm,
+	  Lang/Make.pm, Lang/Pascal.pm, Lang/Perl.pm, Lang/Python.pm,
+	  Lang/Ruby.pm: Lang.pm & Lang/*: common factor "include"
+	  processing
+
+	  New _linkincludedirs method in base Lang object to be used by all
+	  parsers based on Generic.pm. For reliability and ease of
+	  maintenability, isolate C/C++ parser from generic and create new
+	  C.pm.  Some changes in Perl.pm (essentially change in
+	  configuration parameter names)
+
+2013-04-12 14:51  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: optimise for speed
+
+	  Replace regexp match by direct test for substring
+
+2013-04-08 16:11  ajlittoz
+
+	* source: source: wrong test
+
+	  Reverse comparison operator (eq used instead of ne) for directory
+	  test Also, replace ambiguous message (file does not exist) by
+	  (filename filtered out) in case 'filter' rule discarded the file
+
+2013-04-08 16:05  ajlittoz
+
+	* ident: ident: fix for bug #233
+
+	  Relaxed syntax may cause error with some Perl interpreters.
+	  Change lines 419 & 485 with @{...} to force "reference" value.
+
+2013-03-18 13:20  ajlittoz
+
+	* source, templates/global.conf.part: source,
+	  templates/global.conf.part: add 'parenticon' configuration
+	  parameter
+
+	  Also, a few speed optimisations on source
+
+2013-03-11 16:11  ajlittoz
+
+	* lib/LXR/Lang/: Generic.pm, Java.pm, Perl.pm, Python.pm, Ruby.pm:
+	  Generic.pm, Java.pm, Perl.pm, Python.pm, Ruby.pm: fix include
+	  file processing
+
+	  Fix for bug #231 (Java parser enters infinite loop when scanning
+	  "import static ..."): add optional static keyword in regexp for
+	  splitting include fragment.  While fixing this bug, a patch was
+	  needed on the "multi-directory path" handling because the trigger
+	  test was incorrect (testing for definedness on $link instead of
+	  an existing <a> HTML tag).  This fix is intended for 1.1.0->1.1.1
+	  release, but the include feature will be rearchitectured for
+	  1.2.0 because readability is poor.
+
+2013-01-25 14:43  tag release-1-1-0
+
 2013-01-25 14:43  ajlittoz
 
 	* doc/: CHANGES, CREDITS.txt, INSTALL: doc/*: update shipping

@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: ident,v 1.36 2012/11/21 15:04:44 ajlittoz Exp $
+# $Id: ident,v 1.37 2013/04/08 16:05:04 ajlittoz Exp $
 #
 # ident --	Look up identifiers
 #
@@ -23,7 +23,7 @@
 #
 ######################################################################
 
-$CVSID = '$Id: ident,v 1.36 2012/11/21 15:04:44 ajlittoz Exp $ ';
+$CVSID = '$Id: ident,v 1.37 2013/04/08 16:05:04 ajlittoz Exp $ ';
 
 use strict;
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
@@ -416,7 +416,7 @@ sub defsexpand {
 	foreach my $i (@defs) {	# Group all definitions from a file
 		my @defn = @$i;
 		$defs{$defn[0]} = [] unless defined($defs{$defn[0]});
-		push($defs{$defn[0]}, [ @defn[1..3] ]);
+		push(@{$defs{$defn[0]}}, [ @defn[1..3] ]);
 	}
 NATIVE_CASE:	# Remove uppercase duplicates
 	foreach (@idefs) {
@@ -482,7 +482,7 @@ sub usesexpand {
 	foreach my $i (@uses) {	# Group all usages from a file
 		my @ref = @$i;
 		$uses{$ref[0]} = [] unless defined($uses{$ref[0]});
-		push ($uses{$ref[0]},  @ref[1]);
+		push (@{$uses{$ref[0]}},  @ref[1]);
 	}
 NATIVE_CASE:	# Remove uppercase duplicates
 	foreach (@iuses) {

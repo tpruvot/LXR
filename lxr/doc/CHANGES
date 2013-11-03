@@ -1,8 +1,35 @@
-This file draws your attention on changes made for
+This file draws your attention on changes made
+which could impact your existing trees.
 
-        ======================
+If they result in an incompatibility, you must reindex your tree.
+
+        =====================
+        LXR 1.1  -->  LXR 1.2
+        =====================
+
+Language parsers
+----------------
+Include processing restructured to avoid infinite loop if source does
+not match internal grammar; now shared between the languages
+Syntax of Java import corrected
+C/C++ parsing separated from generic parser
+Awk parser enabled
+New HTML parser to correct a serious flaw in hyperlink generation
+												=> reindexing recommended
+
+Custom icons
+------------
+New parameter 'parenticon' to define an icon for parent directories
+												=> no impact
+
+User'Manual
+-----------
+Updated to reflect new 1.2 features; separately downloadable on SourceFourge.
+Please, read it; a lot of time has been invested in its writing.
+
+        =====================
         LXR 1.0  -->  LXR 1.1
-        ======================
+        =====================
 
 Easy upgrade
 ------------
@@ -245,9 +272,9 @@ Substitution marker name (in HTML templates) changes
 												=> no impact
 			(unless you developed your own templates and lxr.css)
 
-        ========================
-        LXR 0.9.9  -->  LXR 0.10
-        ========================
+        =========================
+        LXR 0.9.10  -->  LXR 0.10
+        =========================
 
 This version contains new features.
 
@@ -258,7 +285,7 @@ lxr.conf
 New and simpler way of entering the URL of your server with 'host_names'
 'baseurl' and 'baseurl_aliases' kept for compatibility
 												=> no impact (unless you want to use this new feature)
-Custom icons may ve used in directory listing	=> no impact (unless you want to use this new feature)
+Custom icons may be used in directory listing	=> no impact (unless you want to use this new feature)
 
 lxr.css
 -------
@@ -285,6 +312,7 @@ Results are now presented in tabular form for better readability
 												=> no impact on indexing
 
 Languages
+---------
 JavaScript and Ruby added						=> re-index your tree
 
 
@@ -312,10 +340,6 @@ For up-to-date information, connect to http://lxr.sourceforge.net
         =========================
         LXR 0.9.8  -->  LXR 0.9.9
         =========================
-
-which could impact your existing trees.
-
-If they result in an incompatibility, you must reindex your tree.
 
 lxr.conf
 --------

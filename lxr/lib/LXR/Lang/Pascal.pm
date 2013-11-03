@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Pascal.pm,v 1.1 2012/11/21 15:17:58 ajlittoz Exp $
+# $Id: Pascal.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $
 #
 # Implements generic support for any language that ectags can parse.
 # This may not be ideal support, but it should at least work until
@@ -32,7 +32,7 @@ It is driven by specifications read from file I<generic.conf>.
 
 package LXR::Lang::Pascal;
 
-$CVSID = '$Id: Pascal.pm,v 1.1 2012/11/21 15:17:58 ajlittoz Exp $ ';
+$CVSID = '$Id: Pascal.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Lang;
@@ -124,10 +124,9 @@ sub processinclude {
 						//sx) {
 			# Guard against syntax error or variant
 			# Advance past keyword, so that parsing may continue without loop.
-			if ($source =~ s/^([\w]+)//) {	# Erase keyword
-				$dirname = $1;
-				$$frag =	"<span class='reserved'>$dirname</span>";
-			}
+			$source =~ s/^([\w]+)//)	# Erase keyword
+			$dirname = $1;
+			$$frag =	"<span class='reserved'>$dirname</span>";
 			&LXR::SimpleParse::requeuefrag($source);
 			return;
 		}

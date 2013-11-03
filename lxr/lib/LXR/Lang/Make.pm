@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Make.pm,v 1.1 2012/11/21 15:17:58 ajlittoz Exp $
+# $Id: Make.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $
 #
 # Implements generic support for any language that ectags can parse.
 # This may not be ideal support, but it should at least work until
@@ -32,7 +32,7 @@ It is driven by specifications read from file I<generic.conf>.
 
 package LXR::Lang::Make;
 
-$CVSID = '$Id: Make.pm,v 1.1 2012/11/21 15:17:58 ajlittoz Exp $ ';
+$CVSID = '$Id: Make.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $ ';
 
 use strict;
 require LXR::Lang::Generic;
@@ -69,7 +69,6 @@ sub processinclude {
 	my $dirname;	# uses directive name and spacing
 	my $file;		# language include file
 	my $path;		# OS include file
-	my $link;		# link to include file
 	my $target = '[s-]?include\s+';	# directive pattern
 
 	$$frag = '';
@@ -80,10 +79,9 @@ sub processinclude {
 						//sx) {
 			# Guard against syntax error or variant
 			# Advance past keyword, so that parsing may continue without loop.
-			if ($source =~ s/^([\w]+)//) {	# Erase keyword
-				$dirname = $1;
-				$$frag =	"<span class='reserved'>$dirname</span>";
-			}
+			$source =~ s/^([\w]+)//;	# Erase keyword
+			$dirname = $1;
+			$$frag =	"<span class='reserved'>$dirname</span>";
 			&LXR::SimpleParse::requeuefrag($source);
 			return;
 		}
@@ -94,18 +92,28 @@ sub processinclude {
 
 		$dirname = $1;
 		$file    = $2;
+
 		$path    = $file;
 		$$frag .= 	( $self->isreserved($dirname)
 					? "<span class='reserved'>$dirname</span>"
 					: $dirname
 					);	
 
-		# Create the hyperlink
-		$link = &LXR::Common::incref($file, "include", $path, $dir);
-		if (!defined($link)) {
-			$link = $file;
+		# Check start of comment
+		if ('#' eq substr($file, 0, 1)) {
+			&LXR::SimpleParse::requeuefrag($file.$source);
+			return;
 		}
-		$$frag .= $link;
+
+		# Create the hyperlink
+		$$frag .= $self->_linkincludedirs
+					( &LXR::Common::incref
+						($file, "include", $path, $dir)
+					, $file
+					, '/'
+					, $path
+					, $dir
+					);
 	}
 }
 
