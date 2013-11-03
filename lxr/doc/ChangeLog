@@ -1,3 +1,434 @@
+2013-01-25 14:43  ajlittoz
+
+	* doc/: CHANGES, CREDITS.txt, INSTALL: doc/*: update shipping
+	  documentation before release
+
+2013-01-24 15:09  ajlittoz
+
+	* search, lib/LXR/Template.pm, templates/classic.css,
+	  templates/lxr.css: search, Template.pm, templates/lxr.css &
+	  classic.css: prevent access to free-text search when disabled
+
+	  Free-text search is disabled when there is no search engine or
+	  when tree is stored in VCS
+
+2013-01-23 16:48  ajlittoz
+
+	* scripts/configure-lxr.pl: scripts/configure-lxr.pl: error on
+	  comparison operator
+
+	  Use eq instead of == for string comparison
+
+2013-01-23 16:29  ajlittoz
+
+	* search: search: Issue a warning when free-text search disabled in
+	  lxr.conf
+
+2013-01-22 16:59  ajlittoz
+
+	* scripts/: ContextMgr.pm, configure-lxr.pl, recreatedb.pl:
+	  scripts/configure-lxr.pl, recreatedb.pl, ContextMgr.pm: manage
+	  some web server context and configuration
+
+2013-01-22 11:20  ajlittoz
+
+	* scripts/configure-lxr.pl: scripts/configure-lxr.pl: correct typo
+	  in marker
+
+	  Final % forgotten in %glimpsedirbase%
+
+2013-01-22 09:39  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: fix for bug #230, bad links when
+	  LXR at site root
+
+	  Ensure 'virtroot' is not equal to '/'; set it to empty string if
+	  it would be
+
+2013-01-22 09:36  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf:
+	  templates/lighttpd/lighttpd-lxrserver.conf: fix automatic
+	  configuration for standard cases
+
+	  Macro expansion tuned for the "classic" cases handled by
+	  interactive configurator
+
+2013-01-22 09:15  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf:
+	  templates/lighttpd/lighttpd-lxrserver.cong: discrepancy between
+	  config and script lighttpd-init
+
+	  Script lighttpd-init puts/gets everything into/from
+	  /var/run/lighttpd, notably the pid file, while
+	  lighttpd-lxrserver.conf defines the state directory as /var/run
+	  resulting in the pid file created in a different location. Fixed
+	  by changing var.state_dir
+
+2013-01-21 16:35  ajlittoz
+
+	* scripts/configure-lxr.pl, templates/lxrkernel.conf,
+	  templates/initdb/initdb-m-template.sql,
+	  templates/lighttpd/lighttpd-lxrserver.conf: configure-lxr.pl and
+	  templates: minor adjustments
+
+	  Correction of a serious bug in lxrkernel.conf preventing from
+	  correctly configuring 'virtroot'
+
+2013-01-21 10:49  ajlittoz
+
+	* scripts/ContextMgr.pm, scripts/LCLInterpreter.pm,
+	  scripts/configure-lxr.pl, scripts/recreatedb.pl,
+	  templates/global.conf.part, templates/lxr.conf,
+	  templates/lxrkernel.conf, templates/Apache/apache-lxrserver.conf,
+	  templates/Apache/htaccess-generic,
+	  templates/lighttpd/lighttpd-lxrserver.conf: In scripts
+	  configure-lxr.pl, ContextMgr.pm, LCLInterpreter.pm, recreatedb.pm
+	  Some templates
+
+	  Modifications to configurator to manage web server setup, changes
+	  to LCL to better handle configuration variants; all of these
+	  imply adaptations and additions to Apache, lighttpd templates and
+	  lxr.conf (& associated parts).
+
+2013-01-19 13:59  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf:
+	  templates/lighttpd/lighttpd-lxrserver.conf: fix bug #227 wrong
+	  operator
+
+	  Use =~ for pattern matching
+
+2013-01-19 13:54  ajlittoz
+
+	* templates/Apache/: apache-lxrserver.conf, htaccess-generic:
+	  templates/Apache/apache-lxrserver.conf & htaccess-generic:
+	  implement Apache 2.4 access controls
+
+2013-01-19 09:10  ajlittoz
+
+	* scripts/configure-lxr.pl: scripts/configure-lxr.pl: use correct
+	  name for Mercurial extensions
+
+	  File name changed between development and release
+
+2013-01-19 08:06  ajlittoz
+
+	* scripts/: ExpandHash.pm, ExpandSlashStar.pm:
+	  scripts/ExpandHash.pm & ExpandSlashStar.pm: remove these since
+	  they are now integrated into LCLInterpreter.pm
+
+2013-01-18 17:48  ajlittoz
+
+	* lib/LXR/Files.pm, templates/Mercurial/hg-lxr-ext.py,
+	  templates/Mercurial/hg.rc: Mercurial.pm, templates/Mercurial/:
+	  add Mercurial support
+
+	  Experimental support; still performance issue in Marcurial.pm's
+	  getdir()
+
+2013-01-18 16:18  ajlittoz
+
+	* lib/LXR/Files/Mercurial.pm: Mercurial.pm, templates/Mercurial/:
+	  add Mercurial support
+
+	  Experimental support; still performance issue in Marcurial.pm's
+	  getdir()
+
+2013-01-17 09:32  ajlittoz
+
+	* scripts/configure-lxr.pl: scripts/configure-lxr.pl: missing $ on
+	  variable name
+
+2013-01-17 09:30  ajlittoz
+
+	* source, lib/LXR/Files.pm, lib/LXR/Files/BK.pm,
+	  lib/LXR/Files/CVS.pm, lib/LXR/Files/GIT.pm,
+	  lib/LXR/Files/Plain.pm, lib/LXR/Files/Subversion.pm: source,
+	  Files.pm, Files/*: new annotation retrieval strategy to allow
+	  more storage backends
+
+	  The present mathod is based on CVS where annotations are
+	  separately stored and retrieved as a single block while Mercurial
+	  returns an annotated line. The new method uses co-routines to
+	  retrieve lines and corresponding annotations one at a time,
+	  eventually buffering not-yet-used information internally.
+
+2013-01-11 17:38  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: correct typo on $marker name
+
+	  $tree marker changed to $target some time ago
+
+2013-01-11 17:35  ajlittoz
+
+	* lib/LXR/: Common.pm, Config.pm: Common.pm, Config.pm: improve
+	  error handling condition
+
+	  New method emergency in Config to tentatively recover from a
+	  "virtroot not found" error and print some user-friendly message
+
+2013-01-11 14:43  ajlittoz
+
+	* diff: diff: improve HTML style
+
+	  Add class=error for warnings
+
+2013-01-11 12:22  ajlittoz
+
+	* templates/filetype.conf: templates/filetype.conf
+
+	  CSS handling still faulty, despite new ctags
+
+2013-01-11 12:10  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf: Configuration
+	  process: part 5/5 Upgrade lighttpd templates to LCL
+
+2013-01-11 12:08  ajlittoz
+
+	* templates/initdb/: initdb-m-template.sql, initdb-o-template.sql,
+	  initdb-p-template.sql, initdb-s-template.sql: Configuration
+	  process: part 4/5 Upgrade initdb templates to LCL
+
+2013-01-11 12:06  ajlittoz
+
+	* templates/Apache/: apache-lxrserver.conf, apache2-require.pl:
+	  Configuration process: part 3/5 Upgrade Apache templates
+
+2013-01-11 12:04  ajlittoz
+
+	* templates/: datastorage.conf.part, global.conf.part, lxr.conf,
+	  lxrkernel.conf: Configuration process: part 2/5 Upgrade
+	  configuration templates
+
+	  lxr.conf & lxrkernel.conf changed to new LCL, using common parts
+	  global.conf.part & datastorage.conf.part
+
+2013-01-11 11:53  ajlittoz
+
+	* scripts/: ContextMgr.pm, LCLInterpreter.pm, configure-lxr.pl,
+	  recreatedb.pl: Configuration process: part 1/5 New LXR control
+	  language
+
+	  Create LCLInterpreter.pm for LCL mangement and interpretation,
+	  offering a common module to configure-lxr.pl and recreatedb.pl
+	  Common factor context management for use by configure-lxr.pl and
+	  recreatedb.pl ExpandHash.pm & ExpandSlashStar.pm no longer needed
+	  (replaced by LCLInterpreter.pm), will be erased in next update
+
+2012-12-07 12:27  ajlittoz
+
+	* genxref: genxref: improve initial environment tests
+
+2012-12-04 17:42  ajlittoz
+
+	* scripts/QuestionAnswer.pm: scripts/QuestionAnswer.pm: make
+	  question more easily visible
+
+	  Add blinking > at end of question
+
+2012-12-04 13:47  ajlittoz
+
+	* genxref: genxref: improve initial environment tests
+
+2012-12-01 15:03  ajlittoz
+
+	* lib/LXR/Index.pm: Index.pm: failsafe "die" for bad cache
+	  initialisation
+
+	  Added "die" statements in case symbol cache not properly
+	  initialized in setdymdeclaration and setsymreference. Should
+	  never fire since the symbols are supposed to have already been
+	  seen. This is only for debugging. Lines could be withdrawn once
+	  it is proven caching code is always correct.
+
+2012-12-01 14:47  ajlittoz
+
+	* lib/LXR/Files/CVS.pm: CVS.pm: avoid double / in paths
+
+2012-11-21 17:16  ajlittoz
+
+	* doc/CHANGES: doc/CHANGES: update to new features
+
+2012-11-21 17:09  ajlittoz
+
+	* lib/LXR/Lang/generic.conf, templates/ectags.conf,
+	  templates/filetype.conf: templates/ ectags.conf, filetype.conf;
+	  Lang/generic.conf: activate new languages
+
+2012-11-21 17:01  ajlittoz
+
+	* templates/: classic.css, lxr.css, html/html-ident.html:
+	  templates/ lxr.css, classic.css, html/html-ident.html: take
+	  benefit of new "case-insensitive" search feature
+
+2012-11-21 15:17  ajlittoz
+
+	* lib/LXR/Lang/: Make.pm, Pascal.pm: Lang/ Make.pm, Pascal.pm: new
+	  language handlers
+
+2012-11-21 15:08  ajlittoz
+
+	* lib/LXR/Lang/: Java.pm, Perl.pm, Python.pm: Lang/: Java.pm,
+	  Perl.pm, Python.pm: improve "include" processing
+
+2012-11-21 15:04  ajlittoz
+
+	* ident: ident: case-insensitive identifier search
+
+	  Add a second query in so-called "case-insensitive" mode and merge
+	  results with normal query. Line numbers for second query (unique
+	  results only) are set negative to indicate approximate match.
+
+2012-11-21 13:39  ajlittoz
+
+	* lib/LXR/Markup.pm: Markup.pm: ensure 'graphicfile' targets only
+	  graphics file
+
+	  Fix for bug #3587475: put parentheses around configuration
+	  parameter in pattern
+
+2012-11-21 13:33  ajlittoz
+
+	* genxref: genxref: protect call to getfilehandle
+
+	  Swish-e search cache needs a copy of source file, which is
+	  obtained through getfilehandle. Check return value is defined
+	  before using it!
+
+2012-11-21 13:30  ajlittoz
+
+	* search: search: fix typo in a previous correction
+
+2012-11-17 08:46  ajlittoz
+
+	* templates/html/html-dir-indexing.html: html-dir-indexing.html:
+	  new template for directory listing with   indexing time column
+
+2012-11-15 08:58  ajlittoz
+
+	* doc/: CHANGES, INSTALL-0.11: doc/*: update release documentation
+
+2012-11-15 08:51  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: generic.conf: add Make support
+
+2012-11-15 08:49  ajlittoz
+
+	* templates/: lxr.conf, lxrkernel.conf: lxr.conf, lxrkernel.conf:
+	  enable 'stale indexing' warning
+
+	  Also improve some comments
+
+2012-11-14 18:39  ajlittoz
+
+	* lib/LXR/Lang.pm: Lang.pm: add doc for sub parseable()
+
+2012-11-14 18:37  ajlittoz
+
+	* source: source: improve wording of a message
+
+2012-11-14 17:24  ajlittoz
+
+	* search: search: wrong file designation for sub checkvalidref
+
+	  Search engines return OS-relative file paths while LXR expects
+	  all paths starting with /(to easily catenate the file path --
+	  relative to 'sourceroot' -- to the URL.
+
+	  Simultaneously, fix coding style to be consistent across all
+	  modules.
+
+2012-11-14 15:22  ajlittoz
+
+	* genxref, lib/LXR/Common.pm, lib/LXR/Config.pm: Various files:
+	  minor improvement to Perl code
+
+	  Replacement of "and" and "or" operators by && and || where
+	  possible (changes operator precedence for better reliability)
+
+2012-11-14 11:27  ajlittoz
+
+	* lib/LXR/Index.pm, lib/LXR/Lang.pm, lib/LXR/Files/Subversion.pm,
+	  lib/LXR/Index/Postgres.pm, lib/LXR/Index/SQLite.pm, ident,
+	  search, source, templates/classic.css, templates/lxr.css,
+	  templates/html/html-dir.html, templates/html/html-head-btn.html,
+	  templates/html/html-head.html, templates/html/html-ident.html,
+	  templates/html/html-search-glimpse.html,
+	  templates/html/html-search-swish.html,
+	  templates/html/html-tail.html,
+	  templates/initdb/initdb-m-template.sql,
+	  templates/initdb/initdb-o-template.sql,
+	  templates/initdb/initdb-p-template.sql,
+	  templates/initdb/initdb-s-template.sql: Many files and templates,
+	  notably DB templates: add 'stale indexing warning' features
+
+	  On this occasion the "main" scripts have been commented
+
+2012-11-14 10:44  ajlittoz
+
+	* lib/LXR/Files.pm, lib/LXR/Files/BK.pm, lib/LXR/Files/CVS.pm,
+	  lib/LXR/Files/GIT.pm, lib/LXR/Files/Plain.pm,
+	  lib/LXR/Files/Subversion.pm, templates/lxr.conf,
+	  templates/lxrkernel.conf: Files.pm, Files/*, lxr.conf,
+	  lxrkernel.conf: new 'ignorefiles', 'filterdirs' and 'filterfiles'
+	  configuration parameters
+
+2012-11-11 14:00  ajlittoz
+
+	* templates/Apache/htaccess-generic: Apache/htaccess-generic:
+	  inconsistent reference to library (fix for bug #3583172)
+
+	  Make sure ModPerl:: module is referenced both for
+	  ModPerl::Registry and ModPerl::RegistryPrefork (instead of
+	  Apache:: which is deprecated in mod_perl version 2)
+
+2012-11-02 18:22  ajlittoz
+
+	* lib/LXR/Files.pm: Files.pm: add "dot" dirs discarding to
+	  _ignoredirs()
+
+2012-11-02 09:11  ajlittoz
+
+	* lib/LXR/: Files.pm, Files/CVS.pm, Files/GIT.pm, Files/Plain.pm,
+	  Files/Subversion.pm: Files.pm, Files/*.pm (except BK.pm): common
+	  factor filter for ignored directories
+
+	  Create common method _ignoredirs in the super class so that
+	  ignored dirs are handled in a single location for easier
+	  maintenability. Also all file backends will exhibit same
+	  behaviour. However, BK is not updated since current maintainer
+	  has no means to test changes.
+
+2012-11-02 09:00  ajlittoz
+
+	* lib/LXR/Files/GIT.pm: GIT.pm: files beginning wit dot or ending
+	  with tilde not filtered out (bug #3580435)
+
+	  Bad copy-and-paste when creating package: reference to wrong
+	  variable $node instead of $entryname
+
+2012-10-31 18:28  ajlittoz
+
+	* lib/LXR/Lang.pm: Lang.pm: tab hint from filrtype.conf not
+	  effective (bug #3581966)
+
+	  Caused by wrong attempt to capture last value of iteration
+	  variable in foreach block. Fixzd by transfer of value into
+	  another local variable.
+
+2012-10-31 18:14  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: fix for bug 3581487
+
+	  When LXR is the root site (as http://host/source), 'virtroot'
+	  ends up as an empty string which cannot match a script patch
+	  equal to /. Fix: both script path and 'virtroot' are given a
+	  canonical form with an initial / (thus any empty string is
+	  transformed into /)
+
 2012-09-30 16:43  tag release-1-0-0
 
 2012-09-30 16:43  ajlittoz

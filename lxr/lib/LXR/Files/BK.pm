@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: BK.pm,v 1.8 2012/09/17 11:44:53 ajlittoz Exp $
+# $Id: BK.pm,v 1.10 2013/01/17 09:30:00 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ Andre J. Littoz - April 2012
 
 package LXR::Files::BK;
 
-$CVSID = '$Id: BK.pm,v 1.8 2012/09/17 11:44:53 ajlittoz Exp $ ';
+$CVSID = '$Id: BK.pm,v 1.10 2013/01/17 09:30:00 ajlittoz Exp $ ';
 
 use strict;
 use File::Spec;
@@ -85,13 +85,26 @@ sub getdir {
 	$pathname = File::Spec->rootdir() if $pathname eq '';
 	my @nodes = keys %{ $tree_cache{$releaseid}->{$pathname} };
 	my @dirs = grep m!/$!, @nodes;
+# TODO: check this blind feature port
+	@dirs = grep {
+		my ($path, $node) = $_ =~ m!(.*/)([^/]+)/$!;
+		!$self->_ignoredirs($path, $node);
+			} @dirs;
 	my @files = grep !m!/$!, @nodes;
+	@files = grep {
+		my ($path, $node) = $_ =~ m!(.*/)([^/]+)$!;
+		!$self->_ignorefiles($path, $node);
+			} @files;
 	return (sort(@dirs), sort(@files));
 }
 
 sub getannotations {
 	# No idea what this function should return - Plain.pm returns (), so do that
 	return ();
+}
+sub getnextannotation {
+	# No idea what this function should return - Plain.pm returns undef, so do that
+	return undef;
 }
 
 sub getauthor {

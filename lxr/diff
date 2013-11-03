@@ -1,5 +1,5 @@
 #!/usr/bin/perl -T
-# $Id: diff,v 1.30 2012/09/17 11:16:10 ajlittoz Exp $
+# $Id: diff,v 1.31 2013/01/11 14:43:47 ajlittoz Exp $
 
 # diff --	Display diff output with markup.
 #
@@ -23,10 +23,9 @@
 
 ######################################################################
 
-$CVSID = '$Id: diff,v 1.30 2012/09/17 11:16:10 ajlittoz Exp $ ';
+$CVSID = '$Id: diff,v 1.31 2013/01/11 14:43:47 ajlittoz Exp $ ';
 
 use strict;
-use lib '.'; # for Local.pm
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
 
 use LXR::Common;
@@ -94,11 +93,11 @@ sub printdiff {
 	$diffv =~ s/v=//;
 
 	unless ($files->isfile($origname, $releaseid)) {
-		print("*** $origname does not exist in version $releaseid ***\n");
+		print("<p class='error'>*** $origname does not exist in version $releaseid ***</p>\n");
 		return;
 	}
 	unless ($files->isfile($diffname, $diffv)) {
-		print("*** $diffname does not exist in version $releaseid ***\n");
+		print("<p class='error'>*** $diffname does not exist in version $releaseid ***</p>\n");
 		return;
 	}
 

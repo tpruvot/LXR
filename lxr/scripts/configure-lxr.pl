@@ -2,7 +2,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: configure-lxr.pl,v 1.5 2012/09/30 07:27:06 ajlittoz Exp $
+# $Id: configure-lxr.pl,v 1.13 2013/01/23 16:48:48 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,14 +20,15 @@
 #
 ###############################################
 
-# $Id: configure-lxr.pl,v 1.5 2012/09/30 07:27:06 ajlittoz Exp $
+# $Id: configure-lxr.pl,v 1.13 2013/01/23 16:48:48 ajlittoz Exp $
 
 use strict;
 use Getopt::Long qw(:config gnu_getopt);
 use File::Path qw(make_path);
 use lib do { $0 =~ m{(.*)/}; "$1" };
-use ExpandHash;
-use ExpandSlashStar;
+
+use ContextMgr;
+use LCLInterpreter;
 use QuestionAnswer;
 use VTescape;
 
@@ -43,7 +44,7 @@ use VTescape;
 #	variable (sigils may be separated from the variable name
 #	by spaces! Not documented of course!)
 $_ = '';	# Calm down Perl ardour
-my $version ="\$Revision: 1.5 $_";
+my $version ="\$Revision: 1.13 $_";
 $version =~ s/Revision: (.*) $/$1/;
 $version =~ s/\$//;
 
@@ -68,6 +69,7 @@ my $addtree = 0;
 my $confdir = 'custom.d';
 my $rootdir = `pwd`;
 chomp($rootdir);
+my ($scriptdir) = $0 =~ m!([^/]+)/[^/]+$!;
 my $tmpldir = 'templates';
 my $verbose;
 my $confout;
@@ -81,7 +83,8 @@ if (!GetOptions	(\%option
 				, 'root-dir=s'	=> \$rootdir
 				, 'script-out=s'=> \$scriptout
 				, 'tmpl-dir=s'	=> \$tmpldir
-				, 'verbose|v'	=> \$verbose
+				, 'verbose:2'	=> \$verbose
+				, 'v+'			=> \$verbose
 				, 'version'
 				)
 	) {
@@ -151,7 +154,7 @@ if (! -d $rootdir) {
 		. " ${VTred}$rootdir${VTnorm} does not exist!\n";
 	$error = 1;
 }
-if (! -d $rootdir.'/scripts') {
+if (! -d $rootdir.'/'.$scriptdir) {
 	print "${VTred}ERROR:${VTnorm} ${VTred}$rootdir${VTnorm} does not look "
 		. "like an LXR root directory (scripts directory not found)!\n";
 	$error = 1;
@@ -232,60 +235,51 @@ if (! -d $confdir) {
 if ($verbose) {
 	print "\n";
 }
-
-my $cardinality;
-my $dbengine;
-my $dbenginechanged = 0;
-my $dbpolicy;
-my $dbname;
-my $dbuser;
-my $dbpass;
-my $dbprefix;
-my $nodbuser;
-my $nodbprefix;
 my %users;			# Cumulative list of all user/password
 
-# WARNING:	remember to increment this number when changing the
-#			set of state variables and/or their meaning.
-my $context_version = 1;
+if ($addtree != 1) {
+
+		#	Single or multiple trees mode of operation
+		#	------------------------------------------
+
+	contextTrees ($verbose);
+
+		#	Web server definition
+		#	---------------------
+
+	if ($verbose) {
+		print "\n";
+		print "${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} web server configuration ${VTyellow}***${VTnorm}\n";
+		print "\n";
+	}
+	contextServer ($verbose);
+	if ('c' eq $virtrootpolicy) {
+		print "${VTyellow}Reminder:${VTnorm} do not forget to implement your management in the following files:\n";
+		print "- ${confdir}/${VTbold}apache-lxrserver.conf${VTnorm} if using Apache,\n";
+		print "- ${confdir}/${VTbold}lighttpd-lxrserver.conf${VTnorm} if using lighttpd,\n";
+		print "- ${confdir}/${VTbold}${confout}${VTnorm} for parameter 'treeextract'.\n";
+		print "It is wise to thoroughly read the Web server chapter in the User's Manual.\n";
+		if	('s' eq get_user_choice
+						( 'Continue or stop?'
+						, 1
+						, [ 'continue', 'stop' ]
+						, [ 'c', 's' ]
+						)
+			) {
+			exit 0;
+		}
+	}
+}
+
+		#	Choice of database (addition or initial config)
+		#	-----------------------------------------------
 
 if ($addtree) {
 	if ($verbose) {
 		print "== ${VTyellow}ADD MODE${VTnorm} ==\n";
 		print "\n";
 	}
-	if (my $c=open(SOURCE, '<', "$confdir/$contextfile")) {
-		print "Initial context $confdir/$contextfile is reloaded\n" if $verbose;
-		$/ = undef;
-		my $context = <SOURCE>;
-		$/ = $oldsep;
-		close(SOURCE);
-		my $context_created;
-		eval($context);
-		if (!defined($context_created)) {
-			print "${VTred}ERROR:${VTnorm} saved context file probably damaged!\n";
-			print "Check variable not found\n";
-			print "Delete or rename file $confdir/$contextfile to remove lock.\n";
-			exit 1;
-		}
-		if ($context_created != $context_version) {
-			print "${VTred}ERROR:${VTnorm} saved context file probably too old!\n";
-			print "Recorded state version = $context_created while expecting version = $context_version\n";
-			print "It is wise to 'quit' now and add manually the new tree or reconfigure from scratch.\n";
-			print "You can however try to restore the initial context at your own risk.\n";
-			print "\n";
-			print "${VTyellow}WARNING:${VTnorm} inconsistent answers can lead to LXR malfunction.\n";
-			print "\n";
-			if ('q' eq get_user_choice
-				( 'Do you want to quit or manually restore context?'
-				, 1
-				, [ 'quit', 'restore' ]
-				, [ 'q', 'r' ]
-				) ) {
-				exit 1;
-			}
-			$addtree = 2;
-		};
+	$addtree += contextReload ($verbose, "$confdir/$contextfile");
 		if ($cardinality eq 's') {
 			print "${VTred}ERROR:${VTnorm} initial configuration was done for a single tree!\n";
 			print "This is not compatible with the present web server configuration.\n";
@@ -293,30 +287,6 @@ if ($addtree) {
 			exit 1;
 		}
 		if ($dbpolicy eq 't') {
-			print "Your DB engine was: ${VTbold}";
-			if ("m" eq $dbengine) {
-				print "MySQL";
-			} elsif ("o" eq $dbengine) {
-				print "Oracle";
-			} elsif ("p" eq $dbengine) {
-				print "PostgreSQL";
-			} elsif ("s" eq $dbengine) {
-				print "SQLite";
-			} else {
-				print "???${VTnorm}\n";
-				print "${VTred}ERROR:${VTnorm} saved context file damaged or tampered with!\n";
-				print "Unknown database code '$dbengine'\n";
-				print "Delete or rename file $confdir/$contextfile to remove lock.\n";
-				if ('q' eq get_user_choice
-					( 'Do you want to quit or manually restore context?'
-					, 1
-					, [ 'quit', 'restore' ]
-					, [ 'q', 'r' ]
-					) ) {
-					exit 1;
-				}
-				$addtree = 2;
-			};
 			print "${VTnorm}\n";
 			print "Advanced users can configure different DB engines for different trees.\n";
 			print "This is not recommended for average users.\n";
@@ -335,32 +305,16 @@ if ($addtree) {
 				$dbenginechanged = 1;
 			}
 		}
-	} else {
-		print "${VTyellow}WARNING:${VTnorm} could not reload context file ${VTbold}$confout${VTnorm}!\n";
-		print "You may have deleted the context file or you moved the configuration\n";
-		print "file out of the ${VTbold}${confdir}${VTnorm} user-configuration directory without the\n";
-		print "context companion file ${VTyellow}$contextfile${VTnorm}.\n";
-		print "\n";
-		print "You can now 'quit' to think about the situation or try to restore\n";
-		print "the parameters by answering the following questions\n";
-		print "(some clues can be gathered from reading configuration file ${VTbold}$confout${VTnorm}).\n";
-		print "\n";
-		print "${VTyellow}WARNING:${VTnorm} inconsistent answers can lead to LXR malfunction.\n";
-		print "\n";
-		if ('q' eq get_user_choice
-			( 'Do you want to quit or manually restore context?'
-			, 1
-			, [ 'quit', 'restore' ]
-			, [ 'q', 'r' ]
-			) ) {
-			exit 1;
-		};
-		$addtree = 2;
-	}
 }
 
 if ($addtree != 1) {
 	if ($verbose) {
+		print "\n";
+		print "${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} database configuration ${VTyellow}***${VTnorm}\n";
+		print "\n";
+	}
+	if ($verbose > 1) {
+		print "\n";
 		print "The choice of the database engine can make a difference in indexing performance,\n";
 		print "but resource consumption is also an important factor.\n";
 		print "  * For a small personal project, try ${VTbold}SQLite${VTnorm} which do not\n";
@@ -376,132 +330,9 @@ if ($addtree != 1) {
 		print "    of bigger databases.\n";
 		print "  * Take also in consideration the number of connected users.\n";
 	}
-	$dbengine =  get_user_choice
-			( 'Database engine?'
-			, 1
-			, [ 'mysql', 'oracle', 'postgres', 'sqlite' ]
-			, [ 'm', 'o', 'p', 's' ]
-			);
-
-	#	Are we configuring for single tree or multiple trees?
-	$cardinality = get_user_choice
-			( 'Configure for single/multiple trees?'
-			, 1
-			, [ 's', 'm' ]
-			, [ 's', 'm' ]
-			);
-
-	if ($cardinality eq 's') { 
-		if ('y' eq get_user_choice
-				( 'Do you intend to add other trees later?'
-				, 2
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$cardinality = 'm';
-			print "${VTyellow}NOTE:${VTnorm} installation switched to ${VTbold}multiple${VTnorm} mode\n";
-			print "      but describe just a single tree.\n";
-		} else {
-			$dbpolicy   = 't';
-			$nodbuser   = 1;
-			$nodbprefix = 1;
-		}
-	}
-
-	if ($cardinality eq 'm') {
-		if ('o' ne $dbengine) {
-			print "The safest option is to create one database per tree.\n";
-			print "You can however create a single database for all your trees with a specific set of\n";
-			print "tables for each tree (though this is not recommended).\n";
-			$dbpolicy = get_user_choice
-					( 'How do you setup the databases?'
-					, 1
-					, [ 'per tree', 'global' ]
-					, [ 't', 'g' ]
-					);
-			if ($dbpolicy eq 'g') {	# Single global database
-				if ('s' eq $dbengine) {
-					$dbname = get_user_choice
-						( 'Name of global SQLite database file? (e.g. /home/myself/SQL-databases/lxr'
-						, -2
-						, []
-						, []
-						);
-				} else {
-					$dbname = get_user_choice
-						( 'Name of global database?'
-						, -1
-						, []
-						, [ 'lxr' ]
-						);
-				}
-				$nodbprefix = 1;
-			}
-		} else {
-			print "There is only one global database under Oracle.\n";
-			print "The tables for each tree are identified by a unique prefix.\n";
-			$dbpolicy   = 'g';
-			$nodbprefix = 1;
-		}
-		print "All databases can be accessed with the same username and\n";
-		print "can also be described under the same names.\n";
-		if ('n' eq get_user_choice
-				( 'Will you share database characteristics?'
-				, 1
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$nodbuser   = 1;
-			$nodbprefix = 1;
-		}
-	}
-
-	if (!defined($nodbuser)) {
-		if	(  $dbpolicy eq 'g'
-			|| 'y' eq get_user_choice
-				( 'Will you use the same username and password for all DBs?'
-				, 1
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$dbuser = get_user_choice
-				( '--- DB user name?'
-				, -1
-				, []
-				, [ 'lxr' ]
-				);
-			$dbpass = get_user_choice
-				( '--- DB password ?'
-				, -1
-				, []
-				, [ 'lxrpw' ]
-				);
-			$users{$dbuser} = $dbpass;	# Record global user/password
-		} else {
-			$nodbuser = 1;
-		}
-	}
-
-	if (!defined($nodbprefix)) {
-		if ('y' eq get_user_choice
-				( 'Will you give the same prefix to all tables?'
-				, 1
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$dbprefix = get_user_choice
-					( '--- Common table prefix?'
-					, -1
-					, []
-					, [ 'lxr_' ]
-					);
-		}else {
-			$nodbprefix = 1;
-		}
+	contextDB ($verbose);
+	if ($dbuser) {
+		$users{$dbuser} = $dbpass;	# Record global user/password
 	}
 }
 
@@ -512,41 +343,7 @@ if ($addtree != 1) {
 ##############################################################
 
 if (!$addtree) {
-	if (open(DEST, '>', "$confdir/$contextfile")) {
-		print DEST "# -*- mode: perl -*-\n";
-		print DEST "# Context file associated with $confout\n";
-		my @t = gmtime(time());
-		my ($sec, $min, $hour, $mday, $mon, $year) = @t;
-		my $date_time = sprintf	( "%04d-%02d-%02d %02d:%02d:%02d"
-								, $year + 1900, $mon + 1, $mday
-								, $hour, $min, $sec
-								);
-		print DEST "# Created $date_time UTC\n";
-		print DEST "# Strictly internal, do not play with content\n";
-		print DEST "\$context_created = $context_version;\n";
-		print DEST "\n";
-		print DEST "\$cardinality = '$cardinality';\n";
-		print DEST "\$dbpolicy = '$dbpolicy';\n";
-		print DEST "\$dbengine = '$dbengine';\n";
-		if ("g" eq $dbpolicy) {
-			print DEST "\$dbname = '$dbname';\n";
-		}
-		if ($nodbuser) {
-			print DEST "\$nodbuser = 1;\n";
-		} else {
-			print DEST "\$dbuser = '$dbuser';\n";
-			print DEST "\$dbpass = '$dbpass';\n";
-		}
-		if ($nodbprefix) {
-			print DEST "\$nodbprefix = 1;\n";
-		} else {
-			print DEST "\$dbprefix = '$dbprefix'\n";
-		}
-		close(DEST)
-		or print "${VTyellow}WARNING:${VTnorm} error $! when closing context file ${VTbold}$confout${VTnorm}!\n";
-	} else {
-		print "${VTyellow}WARNING:${VTnorm} could not create context file ${VTbold}$confout${VTnorm}, autoreload disabled!\n";
-	}
+	contextSave ("$confdir/$contextfile", $confout);
 }
 
 ##############################################################
@@ -555,27 +352,40 @@ if (!$addtree) {
 #
 ##############################################################
 
-my %option_trans =
-		( 'add'		=> $addtree
-		, 'context' => $cardinality
-		, 'createglobals' => $cardinality eq 'm'
+#	%markers contains value for "options" (or their equivalent)
+#	which are not meant for substitution in the templates (this
+#	is indicated by the _ prefix, but not checked),
+#	and "substitution markers".
+# From release 1.1 on, both are stuffed in the same hash since
+# it simplifies processing in the macro interpreter.
+my %markers =
+		( '%_add%'		=> $addtree
+		, '%_singlecontext%' => $cardinality eq 's'
+		, '%_createglobals%' => $cardinality eq 'm'
 							&&	(  0 == $addtree
 								|| 1 == $dbenginechanged
 								)
-		, 'dbengine'=> $dbengine
-		, 'dbpass'	=> $dbpass
-		, 'dbpolicy'=> $dbpolicy
-		, 'dbprefix'=> $dbprefix
-		, 'dbuser'	=> $dbuser
-		, 'dbuseroverride' => 0
-		, 'nodbuser'=> $nodbuser
-		, 'nodbprefix' => $nodbprefix
+		, '%_dbengine%'	=> $dbengine
+		, '%_dbpass%'	=> $dbpass
+		, '%_dbprefix%'	=> $dbprefix
+		, '%_dbuser%'	=> $dbuser
+		, '%_dbuseroverride%' => 0
+		, '%_globaldb%'	=> $dbpolicy eq 'g'
+		, '%_nodbuser%'	=> $nodbuser
+		, '%_nodbprefix%' => $nodbprefix
+		, '%_virtrootpolicy%' => $virtrootpolicy
+		, '%_virthost%'	=> 'I' eq substr($servertype, 0, 1)
 		);
 
-
-my %markers;
 my $sample;
+$markers{'%LXRconfUser%'} = getlogin;	# OS-user running configuration
 $markers{'%LXRroot%'} = $rootdir;
+$markers{'%LXRtmpldir%'} = $tmpldir;
+$markers{'%LXRconfdir%'} = $confdir;
+$markers{'%scheme%'} = $scheme;
+$markers{'%hostname%'} = $hostname;
+$markers{'%port%'} = $port;
+$markers{'%virtrootbase%'} = $virtrootbase;
 $sample = `command -v glimpse 2>/dev/null`;
 chomp($sample);
 $markers{'%glimpse%'} = $sample if $sample;
@@ -646,6 +456,7 @@ if (!$addtree) {
 		} else {
 			print "${VTyellow}Sorry:${VTnorm} free-text search disabled\n";
 			$markers{'%glimpse%'} = '/bin/true';	# disable free-text search
+			$markers{'%glimpsedirbase%'} = '/tmp';	# only to silence config check
 		}
 	}
 
@@ -687,6 +498,33 @@ if (!$addtree) {
 #
 ##############################################################
 
+sub copy_and_configure_template {
+	my ($fin, $fout, $target) = @_;
+
+	unless (open(SOURCE, '<', $fin)) {
+		die("${VTred}ERROR:${VTnorm} couldn't open template file \"$fin\"\n");
+	}
+	unless (open(DEST, '>', $fout)) {
+		die("${VTred}ERROR:${VTnorm} couldn't open output file \"$fout\n");
+	}
+	expand_hash	( sub{ <SOURCE> }
+				, \*DEST
+				, \%markers
+				, $verbose
+				);
+	close(DEST);
+	close(SOURCE);
+	if ($target && $verbose) {
+		print "file ${VTbold}$target${VTnorm} written into ";
+		if ($fout eq $target) {
+			print "LXR root";
+		} else {
+			print "configuration";
+		}
+		print " directory\n";
+	}
+}
+
 if (!$addtree) {
 	print "\n" if $verbose;
 
@@ -696,87 +534,45 @@ if (!$addtree) {
 	}
 
 	my $target;
-	my $target_contents;
 
 	#	Apache: per-directory access control file
 	$target = '.htaccess';
-	`cp ${tmpldir}/Apache/htaccess-generic ${rootdir}/$target`;
-	chmod(0775, "${rootdir}/$target");
-	if ($verbose) {
-		print "file ${VTbold}$target${VTnorm} written into LXR root directory\n"
-	}
+	copy_and_configure_template	( "${tmpldir}/Apache/htaccess-generic"
+								, ${target}
+								, $target
+								);
 
 	#	Apache: mod_perl startup file
 	$target = 'apache2-require.pl';
-	unless (open(SOURCE, '<', "${tmpldir}/Apache/$target")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/Apache/$target\"\n");
-	}
-	$/ = undef;
-	$target_contents = <SOURCE>;
-	$/ = $oldsep;
-	close(SOURCE);
-	$target_contents =~ s/%LXRroot%/$rootdir/g;
-	unless (open(DEST, '>', "${confdir}/${target}")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open output file \"${confdir}/$target\n");
-	}
-	print DEST $target_contents;
-	close(DEST);
-	if ($verbose) {
-		print "file ${VTbold}$target${VTnorm} written into configuration directory\n"
-	}
+	copy_and_configure_template	( "${tmpldir}/Apache/$target"
+								, "${confdir}/${target}"
+								, $target
+								);
 
 	#	Apache: LXR server configuration file
 	$target = 'apache-lxrserver.conf';
-	unless (open(SOURCE, '<', "${tmpldir}/Apache/$target")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/Apache/$target\"\n");
-	}
-	$/ = undef;
-	$target_contents = <SOURCE>;
-	$/ = $oldsep;
-	close(SOURCE);
-	$target_contents =~ s/%LXRroot%/$rootdir/g;
-	$target_contents =~ s/#=$cardinality=//g;
-	unless (open(DEST, '>', "${confdir}/${target}")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open output file \"${confdir}/$target\n");
-	}
-	print DEST $target_contents;
-	close(DEST);
-	if ($verbose) {
-		print "file ${VTbold}$target${VTnorm} written into configuration directory\n"
-	}
+	copy_and_configure_template	( "${tmpldir}/Apache/$target"
+								, "${confdir}/${target}"
+								, $target
+								);
 
 	#	lighttpd: LXR server configuration file
 	$target = 'lighttpd-lxrserver.conf';
-	unless (open(SOURCE, '<', "${tmpldir}/lighttpd/$target")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/lighttpd/$target\"\n");
-	}
-	unless (open(DEST, '>', "${confdir}/${target}")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open output file \"${confdir}/$target\"\n");
-	}
-	#	Expand initial part
-	expand_hash	( \*SOURCE
-				, \*DEST
-				, 'begin_virtroot'
-				, \%markers
-				, \%option_trans
-				, $verbose
-				);
-	#	Skip virtroot section template
-	while (<SOURCE>) {
-		last if m/^#\@end_virtroot/;
-	}
-	#	Expand rest of model
-	expand_hash	( \*SOURCE
-				, \*DEST
-				, '~~~TO~EOF~~~'	# Hope this is never used as a label!
-				, \%markers
-				, \%option_trans
-				, $verbose
-				);
-	close(SOURCE);
-	close(DEST);
-	if ($verbose) {
-		print "file ${VTbold}$target${VTnorm} written into configuration directory\n"
+	copy_and_configure_template	( "${tmpldir}/lighttpd/$target"
+								, "${confdir}/${target}"
+								, $target
+								);
+
+	#	Mercurial: extension and configuration file
+	if (-d "${tmpldir}/Mercurial") {
+		`cp ${tmpldir}/Mercurial/hg-lxr-ext.py ${confdir}/`;
+		$target = 'hg.rc';
+		copy_and_configure_template	( "${tmpldir}/Mercurial/$target"
+									, "${confdir}/${target}"
+									);
+		if ($verbose) {
+			print "${VTbold}Mercurial${VTnorm} support files written into configuration directory\n"
+		}
 	}
 }
 ##############################################################
@@ -792,35 +588,9 @@ if (!$addtree) {
 		print "    Global section part\n";
 		print "\n";
 	}
-
-	my $line;
-
-	open(SOURCE, '<', "${tmpldir}/$lxrtmplconf")
-	or die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/$lxrtmplconf\"\n");
-	open(DEST, '>', "${confdir}/${confout}")
-	or die("${VTred}ERROR:${VTnorm} couldn't open output file \"${confdir}/$confout\"\n");
-
-	#	Expand global section
-	expand_hash	( \*SOURCE
-				, \*DEST
-				, 'begin_tree'
-				, \%markers
-				, \%option_trans
-				, $verbose
-				);
-
-	#	Skip tree section template
-	while (<SOURCE>) {
-		last if m/^#\@end_tree/;
-	}
-
-	#	Copy rest of model
-	while (<SOURCE>) {
-		print DEST;
-	}
-
-	close(SOURCE);
-	close(DEST);
+	copy_and_configure_template	(  "${tmpldir}/$lxrtmplconf"
+								, "${confdir}/${confout}"
+								);
 } elsif ($dbenginechanged && !$nodbuser) {
 	if ('n' eq  get_user_choice
 				( 'Do you want to create the global DB user?'
@@ -829,7 +599,7 @@ if (!$addtree) {
 				, [ 'y', 'n']
 				)
 			) {
-		$option_trans{'createglobals'} = 0;
+		$markers{'%_createglobals%'} = 0;
 	}
 }
 
@@ -850,100 +620,33 @@ if ($verbose) {
 
 while (1) {
 	#	Start each iteration in default configuration
-	$option_trans{'add'} = $addtree;
-	$option_trans{'dbuseroverride'} = 0;
+	$markers{'%_add%'} = $addtree;
+	$markers{'%_dbuseroverride%'} = 0;
 	delete $markers{'%DB_tree_user%'};
-	delete $markers{'%DB_tree_password'};
+	delete $markers{'%DB_tree_password%'};
 	delete $markers{'%DB_tbl_prefix%'};
 
 	unless (open(SOURCE, '<', "${tmpldir}/$lxrtmplconf")) {
 		die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/$lxrtmplconf\"\n");
 	}
-	unless (open(DEST, '+<', "${confdir}/${confout}")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open output file \"${confdir}/$confout\"\n");
-	}
 
-	my $destpos = 0;
-	while (<DEST>) {
-		if (m/#\@here_tree\n/) {
-			last;
-		}
-		$destpos = tell;
-	}
-	my @deststat = stat(DEST);
-	if ($deststat[7] == $destpos) {
-		die("${VTred}ERROR:${VTnorm} couldn't find tree section before EOF in \"${confdir}/$lxrtmplconf\n");
-	}
-	seek(DEST, $destpos, 0);	# Position for write
-		$destpos = tell;
-
-	#	Skip global section model
-	while (<SOURCE>) {
-		if (m/#\@begin_tree\n/) {
-			last;
-		}
-	}
-
-	#	Expand tree section
-	expand_hash	( \*SOURCE
-				, \*DEST
-				, 'end_tree'
+	pass2_hash	( \*SOURCE
+				, "${confdir}/${confout}"
 				, \%markers
-				, \%option_trans
 				, $verbose
 				);
 
-	#	Copy rest of model
-	while (<SOURCE>) {
-		print DEST;
-	}
-
 	close(SOURCE);
-	close(DEST);
 
 	#	Update lighttpd configuration with the new 'virtroot'
 	open(SOURCE, '<', "${tmpldir}/lighttpd/lighttpd-lxrserver.conf")
 	or die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/lighttpd/lighttpd-lxrserver.conf\"\n");
-	open(DEST, '+<', "${confdir}/lighttpd-lxrserver.conf")
-	or die("${VTred}ERROR:${VTnorm} couldn't open configuration file \"${confdir}/lighttpd-lxrserver.conf\"\n");
-	#	Position output to variable section
-	my $destpos = 0;
-	while (<DEST>) {
-		if (m/#\@here_virtroot\n/) {
-			last;
-		}
-		$destpos = tell;
-	}
-	my @deststat = stat(DEST);
-	if ($deststat[7] == $destpos) {
-		die("${VTred}ERROR:${VTnorm} couldn't find 'virtroot' section before EOF in \"${confdir}/lighttpd-lxrserver.conf\n");
-	}
-	seek(DEST, $destpos, 0);	# Position for write
-		$destpos = tell;
-	#	Skip fixed section model
-	while (<SOURCE>) {
-		if (m/#\@begin_virtroot\n/) {
-			last;
-		}
-	}
-	#	Expand virtroot section of model
-	expand_hash	( \*SOURCE
-				, \*DEST
-				, 'end_virtroot'
+	pass2_hash	( \*SOURCE
+				, "${confdir}/lighttpd-lxrserver.conf"
 				, \%markers
-				, \%option_trans
-				, $verbose
-				);
-	#	Expand rest of model
-	expand_hash	( \*SOURCE
-				, \*DEST
-				, '~~~TO~EOF~~~'	# Hope this is never used as a label!
-				, \%markers
-				, \%option_trans
 				, $verbose
 				);
 	close(SOURCE);
-	close(DEST);
 
 	#	Have new DB user and password been defined?
 	if (exists($markers{'%DB_tree_user%'})) {
@@ -955,7 +658,7 @@ while (1) {
 			}
 		} else {
 			#	Tell other templates something changed
-			$option_trans{'dbuseroverride'} = 1;
+			$markers{'%_dbuseroverride%'} = 1;
 			$users{$markers{'%DB_tree_user%'}} = $markers{'%DB_tree_password'};
 		}
 	}
@@ -985,19 +688,16 @@ while (1) {
 	#	This is why the 'shell' pseudo-option is created.
 	#	Of course, this statement would be better outside the loop,
 	#	but this comment would be far from expand_slash_star invocation.
-	$option_trans{'shell'} = 1;
+	$markers{'%_shell%'} = 1;
 	#	Expand script model
-	expand_slash_star	( \*SOURCE
-				, \*DEST
-				, '~~~TO~EOF~~~'	# Hope this is never used as a label!
-				, \%markers
-				, \%option_trans
-				, $verbose
-				);
+	expand_slash_star	( sub{ <SOURCE> }
+						, \*DEST
+						, \%markers
+						, $verbose
+						);
 
 	close(SOURCE);
 	close(DEST);
-	chmod 0775,"${confdir}/${scriptout}";	# Make sure script has x permission
 
 	print "\n";
 	if	(  $cardinality eq 's'
@@ -1012,7 +712,7 @@ while (1) {
 	}
 	#	Prevent doing one-time actions more than once
 	$addtree = 1;	# Same as adding a new tree
-	$option_trans{'createglobals'} = 0;
+	$markers{'%_createglobals%'} = 0;
 }
 
 ##############################################################
@@ -1020,6 +720,18 @@ while (1) {
 #					End of configuration
 #
 ##############################################################
+
+chmod 0775, "${confdir}/${scriptout}";	# Make sure script has x permission
+
+#	Since storing files in a VCS does not guarantee adequate permissions
+#	are kept, set them explicitly on scripts.
+#	We suppose configure-lxr.pl has correct permissions, otherwise we
+#	can't bootstrap.
+chmod 0775, 'diff', 'genxref', 'ident', 'search', 'showconfig', 'source';
+chmod 0775, "${scriptdir}/kernel-vars-grab.sh";
+chmod 0775, "${scriptdir}/set-lxr-version.sh";
+chmod 0775, "${scriptdir}/recreatedb.pl";
+chmod 0775, "${scriptdir}/lighttpd-init";
 
 if ($verbose) {
 		print "configuration saved in ${VTbold}$confdir/$confout${VTnorm}\n";

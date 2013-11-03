@@ -2,7 +2,7 @@
 # -*- tab-width: 4 -*-"
 ###############################################
 #
-# $Id: recreatedb.pl,v 1.4 2012/09/29 20:30:46 ajlittoz Exp $
+# $Id: recreatedb.pl,v 1.7 2013/01/22 16:59:52 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,10 +20,10 @@
 #
 ###############################################
 
-# $Id: recreatedb.pl,v 1.4 2012/09/29 20:30:46 ajlittoz Exp $
+# $Id: recreatedb.pl,v 1.7 2013/01/22 16:59:52 ajlittoz Exp $
 
 use strict;
-use lib 'lib', 'scripts';
+use lib 'lib', do { $0 =~ m{(.*)/}; "$1" };
 use Fcntl;
 use Getopt::Long;
 use IO::Handle;
@@ -34,7 +34,8 @@ use LXR::Files;
 use LXR::Index;
 use LXR::Common;
 
-use ExpandSlashStar;
+use ContextMgr;
+use LCLInterpreter;
 use QuestionAnswer;
 use VTescape;
 
@@ -50,7 +51,7 @@ use VTescape;
 #	variable (sigils may be separated from the variable name
 #	by spaces! Not documented of course!)
 $_ = '';	# Calm down Perl ardour
-my $version ="\$Revision: 1.4 $_";
+my $version ="\$Revision: 1.7 $_";
 $version =~ s/Revision: (.*) $/$1/;
 $version =~ s/\$//;
 
@@ -74,6 +75,7 @@ my %option;
 my $confdir = 'custom.d';
 my $rootdir = `pwd`;
 chomp($rootdir);
+my ($scriptdir) = $0 =~ m!([^/]+)/[^/]+$!;
 my $tmpldir = 'templates';
 my $verbose;
 my $scriptout = 'initdb.sh';
@@ -160,7 +162,7 @@ if (! -d $rootdir) {
 		. " ${VTred}$rootdir${VTnorm} does not exist!\n";
 	$error = 1;
 }
-if (! -d $rootdir.'/scripts') {
+if (! -d "$rootdir/$scriptdir") {
 	print "${VTred}ERROR:${VTnorm} ${VTred}$rootdir${VTnorm} does not look "
 		. "like an LXR root directory (scripts directory not found)!\n";
 	$error = 1;
@@ -225,11 +227,12 @@ exit $error if $error;
 
 ##############################################################
 #
-#				Start recontruction
+#				Start reconstruction
 #
 ##############################################################
 
 if ($verbose) {
+	$verbose = 2;		# Force max verbosity in support routines
 	print "${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} DB initialisation reconstruction  (version: $version) ${VTyellow}***${VTnorm}\n";
 	print "\n";
 	print "LXR root directory is ${VTbold}$rootdir${VTnorm}\n";
@@ -252,17 +255,6 @@ if (! -d $confdir) {
 if ($verbose) {
 	print "\n";
 }
-
-my $cardinality;
-my $dbengine;
-my $dbenginechanged = 1;
-my $dbpolicy;
-my $dbname;
-my $dbuser;
-my $dbpass;
-my $dbprefix;
-my $nodbuser;
-my $nodbprefix;
 my %users;			# Cumulative list of all user/password
 # Flags for first use of DB engine
 my %dbengine_seen =
@@ -279,91 +271,7 @@ my %dbengine_seen =
 #
 ##############################################################
 
-# WARNING:	remember to keep this number in sync with
-#			configure-lxr.pl.
-my $context_version = 1;
-my $manualreload = 0;
-
-if (my $c=open(SOURCE, '<', $lxrctx)) {
-	print "Initial context $lxrctx is reloaded\n" if $verbose;
-	$/ = undef;
-	my $context = <SOURCE>;
-	$/ = $oldsep;
-	close(SOURCE);
-	my $context_created;
-	eval($context);
-	if (!defined($context_created)) {
-		print "${VTred}ERROR:${VTnorm} saved context file probably damaged!\n";
-		print "Check variable not found\n";
-		print "Delete or rename file $lxrctx to remove lock.\n";
-		exit 1;
-	}
-	if ($context_created != $context_version) {
-		print "${VTred}ERROR:${VTnorm} saved context file probably too old!\n";
-		print "Recorded state version = $context_created while expecting version = $context_version\n";
-		print "It is wise to 'quit' now and add manually the new tree or reconfigure from scratch.\n";
-		print "You can however try to restore the initial context at your own risk.\n";
-		print "\n";
-		print "${VTyellow}WARNING:${VTnorm} inconsistent answers can lead to LXR malfunction.\n";
-		print "\n";
-		if ('q' eq get_user_choice
-			( 'Do you want to quit or manually restore context?'
-			, 1
-			, [ 'quit', 'restore' ]
-			, [ 'q', 'r' ]
-			) ) {
-			exit 1;
-		}
-		$manualreload = 1;
-	};
-	if ($dbpolicy eq 't') {
-		print "Your DB engine was: ${VTbold}" if $verbose;
-		if ("m" eq $dbengine) {
-			print "MySQL\n" if $verbose;
-		} elsif ("o" eq $dbengine) {
-			print "Oracle\n" if $verbose;
-		} elsif ("p" eq $dbengine) {
-			print "PostgreSQL\n" if $verbose;
-		} elsif ("s" eq $dbengine) {
-			print "SQLite\n" if $verbose;
-		} else {
-			print "???${VTnorm}\n" if $verbose;
-			print "${VTred}ERROR:${VTnorm} saved context file damaged or tampered with!\n";
-			print "Unknown database code '$dbengine'\n";
-			print "Delete or rename file $lxrctx to remove lock.\n";
-			if ('q' eq get_user_choice
-				( 'Do you want to quit or manually restore context?'
-				, 1
-				, [ 'quit', 'restore' ]
-				, [ 'q', 'r' ]
-				) ) {
-				exit 1;
-			}
-			$manualreload = 1;
-		};
-	}
-} else {
-	print "${VTyellow}WARNING:${VTnorm} could not reload context file ${VTbold}$lxrctx${VTnorm}!\n";
-	print "You may have deleted the context file or you moved the configuration\n";
-	print "file out of the ${VTbold}${confdir}${VTnorm} user-configuration directory without the\n";
-	print "context companion file ${VTyellow}$lxrctx${VTnorm}.\n";
-	print "\n";
-	print "You can now 'quit' to think about the situation or try to restore\n";
-	print "the parameters by answering the following questions\n";
-	print "(some clues can be gathered from reading configuration file ${VTbold}$lxrconf${VTnorm}).\n";
-	print "\n";
-	print "${VTyellow}WARNING:${VTnorm} inconsistent answers can lead to LXR malfunction.\n";
-	print "\n";
-	if ('q' eq get_user_choice
-		( 'Do you want to quit or manually restore context?'
-		, 1
-		, [ 'quit', 'restore' ]
-		, [ 'q', 'r' ]
-		) ) {
-		exit 1;
-	};
-	$manualreload = 1;
-}
+my $manualreload = contextReload ($verbose, $lxrctx);
 
 if ($manualreload) {
 	print "\n";
@@ -373,132 +281,10 @@ if ($manualreload) {
 		print "trees. Answer with the choices you made previously,\n";
 		print "otherwise your DB will not be what LXR expects.\n";
 	}
-	$dbengine =  get_user_choice
-			( 'Default database engine?'
-			, 1
-			, [ 'mysql', 'oracle', 'postgres', 'sqlite' ]
-			, [ 'm', 'o', 'p', 's' ]
-			);
-
-	#	Are we configuring for single tree or multiple trees?
-	$cardinality = get_user_choice
-			( 'Configured for single/multiple trees?'
-			, 2
-			, [ 's', 'm' ]
-			, [ 's', 'm' ]
-			);
-
-	if ($cardinality eq 's') { 
-		if ('y' eq get_user_choice
-				( 'Do you intend to add other trees later?'
-				, 2
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$cardinality = 'm';
-			print "${VTyellow}NOTE:${VTnorm} installation switched to ${VTbold}multiple${VTnorm} mode\n";
-			print "      but describe just a single tree.\n";
-		} else {
-			$dbpolicy   = 't';
-			$nodbuser   = 1;
-			$nodbprefix = 1;
-		}
-	}
-
-	if ($cardinality eq 'm') {
-		if ('o' ne $dbengine) {
-			print "The safest option is to create one database per tree.\n";
-			print "You can however create a single database for all your trees with a specific set of\n";
-			print "tables for each tree (though this is not recommended).\n";
-			$dbpolicy = get_user_choice
-					( 'How did you setup the databases?'
-					, 1
-					, [ 'per tree', 'global' ]
-					, [ 't', 'g' ]
-					);
-			if ($dbpolicy eq 'g') {	# Single global database
-				if ('s' eq $dbengine) {
-					$dbname = get_user_choice
-						( 'Name of global SQLite database file? (e.g. /home/myself/SQL-databases/lxr'
-						, -2
-						, []
-						, []
-						);
-				} else {
-					$dbname = get_user_choice
-						( 'Name of global database?'
-						, -1
-						, []
-						, [ 'lxr' ]
-						);
-				}
-				$nodbprefix = 1;
-			}
-		} else {
-			print "There is only one global database under Oracle.\n";
-			print "The tables for each tree are identified by a unique prefix.\n";
-			$dbpolicy   = 'g';
-			$nodbprefix = 1;
-		}
-		print "All databases can be accessed with the same username and\n";
-		print "can also be described under the same names.\n";
-		if ('n' eq get_user_choice
-				( 'Have you shared database characteristics?'
-				, 1
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$nodbuser   = 1;
-			$nodbprefix = 1;
-		}
-	}
-
-	if (!defined($nodbuser)) {
-		if	(  $dbpolicy eq 'g'
-			|| 'y' eq get_user_choice
-				( 'Did you use the same username and password for all DBs?'
-				, 1
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$dbuser = get_user_choice
-				( '--- DB user name?'
-				, -1
-				, []
-				, [ 'lxr' ]
-				);
-			$dbpass = get_user_choice
-				( '--- DB password ?'
-				, -1
-				, []
-				, [ 'lxrpw' ]
-				);
-			$users{$dbuser} = $dbpass;	# Record global user/password
-		} else {
-			$nodbuser = 1;
-		}
-	}
-
-	if (!defined($nodbprefix)) {
-		if ('y' eq get_user_choice
-				( 'Did you give the same prefix to all tables?'
-				, 1
-				, [ 'yes', 'no' ]
-				, [ 'y', 'n']
-				)
-			) {
-			$dbprefix = get_user_choice
-					( '--- Common table prefix?'
-					, -1
-					, []
-					, [ 'lxr_' ]
-					);
-		}else {
-			$nodbprefix = 1;
-		}
+	contextTrees ($verbose);
+	contextDB ($verbose);
+	if ($dbuser) {
+		$users{$dbuser} = $dbpass;	# Record global user/password
 	}
 }
 
@@ -560,19 +346,22 @@ shift @config;	# Remove global part
 #
 ##############################################################
 
-my %option_trans =
-		( 'context' => $cardinality
-		, 'dbpass'	=> $dbpass
-		, 'dbpolicy'=> $dbpolicy
-		, 'dbprefix'=> $dbprefix
-		, 'dbuser'	=> $dbuser
-		, 'dbuseroverride' => 0
-		, 'nodbuser'=> $nodbuser
-		, 'nodbprefix' => $nodbprefix
+my %markers =
+		( '%_singlecontext%' => $cardinality eq 's'
+		, '%_createglobals%' => $cardinality eq 'm'
+							&&	(  1 == $dbenginechanged
+								)
+		, '%_dbengine%'	=> $dbengine
+		, '%_dbpass%'	=> $dbpass
+		, '%_dbprefix%'	=> $dbprefix
+		, '%_dbuser%'	=> $dbuser
+		, '%_dbuseroverride%' => 0
+		, '%_globaldb%'	=> $dbpolicy eq 'g'
+		, '%_nodbuser%'	=> $nodbuser
+		, '%_nodbprefix%' => $nodbprefix
+		, '%_shell%'	=> 1
 		);
 
-
-my %markers;
 my $sample;
 $markers{'%LXRroot%'} = $rootdir;
 
@@ -602,22 +391,22 @@ foreach my $config (@config) {
 		print "${VTyellow}***${VTnorm} scanning ${VTbold}$$config{'virtroot'}${VTnorm} tree configuration section ${VTyellow}***${VTnorm}\n";
 	}
 	#	Start each iteration in default configuration
-	$option_trans{'dbuseroverride'} = 0;
+	$markers{'%_dbuseroverride%'} = 0;
 	delete $markers{'%DB_tree_user%'};
 	delete $markers{'%DB_tree_password'};
 	delete $markers{'%DB_tbl_prefix%'};
 
 	#	Have new DB user and password been defined?
 	if (exists($config->{'dbuser'})) {
-		$option_trans{'dbuseroverride'} = 1;
+		$markers{'%_dbuseroverride%'} = 1;
 		$users{$markers{'%DB_tree_user%'}} = $config->{'dbuser'};
 	}
 	if (exists($config->{'dbpass'})) {
-		$option_trans{'dbuseroverride'} = 1;
+		$markers{'%_dbuseroverride%'} = 1;
 		$users{$markers{'%DB_tree_password%'}} = $config->{'dbpass'};
 	}
 	#	New DB table prefix?
-	if (!exists($config->{'dbprefix'})) {
+	if (exists($config->{'dbprefix'})) {
 		$markers{'%DB_tbl_prefix%'} = $config->{'dbprefix'};
 	}
 	if (!defined($config->{'dbprefix'})) {
@@ -640,10 +429,12 @@ foreach my $config (@config) {
 		print "for tree ${VTred}$$config{'virtroot'}${VTnorm}!\n";
 	}
 
-	$option_trans{'createglobals'} =
-		$dbenginechanged
-		|| $treedbengine ne $dbengine && !$dbengine_seen{$treedbengine};
-	$dbengine_seen{$treedbengine} = 1;
+	if	(	$dbenginechanged
+		|| $treedbengine ne $dbengine && !$dbengine_seen{$treedbengine}
+		) {
+		$markers{'%_createglobals%'}  = 1;
+		$dbengine_seen{$treedbengine} = 1;
+	}
 
 	open(SOURCE, '<', "${tmpldir}/initdb/initdb-${treedbengine}-template.sql")
 	or die("${VTred}ERROR:${VTnorm} couldn't open  script template file \"${tmpldir}/initdb/initdb-${dbengine}-template.sql\"\n");
@@ -661,20 +452,18 @@ foreach my $config (@config) {
 	#	This is why the 'shell' pseudo-option is created.
 	#	Of course, this statement would be better outside the loop,
 	#	but this comment would be far from expand_slash_star invocation.
-	$option_trans{'shell'} = 1;
+	$markers{'%_shell%'} = 1;
 	#	Expand script model
-	expand_slash_star	( \*SOURCE
-				, \*DEST
-				, '~~~TO~EOF~~~'	# Hope this is never used as a label!
-				, \%markers
-				, \%option_trans
-				, $verbose
-				);
+	expand_slash_star	( sub{ <SOURCE> }
+						, \*DEST
+						, \%markers
+						, $verbose
+						);
 
 	close(SOURCE);
 
 	#	Prevent doing one-time actions more than once
-	$option_trans{'createglobals'} = 0;
+	$markers{'%_createglobals%'} = 0;
 	$dbenginechanged = 0;
 }
 

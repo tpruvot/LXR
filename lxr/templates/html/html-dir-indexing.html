@@ -1,7 +1,8 @@
-<!--$Id: html-dir.html,v 1.2 2012/11/14 11:28:13 ajlittoz Exp $ -->
+<!--$Id: html-dir-indexing.html,v 1.1 2012/11/17 08:46:04 ajlittoz Exp $ -->
 
-<!--				html-dir.html
-		A template for displaying a directory content -->
+<!--				html-dir-indexing.html
+		A template for displaying a directory content
+				with last indexing time -->
 
 <!-- ajlittoz <ajlittoz@users.sf.net>	-->
 
@@ -32,6 +33,7 @@ $description{$desctext}
 			<th class="dirname">Name</th>
 			<th class="dirsize">Size</th>
 			<th class="dirtime">Date (UTC)</th>
+			<th class="dirindex">Last indexed</th>
 			<th class="dirdesc">Description</th>
 		</tr>
 	</thead>
@@ -41,6 +43,7 @@ $description{$desctext}
 			<th class="dirname">Name</th>
 			<th class="dirsize">Size</th>
 			<th class="dirtime">Date (UTC)</th>
+			<th class="dirindex">Last indexed</th>
 			<th class="dirdesc">Description</th>
 		</tr>
 	</tfoot>
@@ -50,6 +53,7 @@ $files{		<tr class="$dirclass">
 			<td class="dirname">$namelink</td>
 			<td class="dirsize">$filesize{$bytes bytes}</td>
 			<td class="dirtime">$modtime </td>
+			<td class="$dirindexclass">$indextime </td>
 			<td class="dirdesc">$description{$desctext}</td>
 		</tr>
 }	</tbody>

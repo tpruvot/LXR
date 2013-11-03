@@ -1,5 +1,5 @@
 /*
- *	$Id: classic.css,v 1.1 2012/09/22 10:17:09 ajlittoz Exp $
+ *	$Id: classic.css,v 1.4 2013/01/24 15:09:53 ajlittoz Exp $
  */
 
 /* Some definitions are grouped together to allow modification
@@ -192,6 +192,7 @@
   .modes
 , .varlink
 , SPAN.modes-sel
+, SPAN.modes-dis
 , SPAN.var-sel
 { font-size: 10pt
 }
@@ -228,6 +229,7 @@
 
 /* currently selected mode/variable */
   SPAN.modes-sel
+, SPAN.modes-dis
 , SPAN.var-sel
 { font-style: italic
 ; font-weight: bold
@@ -236,11 +238,13 @@
 
   FORM.modes
 , FORM.modes-sel
+, FORM.modes-dis
 , FORM.vars
 { margin: 1px
 ; padding: 1px
 }
   .modes-sel BUTTON
+, .modes-dis BUTTON
 { font-style: italic
 /* ; font-size: 9pt */
 /*; font-weight: bold*/
@@ -320,6 +324,8 @@
 , .dirname
 , .dirsize
 , .dirtime
+, .dirindex
+, .dirindexinvalid
 { width: 1%
 ; white-space: nowrap
 }
@@ -339,8 +345,15 @@
 }
 
   TD.dirtime
+, TD.dirindex
+, TD.dirindexinvalid
 { text-align: right
 ; padding: 0 1pt 0 5pt
+}
+
+  TD.dirindexinvalid
+{ background-color: #ffccdd
+; text-align: center
 }
 
   TD.dirdesc
@@ -490,9 +503,28 @@
 ; font-size: 10pt
 }
 
+  .identapprox:before
+{ color: red
+; content: "⁕"	/**/	/* for Unicode (UTF-8) */
+						/* incorrect display under 8-bit character sets */
+/*; content: "±" /**/	/* for ISO-8859-1 */
+/*; content: "÷" /**/	/* other suggestion for ISO-8859-1 */
+
+}
+
   TR.identline
 , TR.searchline
 { text-align: left
+}
+
+  TD.identinvalid
+, TD.searchinvalid
+{ background-color: #ffccdd
+}
+
+/* Improve readability on colored background */
+  TD[class~=searchfile][class~=searchinvalid] A
+{ color: black
 }
 
 /*  PRE.searchtext
@@ -592,5 +624,10 @@
   TD.conf_val
 { overflow: auto
 ; padding: 0pt 5pt
+}
+
+  .conf_force
+{ color: red
+; background-color: silver
 }
 

@@ -1,7 +1,7 @@
 #
 #	Web server configuration for LXR root directory
 #
-#	$Id: htaccess-generic,v 1.3 2012/03/07 20:22:22 ajlittoz Exp $
+#	$Id: htaccess-generic,v 1.6 2013/01/21 10:49:36 ajlittoz Exp $
 #
 #	Content of this file is independent of the location of
 #	the LXR root directory.
@@ -9,12 +9,22 @@
 #	Eventually, access to LXR root directory can be relaxed.
 #	Default is very restrictive.
 #
+# Cannot grant Apache 2.2/2.4 implicit compatibility because Require
+# directive syntax and semantics changed between releases.
+# When updating 2.2 -> 2.4, uncomment 2.4 specific lines
+#@IF	!%Apache24%
+#@	ASK Is your Apache version 2.4 or higher?; 1; yes, no; y, n
+#@	DEFINE	Apache24="%A%"
+#@ENDIF
 
 
 # Enable CGI script execution and use of symlinks
 Options ExecCGI FollowSymlinks
 
+		# up to Apache 2.2
 Order deny,allow
+		# from Apache 2.4
+#	No directive needed
 
 
 # =================================================
@@ -29,16 +39,37 @@ Options -Indexes
 
 # Forbid direct access to any file in LXR root and its subdirectories
 <FilesMatch ".">
+		# up to Apache 2.2
 	Deny from all
+		# from Apache 2.4
+#@IF 'y' eq "%Apache24%"
+	Require all denied
+#@ELSE
+#	Require all denied
+#@ENDIF
 </FilesMatch>
 
 # But allow access to style sheets
 <FilesMatch "\.css$">
+		# up to Apache 2.2
 	Allow from all
+		# from Apache 2.4
+#@IF 'y' eq "%Apache24%"
+	Require all granted
+#@ELSE
+#	Require all granted
+#@ENDIF
 </FilesMatch>
 # and graphic files (for icons)
 <FilesMatch "\.(bmp|gif|icon?|jpe?g|png|svg|tiff?)$">
+		# up to Apache 2.2
 	Allow from all
+		# from Apache 2.4
+#@IF 'y' eq "%Apache24%"
+	Require all granted
+#@ELSE
+#	Require all granted
+#@ENDIF
 </FilesMatch>
 
 
@@ -48,7 +79,14 @@ Options -Indexes
 #
 #
 <Files ~ (search|source|ident|diff|showconfig)$>
+		# up to Apache 2.2
 	Allow from all
+		# from Apache 2.4
+#@IF 'y' eq "%Apache24%"
+	Require all granted
+#@ELSE
+#	Require all granted
+#@ENDIF
 	#	Access granted to everybody
 
 	# *** mod_perl use ***
@@ -64,7 +102,7 @@ Options -Indexes
 				PerlHandler ModPerl::RegistryPrefork
 			</IfModule>
 			<IfModule worker.c>
-				PerlHandler Apache::Registry
+				PerlHandler ModPerl::Registry
 			</IfModule>
 		</IfDefine>
 

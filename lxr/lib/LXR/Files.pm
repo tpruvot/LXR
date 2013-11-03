@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Files.pm,v 1.17 2012/09/21 17:17:08 ajlittoz Exp $
+# $Id: Files.pm,v 1.22 2013/01/18 17:48:50 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ source-tree, independent of the repository format.
 
 package LXR::Files;
 
-$CVSID = '$Id: Files.pm,v 1.17 2012/09/21 17:17:08 ajlittoz Exp $ ';
+$CVSID = '$Id: Files.pm,v 1.22 2013/01/18 17:48:50 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -73,6 +73,11 @@ sub new {
 		require LXR::Files::Subversion;
 		$srcroot = $1;
 		$files   = LXR::Files::Subversion->new($srcroot, $params);
+	}
+	elsif ( $srcroot =~ /^hg:(.*)/i ) {
+		require LXR::Files::Mercurial;
+		$srcroot = $1;
+		$files   = LXR::Files::Mercurial->new($srcroot, $params);
 	}
 	elsif ( $srcroot =~ /^bk:(.*)/i ) {
 		require LXR::Files::BK;
@@ -119,7 +124,7 @@ sub getdir {
 	return @dircontents;
 }
 
-=head2 C<getfile ($pathname, $releaseid)>
+=head2 C<getfile ($pathname, $releaseid, $withannot)>
 
 C<getfile> returns a file content in a string.
 
@@ -133,6 +138,10 @@ a I<string> containing the path relative to C<'sourceroot'>
 
 the release (or version) in which C<$pathname> is expected to
 be found
+
+=item 1 C<$withannot>
+
+optional, if defined request an annotated file
 
 =back
 
@@ -179,13 +188,93 @@ number the line was entered in CVS. It is the release-id in GIT.
 Function result is an empty list if there is no annotation or
 annotation retrieval is barred by lxr.conf.
 
+B<IMPORTANT NOTICE:>
+
+=over
+
+Starting with release 1.1, this method should only be used for
+internal needs of the derived classes because annotation editing
+has been drastically changed in script I<source>.
+
+The externally visible method is C<getnextannotation>.
+
+=back
+
 =cut
 
 sub getannotations {
 	my ($self, $filename, $releaseid) = @_;
-	warn  __PACKAGE__."::getannotations not implemented. Parameters @_";
+	die  __PACKAGE__."::getannotations deprecated. Parameters @_";
+}
+
+=head2 C<getnextannotation ($pathname, $releaseid)>
+
+C<getnextannotation> returns the annotation for the next line
+in the designated file.
+
+=over
+
+=item 1 C<$pathname>
+
+a I<string> containing the path relative to C<'sourceroot'>
+
+=item 1 C<$releaseid>
+
+the release (or version) in which C<$pathname> is expected to
+be found
+
+=back
+
+An I<annotation> is whatever auxiliary line information kept in
+the repository. There is none in plain files. It is the revision
+number the line was entered in CVS. It is the release-id in GIT.
+
+Function result is undefined if there is no more annotation or
+annotation retrieval is barred by lxr.conf.
+
+=cut
+
+sub getnextannotation {
+	my ($self, $filename, $releaseid) = @_;
+	warn  __PACKAGE__."::getnextannotation not implemented. Parameters @_";
 	my @annotations;
 	return @annotations;
+}
+
+=head2 C<truncateannotation ($string, $len)>
+
+C<truncateannotation> truncate the annotation and returns the
+new length.
+
+=over
+
+=item 1 C<$string>
+
+a I<reference> to a I<string> containing the annotation
+
+=item 1 C<$len>
+
+an I<integer> containing the desired length
+
+=back
+
+The caller must leave room in his layout for an extra character
+to be inserted where truncation takes place.
+The returned string contains C<$len> + 1 "characters" .
+Here, I<character> means a display position on the screen but
+may need several bytes to be defined.
+
+This default implementation truncates on left.
+It can be overriden in specific classes to truncate on right
+or use a different flag character or style.
+
+=cut
+
+sub truncateannotation {
+	my ($self, $string, $len) = @_;
+	$$string = '<span class="error">&hellip;</span>'
+			.	substr($$string, -$len);
+	return ++$len;
 }
 
 =head2 C<getauthor ($pathname, $annotation)>
@@ -519,6 +608,114 @@ sub releaserealfilename {
 	if ($filename =~ m!^$td/lxrtmp\.\d+\.\d+\.\d+$!) {
 		unlink($filename);
 	}
+}
+
+=head2 C<_ignoredirs ($path, $node)>
+
+C<_ignoredirs> is an internal (as indicated by _ prefix) filter utility
+to exclude directories containing any partial path defined in configuration
+parameter C<'ignoredirs'>.
+
+The filter is to be called from C<getdir()>.
+
+=over
+
+=item 1 C<$path>
+
+a I<string> containing the LXR full path for the parent directory
+
+=item 1 C<$node>
+
+a I<string> containing the last directory element
+
+=back
+
+Only the last part is tested since the parent is supposed to have been
+scanned by a previous step of the recursive directory tree traversal.
+If a higher element matched one of the C<'ignoredirs'> strings,
+that path part was filtered out and no further part is presented to this
+function.
+
+B<Note:>
+
+=over
+
+The filter is to be called from C<getdir()>.
+
+I<<This usage choice leaves the possibility to override the filter through
+manually entering the path in the URL. Since it does not go through
+C<getdir()>, the "forbidden" path subdirectory is transmitted unaltered
+to the source display script.>>
+
+=back
+
+=cut
+
+sub _ignoredirs {
+	my ($self, $path, $node) = @_;
+
+	return 1 if $node =~ m/^\./;	# ignore "dot" dirs
+	foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
+		return 1 if $node eq $ignoredir;
+	}
+	foreach my $ignoredir (@{$config->{'filterdirs'}}) {
+		return 1 if ($path.$node) =~ $ignoredir;
+	}
+	return 0;
+}
+
+=head2 C<_ignorefiles ($path, $node)>
+
+C<_ignorefiles> is an internal (as indicated by _ prefix) filter utility
+to exclude files containing patterns defined in configuration
+parameter C<'ignorefiles'>.
+
+The filter is to be called from C<getdir()>.
+
+=over
+
+=item 1 C<$path>
+
+a I<string> containing the LXR full path for the parent directory
+
+=item 1 C<$node>
+
+a I<string> containing the file name
+
+=back
+
+Presently, only filename filtering is done, i.e. the same filter is
+applied in every directory.
+Usually, it screens off "dot" files, editor backups, binaries, ...
+A more specific filtering could be implemented taking into account
+both the parent directory and the filename.
+But this extended feature will be added only on user request due to
+its time-cost on huge trees such as Linux kernel.
+
+B<Note:>
+
+=over
+
+The filter is to be called from C<getdir()>.
+
+I<<This usage choice leaves the possibility to override the filter through
+manually entering the path in the URL. Since it does not go through
+C<getdir()>, the "forbidden" filename is transmitted unaltered
+to the source display script.>>
+
+=back
+
+=cut
+
+sub _ignorefiles {
+	my ($self, $path, $node) = @_;
+
+	my $ignorepat = $config->{'ignorefiles'};
+	return 1 if $node =~ m/$ignorepat/;
+	foreach my $filterfile (@{$config->{'filterfiles'}}) {
+		return 1 if ($path.$node) =~ $filterfile;
+	}
+	return 0;
 }
 
 1;

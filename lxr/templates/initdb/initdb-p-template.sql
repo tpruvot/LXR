@@ -2,7 +2,7 @@
 /*-
  *	SQL template for creating PostgreSQL tables
  *	(C) 2012 A. Littoz
- *	$Id: initdb-p-template.sql,v 1.1 2012/09/22 12:56:27 ajlittoz Exp $
+ *	$Id: initdb-p-template.sql,v 1.3 2013/01/11 12:08:48 ajlittoz Exp $
  *
  *	This template is intended to be customised by Perl script
  *	initdb-config.pl which creates a ready to use shell script
@@ -32,108 +32,100 @@
 	of a single psql invocation. -*/
 /*--*/
 /*--*/
-/*@begin_O	createglobals==1*/
-/*@X echo "Note: deletion of user below fails if it owns databases"*/
-/*@X echo "      and other objects."*/
-/*@X echo "      If you want to keep some databases, ignore the error"*/
-/*@X echo "      Otherwise, manually delete the objects"*/
-/*@X echo "      and relaunch this script."*/
-/*@begin_O		dbuser*/
-/*@X echo "*** PostgreSQL - Creating global user %DB_user%"*/
-/*@X dropuser   -U postgres %DB_user%*/
-/*@X createuser -U postgres %DB_user% -d -P -R -S*/
-/*@end_O		dbuser*/
-/*@end_O	createglobals==1*/
-/*@begin_O	dbuseroverride==1*/
-/*@X echo "*** PostgreSQL - Creating tree user %DB_tree_user%"*/
-/*@X dropuser   -U postgres %DB_tree_user%*/
-/*@X createuser -U postgres %DB_tree_user% -d -P -R -S*/
-/*@end_O	dbuseroverride==1*/
+/*@IF	%_createglobals% */
+/*@XQT echo "Note: deletion of user below fails if it owns databases"*/
+/*@XQT echo "      and other objects."*/
+/*@XQT echo "      If you want to keep some databases, ignore the error"*/
+/*@XQT echo "      Otherwise, manually delete the objects"*/
+/*@XQT echo "      and relaunch this script."*/
+/*@IF		%_dbuser%*/
+/*@XQT echo "*** PostgreSQL - Creating global user %DB_user%"*/
+/*@XQT dropuser   -U postgres %DB_user%*/
+/*@XQT createuser -U postgres %DB_user% -d -P -R -S*/
+/*@ENDIF		%_dbuser%*/
+/*@ENDIF	%_createglobals% */
+/*@IF	%_dbuseroverride% */
+/*@XQT echo "*** PostgreSQL - Creating tree user %DB_tree_user%"*/
+/*@XQT dropuser   -U postgres %DB_tree_user%*/
+/*@XQT createuser -U postgres %DB_tree_user% -d -P -R -S*/
+/*@ENDIF	%_dbuseroverride% */
 /*--*/
 /*--*/
 
 /*-		Create databases under LXR user
 		but it prevents from deleting user if databases exist
 -*//*- to activate place "- * /" at end of line (without spaces) -*/
-/*@begin_O	createglobals==1*/
-/*@begin_O		dbpolicy==g*/
-/*@X echo "*** PostgreSQL - Creating global database %DB_name%"*/
-/*@X dropdb   -U %DB_user% %DB_name%*/
-/*@X createdb -U %DB_user% %DB_name%*/
-/*@end_O		dbpolicy==g*/
-/*@end_O	createglobals==1*/
-/*@begin_O	dbpolicy==t*/
-/*@begin_O		dbuseroverride==1*/
-/*@X echo "*** PostgreSQL - Creating tree database %DB_name%"*/
-/*@X dropdb   -U %DB_tree_user% %DB_name%*/
-/*@X createdb -U %DB_tree_user% %DB_name%*/
-/*@end_O		dbuseroverride==1*/
-/*-	When an overriding username is already known, dbuseroverride is left
+/*@IF	%_createglobals% && %_globaldb% */
+/*@XQT echo "*** PostgreSQL - Creating global database %DB_name%"*/
+/*@XQT dropdb   -U %DB_user% %DB_name%*/
+/*@XQT createdb -U %DB_user% %DB_name%*/
+/*@ENDIF*/
+/*@IF	!%_globaldb% */
+/*@IF		%_dbuseroverride% */
+/*@XQT echo "*** PostgreSQL - Creating tree database %DB_name%"*/
+/*@XQT dropdb   -U %DB_tree_user% %DB_name%*/
+/*@XQT createdb -U %DB_tree_user% %DB_name%*/
+/*@ELSE*/
+/*-	When an overriding username is already known, %_dbuseroverride% is left
  *	equal to zero to prevent generating a duplicate user. We must however
  *	test the existence of %DB_tree_user% to operate under the correct
  *	DB owner. -*/
-/*@begin_O		dbuseroverride==0*/
-/*@X echo "*** PostgreSQL - Creating tree database %DB_name%"*/
-/*@begin_M			DB_tree_user*/
-/*@X dropdb   -U %DB_tree_user% %DB_name%*/
-/*@X createdb -U %DB_tree_user% %DB_name%*/
-/*@end_M			DB_tree_user*/
-/*@begin_M			!DB_tree_user*/
-/*@X dropdb   -U %DB_user% %DB_name%*/
-/*@X createdb -U %DB_user% %DB_name%*/
-/*@end_M			!DB_tree_user*/
-/*@end_O		dbuseroverride==0*/
-/*@end_O	dbpolicy==t*/
+/*@XQT echo "*** PostgreSQL - Creating tree database %DB_name%"*/
+/*@IF			%DB_tree_user% */
+/*@XQT dropdb   -U %DB_tree_user% %DB_name%*/
+/*@XQT createdb -U %DB_tree_user% %DB_name%*/
+/*@ELSE*/
+/*@XQT dropdb   -U %DB_user% %DB_name%*/
+/*@XQT createdb -U %DB_user% %DB_name%*/
+/*@ENDIF		%DB_tree_user% */
+/*@ENDIF	%_dbuseroverride% */
+/*@ENDIF !%_globaldb% */
 /*- end of disable/enable comment -*/
 /*--*/
 /*--*/
 /*-		Create databases under master user, usually postgres
 		may be restricted by site rules
 -*//*- to activate place "- * /" at end of line (without spaces)
-/*@begin_O	createglobals==1*/
-/*@begin_O		dbpolicy==g*/
-/*@X echo "*** PostgreSQL - Creating global database %DB_name%"*/
-/*@X dropdb   -U postgres %DB_name%*/
-/*@X createdb -U postgres %DB_name%*/
-/*@end_O		dbpolicy==g*/
-/*@end_O	createglobals==1*/
-/*@begin_O	dbpolicy==t*/
-/*@X echo "*** PostgreSQL - Creating tree database %DB_name%"*/
-/*@X dropdb   -U postgres %DB_name%*/
-/*@X createdb -U postgres %DB_name%*/
-/*@end_O	dbpolicy==t*/
+/*@IF	%_createglobals% && %_globaldb% */
+/*@XQT echo "*** PostgreSQL - Creating global database %DB_name%"*/
+/*@XQT dropdb   -U postgres %DB_name%*/
+/*@XQT createdb -U postgres %DB_name%*/
+/*@ENDIF*/
+/*@IF	!%_globaldb% */
+/*@XQT echo "*** PostgreSQL - Creating tree database %DB_name%"*/
+/*@XQT dropdb   -U postgres %DB_name%*/
+/*@XQT createdb -U postgres %DB_name%*/
+/*@ENDIF	!%_globaldb% */
 /*- end of disable/enable comment -*/
 /*--*/
 /*--*/
 
-/*@X echo "*** PostgreSQL - Configuring tables %DB_tbl_prefix% in database %DB_name%"*/
+/*@XQT echo "*** PostgreSQL - Configuring tables %DB_tbl_prefix% in database %DB_name%"*/
 /*-		Create databases under LXR user
  *		but it prevents from deleting user if databases exist
  *
  * Note:
- *	When an overriding username is already known, dbuseroverride is left
+ *	When an overriding username is already known, %_dbuseroverride% is left
  *	equal to zero to prevent generating a duplicate user. We must however
  *	test the existence of %DB_tree_user% to register the correct DB owner.
  *
 -*//*- to activate place "- * /" at end of line (without spaces) -*/
-/*@begin_O	dbuseroverride==1*/
-/*@X psql -q -U %DB_tree_user% %DB_name% <<END_OF_TABLES*/
-/*@end_O	dbuseroverride==1*/
-/*@begin_O	dbuseroverride==0*/
-/*@begin_M		DB_tree_user*/
-/*@X psql -q -U %DB_tree_user% %DB_name% <<END_OF_TABLES*/
-/*@end_M		DB_tree_user*/
-/*@begin_M		!DB_tree_user*/
-/*@X psql -q -U %DB_user% %DB_name% <<END_OF_TABLES*/
-/*@end_M		!DB_tree_user*/
-/*@end_O	dbuseroverride==0*/
+/*@IF	%_dbuseroverride% */
+/*@XQT psql -q -U %DB_tree_user% %DB_name% <<END_OF_TABLES*/
+/*@ELSE*/
+/*@IF		%DB_tree_user% */
+/*@XQT psql -q -U %DB_tree_user% %DB_name% <<END_OF_TABLES*/
+/*@ELSE*/
+/*@XQT psql -q -U %DB_user% %DB_name% <<END_OF_TABLES*/
+/*@ENDIF		%DB_tree_user% */
+/*@ENDIF	%_dbuseroverride% */
 /*- end of disable/enable comment -*/
 /*--*/
 /*--*/
 /*-		Create databases under master user, usually postgres
 		may be restricted by site rules
 -*//*- to activate place "- * /" at end of line (without spaces)
-/*@X psql -q -U postgres %DB_name% <<END_OF_TABLES*/
+/*@XQT psql -q -U postgres %DB_name% <<END_OF_TABLES*/
 /*- end of disable/enable comment -*/
 drop sequence if exists %DB_tbl_prefix%filenum;
 drop sequence if exists %DB_tbl_prefix%symnum;
@@ -167,9 +159,10 @@ create index %DB_tbl_prefix%filelookup
 	using btree (filename);
 
 /* Status of files in the DB */
-/*	fileid:	refers to base version
-	relcount: number of releases associated with base version
-	status:	set of bits with the following meaning
+/*	fileid:		refers to base version
+	relcount:	number of releases associated with base version
+	indextime:	time when file was parsed for references
+	status:		set of bits with the following meaning
 		1	declaration have been parsed
 		2	references have been processed
 	Though this table could be merged with 'files',
@@ -178,6 +171,7 @@ create index %DB_tbl_prefix%filelookup
 create table %DB_tbl_prefix%status
 	( fileid	int      not null primary key
 	, relcount  int
+	, indextime int
 	, status	smallint not null
 	, constraint %DB_tbl_prefix%fk_sts_file
 		foreign key (fileid)
@@ -193,23 +187,21 @@ drop function if exists %DB_tbl_prefix%erasefile();
 create function %DB_tbl_prefix%erasefile()
 	returns trigger
 	language PLpgSQL
-/*@begin_O	shell*/
+/*@IF	%_shell% */
 	as \$\$
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	as $$
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 		begin
 			delete from %DB_tbl_prefix%files
 				where fileid = old.fileid;
 			return old;
 		end;
-/*@begin_O	shell*/
+/*@IF	%_shell% */
 	\$\$;
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	$$;
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 
 drop trigger if exists %DB_tbl_prefix%remove_file
 	on %DB_tbl_prefix%status;
@@ -245,24 +237,22 @@ create function %DB_tbl_prefix%increl()
  *  by the process PID. It must then be quoted if the
  *  resulting file is intended to be executed as a script.
 -*/
-/*@begin_O	shell*/
+/*@IF	%_shell% */
 	as \$\$
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	as $$
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 		begin
 			update %DB_tbl_prefix%status
 				set relcount = relcount + 1
 				where fileid = new.fileid;
 			return new;
 		end;
-/*@begin_O	shell*/
+/*@IF	%_shell% */
 	\$\$;
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	$$;
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 
 drop trigger if exists %DB_tbl_prefix%add_release
 	on %DB_tbl_prefix%releases;
@@ -280,12 +270,11 @@ drop function if exists %DB_tbl_prefix%decrel();
 create function %DB_tbl_prefix%decrel()
 	returns trigger
 	language PLpgSQL
-/*@begin_O	shell*/
+/*@IF	%_shell% */
 	as \$\$
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	as $$
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 		begin
 			update %DB_tbl_prefix%status
 				set	relcount = relcount - 1
@@ -296,12 +285,11 @@ create function %DB_tbl_prefix%decrel()
 				and relcount > 0;
 			return old;
 		end;
-/*@begin_O	shell*/
+/*@IF	%_shell%*/
 	\$\$;
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	$$;
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 
 drop trigger if exists %DB_tbl_prefix%remove_release
 	on %DB_tbl_prefix%releases;
@@ -341,12 +329,11 @@ drop function if exists %DB_tbl_prefix%decsym();
 create function %DB_tbl_prefix%decsym()
 	returns trigger
 	language PLpgSQL
-/*@begin_O	shell*/
+/*@IF	%_shell% */
 	as \$\$
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	as $$
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 		begin
 			update %DB_tbl_prefix%symbols
 				set	symcount = symcount - 1
@@ -354,12 +341,11 @@ create function %DB_tbl_prefix%decsym()
 				and symcount > 0;
 			return old;
 		end;
-/*@begin_O	shell*/
+/*@IF	%_shell% */
 	\$\$;
-/*@end_O	shell*/
-/*@begin_O	!shell*/
+/*@ELSE*/
 	$$;
-/*@end_O	!shell*/
+/*@ENDIF	%_shell% */
 
 /* Definitions */
 /*	symid:	refers to symbol name
@@ -437,5 +423,5 @@ grant select on %DB_tbl_prefix%releases    to public;
 grant select on %DB_tbl_prefix%usages      to public;
 grant select on %DB_tbl_prefix%status      to public;
 grant select on %DB_tbl_prefix%langtypes   to public;
-/*@X END_OF_TABLES*/
+/*@XQT END_OF_TABLES*/
 

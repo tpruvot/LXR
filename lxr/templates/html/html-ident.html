@@ -1,4 +1,4 @@
-<!--$Id: html-ident.html,v 1.2 2012/01/23 09:54:39 ajlittoz Exp $ -->
+<!--$Id: html-ident.html,v 1.4 2012/11/21 17:01:16 ajlittoz Exp $ -->
 
 <!--				html-ident.html
 		A template to search for identifiers and
@@ -23,12 +23,17 @@
 -->
 <h1>Identifier search</h1>
 <p>
-Type the full name of an identifier to summarize 
+Type the full name of an identifier to look for 
 (a function name, variable name, typedef, etc).
 <br>
 Matches are case-sensitive.
 Check "Definitions only" to find only definitions of the symbol
 (unchecked, all references).
+<br>
+As a convenience,
+extra <span class="identline identapprox">999</span> line numbers denote
+<strong>case-insensitive</strong> occurrences
+(either belonging to a case-insensitive language or differing in case).
 </p>
 
 <form method="get" action="ident">
@@ -56,8 +61,7 @@ Check "Definitions only" to find only definitions of the symbol
 </form>  
    
 <h2>Results for <span class="identident">$identifier</span></h2>
-$defs{
-	<h3>Definitions</h3>
+$defs{	<h3>Definitions</h3>
 	<table class="identdef"> 
 		<tr>
 			<th class="identtype">Type</th>
@@ -65,35 +69,36 @@ $defs{
 			<th class="identfile">File</th>
 			<th class="identline">Line</th>
 		</tr>
-  $refs{
-		<tr>
+$refs{		<tr>
 			<td class="identtype">$type</td>
 			<td class="identrel">$rel</td>
-			<td class="identfile">$file</td>
-			<td class="identline">$line</td>
+			<td class="identfile $refinvalid">$file</td>
+			<td class="identline $refinvalid">$line</td>
 		</tr>
-  }
-	</table>
+}	</table>
 	<p>
 $occurs declarations in $filehits files.
 	</p>
-}
-
-$uses{
-	<h3>References:</h3>
+$indexwarning{	<p class="error">
+One or more files may contain inaccurate references.
+	</p>
+}}
+$uses{	<h3>References:</h3>
 	<table class="identref">
 		<tr>
 			<th class="identfile">File</th>
 			<th class="identline">Line</th>
 		</tr>
-  $refs{
-		<tr>
-			<td class="identfile">$fileonce</td>
-			<td class="identline">$lines</td>
+$refs{		<tr>
+			<td class="identfile $refinvalid">$fileonce</td>
+			<td class="identline $refinvalid">$lines</td>
 		</tr>
-  }
-	</table>
+}	</table>
 	<p>
 $occurs references in $filehits files.
 	</p>
-}
+	</p>
+$indexwarning{	<p class="error">
+One or more files may contain inaccurate references.
+	</p>
+}}

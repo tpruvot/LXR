@@ -2,7 +2,7 @@
 # -*- tab-width: 4 -*-"
 ###############################################
 #
-# $Id: genxref,v 1.62 2012/09/30 16:43:40 ajlittoz Exp $
+# $Id: genxref,v 1.66 2012/12/07 12:27:35 ajlittoz Exp $
 #
 #	Runs source-tree indexation
 #
@@ -44,10 +44,11 @@ GetOptions	(\%option
 			, "help!"
 			, "url=s"
 			, "version=s"
-			, "allurls!"
+			, "allurls"
 			, "allversions:s"
-			, "reindexall!"
-			, "checkonly!"
+			, "reindexall"
+			, "checkonly"
+			, "accept"
 			);
 
 if ($option{'help'}) {
@@ -58,10 +59,10 @@ Usage: genxref [option ...]
 
 The genxref program automatically generates LXR database cross-reference
 tokens for a set of URL configuration blocks and source code versions.  These
-are both defined in the lxr.conf configuration file.  Each "URL" is a separate
+are both defined in the $lxrconf configuration file.  Each "URL" is a separate
 source tree; LXR separates and identifies these by their URL.  Each "version" is
-a different version of the source tree being indexed.  See lxr.conf or
-lxr.conf.template for configuring URLs and versions.
+a different version of the source tree being indexed.  See file $lxrconf or
+script configure-lxr.pl for configuring URLs and versions.
 
 Valid options are:
   --help             Print a summary of the options.
@@ -71,6 +72,7 @@ Valid options are:
   --allversions      Generate tokens for all versions of the code (default).
   --reindexall       Purges existing index data
   --checkonly        Verify tools version and stop
+  --accept           Accept parameter suggestions to continue with indexing
   
 Report bugs at http://sourceforge.net/projects/lxr/.
 END_HELP
@@ -78,10 +80,6 @@ END_HELP
 }
 
 my $failure = 0;	# Cumulative failure indicator
-
-# TODO: implement --allurls
-# die("${VTred}Option --allurls not implemented.${VTnorm}  Use --url instead.\n")
-#   if $option{'allurls'};
 
 if	( !$option{'checkonly'}
 	&& !$option{'url'}
@@ -117,7 +115,7 @@ if (open(CONFIG, $lxrconf)) {
 } else {
 	print "${VTred}ERROR:${VTnorm} could not open configuration file ${VTred}$lxrconf${VTnorm}\n";
 	exit(1) unless $option{'checkonly'};
-	$failure = 1;
+	$failure |= 1;
 }
 
 
@@ -134,30 +132,39 @@ if ($^V ge v5.10.0) {
 	print VTCUU(1), "${VTgreen}[  OK  ]${VTnorm}\n";
 } else {
 	print VTCUU(1), "${VTred}[${VTslow}FAILED${VTnorm}${VTred}]${VTnorm}\n";
-	$failure = 1;
+	$failure |= 1;
 }
 
 # Check tools version
 #	Return value:
-#	.	-1.	OK but conf parm set
-#	.	0	everything fine
-#	.	1	software tool not found
-#	.	2	version too low
+#	.	-2.	version too low for forced parm (see 1)
+#	.	-1	version too low
+#	.	0	software tool not found
+#	.	1	OK but conf parm set
+#	.	2	everything fine
 
 sub check_tool {
 	my ($tl_param, $tl_name, $tl_option, $tl_version) = @_;
 	my $tool;
 	my $toolloc;
-	my $toolforced;
+	my $toolforced = 0;
 	my $version;
 
 	if ($config && $config->{$tl_param}) {
 		$tool = $config->{$tl_param};
-		$toolloc = `command -v $tl_name 2>/dev/null`;
-		$toolloc =~ s/\n$//s;
-		if ($tool ne $toolloc) {
-			print "${VTyellow}'$tl_param' not equal to `command -v $tl_name`${VTnorm}\n";
-			print "If this is a non-system copy, ignore this warning\n";
+			# Make further tests on designated tool
+		$toolloc = `command -v $tool 2>/dev/null`;
+		if ($toolloc !~ s/\n$//s) {
+			print "${VTred}'$tl_param' does not name an existing $tl_name utility${VTnorm}\n";
+			delete $config->{$tl_param};
+		} else {
+			my $systoolloc = `command -v $tl_name 2>/dev/null`;
+			if ($systoolloc =~ s/\n$//s) {
+				if ($systoolloc ne $toolloc) {
+					print "${VTyellow}'$tl_param' not equal to `command -v $tl_name`${VTnorm}\n";
+					print "If this is a non-system copy, ignore this warning\n";
+				}
+			}
 		}
 	} else {
 		print("${VTyellow}Parameter '$tl_param' not defined - trying to find $tl_name${VTnorm}\n");
@@ -168,15 +175,18 @@ sub check_tool {
 	}
 	if (!$toolloc) {
 		print "${VTred}$tl_name not found,${VTnorm} `command -v $tl_name` returned a null string\n";
-		return 1;
+		if ($config) {
+			delete $config->{$tl_param};
+		}
+		return 0;
 	}
 	if ($config) {
 		if (!$config->{$tl_param}) {
 			$config->{$tl_param} = $toolloc;
-			$toolforced = -1;
+			$toolforced = 1;
 			$tool = $toolloc;
 			print "$tl_name found at ${VTyellow}$toolloc${VTnorm}\n";
-			print "Manually update lxr.conf for permanent setting if needed\n";
+			print "Manually update $lxrconf for permanent setting if needed\n";
 		}
 	} else {
 		print "$tl_name found at ${VTyellow}$toolloc${VTnorm}\n";
@@ -200,57 +210,91 @@ sub check_tool {
 			) {
 			print VTCUU(1), "${VTred}[${VTslow}FAILED${VTnorm}${VTred}]${VTnorm}\n";
 			print "$tl_name version $tl_version or above required, found $version\n";
-			return 2; 
+			return -1 - $toolforced; 
 		} else {
 			print VTCUU(1), "${VTgreen}[  OK  ]${VTnorm}\n";
 		}
 	} else {
 			print VTCUU(1), "${VTyellow}Checked:${VTnorm}\n";
 	}
-	return $toolforced // 0;
+	return 2 -$toolforced;
 }
 
 my $foundglimpse = 0;
 my $foundswishe = 0;
 
 my $ct = check_tool('ectagsbin', 'ctags', '--version', '5');
-if ($ct > 0) {
-	if ($ct == 1) {
-		print "genxref can't index source-tree without ctags\n";
-		print "Find its location or install it and fix 'ectagsbin'\n";
-	}
-	$failure = 1;
+if ($ct == 0) {
+	print "genxref can't index source-tree without ctags\n";
+	print "Find its location or install it and fix 'ectagsbin'\n";
+	$failure |= 1;
+} elsif ($ct == 1) {
+	print "ctags fixed for genxref, but LXR browsing will not work\n";
+	$failure |= 2;
+} elsif ($ct < 0) {
+	$failure |= 1;
 }
-$ct = check_tool('glimpsebin', 'glimpse', '-V', '0');
-if ($ct <= 0) {
-	$foundglimpse = 2 * $ct + 1;
-}
+
+$foundglimpse = check_tool('glimpsebin', 'glimpse', '-V', '0');
 check_tool('glimpseindex', 'glimpseindex', '-V', '0');
-$ct = check_tool('swishbin', 'swish-e', '-V', '2.1');
-if ($ct <= 0) {
-	$foundswishe =  2 * $ct + 1;
-}
+$foundswishe = check_tool('swishbin', 'swish-e', '-V', '2.1');
 
-if	(	$foundglimpse == 1
-	&&	$foundswishe  == 1
-	) {
-	print "${VTred}Both 'glimpsebin' and 'swishbin' defined${VTnorm}\n";
-	print "Choose one of them by commenting the other in lxr.conf\n";
-	$failure = 1;
-}
-
-if	(	$foundglimpse == -1
-	&&	$foundswishe  == -1
-	) {
+#	The following verifications are a bit "over-kill"
+#	because there is presently no check on version level
+#	on glimpse. But that could change in the future.
+if ($foundglimpse == 0 && $foundswishe == 0) {
+	# No engine defined - propose to go on without
 	print "${VTyellow}Neither 'glimpsebin' nor 'swishbin' defined${VTnorm}\n";
-	if ($foundglimpse) {
-		print "Using existing ${VTyellow}glimpse${VTnorm}\n";
-		print "If you prefer swish-e, configure lxr.conf\n";
-	} elsif ($foundswishe){
-		print "Using existing ${VTyellow}swish-e${VTnorm}\n";
-		print "If you prefer glimpse, configure lxr.conf\n";
+	print "${VTyellow}Disabling free-text search${VTnorm}\n";
+	if ($config) {
+		$config->{'glimpsebin'} = '/usr/bin/true';
+	}
+	$failure |= 2;
+} elsif ($foundglimpse == 2 && $foundswishe == 2) {
+	# Both engines defined - do not know what to do
+	print "${VTred}Both 'glimpsebin' and 'swishbin' defined${VTnorm}\n";
+	print "Choose one of them by commenting the other in $lxrconf\n";
+	$failure |= 1;
+} elsif ($foundglimpse <= 0 && $foundswishe <= 0) {
+	# Can't use any search engine
+	# (either not found or version too low)
+	# But check if user disabled free-text search with suggested tip
+	if	(	$foundglimpse < 0	# true has no version
+			&& $config->{'glimpsebin'} =~ m:(^|/)true$:
+			&& $foundswishe == 0
+		||	$foundswishe < 0
+			&& $config->{'swishbin'} =~ m:(^|/)true$:
+			&& $foundglimpse == 0
+		) {
+	#	Leave $failure "as is" when user disables search
 	} else {
-		print "${VTyellow}None found in the system - Free-text search disabled${VTnorm}\n";
+		$failure |= 1
+	}
+} elsif ($foundglimpse == 1 && $foundswishe <= 1) {
+	# glimpse has been forced, but glimpse is prefered if both
+	print "${VTyellow}Warning:${VTnorm} using existing ${VTbold}glimpse${VTnorm}\n";
+	delete $config->{'swishbin'} if ($config);
+	$failure |= 2;
+} elsif ($foundswishe == 1 && $foundglimpse <= 0) {
+	# swish-e has been forced, but glimpse is prefered if both
+	print "${VTyellow}Warning:${VTnorm} using existing ${VTbold}swish-e${VTnorm}\n";
+	delete $config->{'glimpsebin'} if ($config);
+	$failure |= 2;
+} elsif ($foundglimpse == 2) {
+	# Standard glimpse selection, but for the case of both
+	# engines present and swish-e has too low a version
+	if ($foundswishe == -1) {
+		print "${VTyellow}Warning:${VTnorm} forcing use of ${VTbold}glimpse${VTnorm}\n";
+		delete $config->{'swishbin'} if ($config);
+		$failure |= 2;
+	}
+} elsif ($foundswishe == 2) {
+	# Standard swish-e selection, but for the case of both
+	# engines present and glimpse has too low a version
+	if ($foundglimpse == -1) {
+		print "${VTyellow}Warning:${VTnorm} forcing use of ${VTbold}swish-e${VTnorm}\n";
+	delete $config->{'glimpsebin'} if ($config);
+		$failure |= 2;
 	}
 }
 
@@ -258,6 +302,17 @@ if	(	$foundglimpse == -1
 if ($option{'checkonly'}) {
 	print "${VTyellow}genxref stopped without indexing by --checkonly option${VTnorm}\n";
 	exit;
+}
+if ($failure > 1) {
+	if ($option{'accept'}) {
+		print "\nParameter changes accepted by option --accept without writing them in $lxrconf\n";
+		print "Indexing may eventually complete but expect malfunction in LXR browsing\n";
+		print "till you fix configuration file $lxrconf\n\n";
+		$failure = 0;
+	} else {
+		print "\ngenxref suggested changes to your configuration\n";
+		print "You can test their effect with option ${VTyellow}--accept${VTnorm}\n";
+	}
 }
 if ($failure > 0) {
 	die "${VTred}Aborting due to previous errors${VTnorm}";
@@ -339,9 +394,9 @@ foreach my $treedescr (@config) {
 			$autoversionflag = 1;
 		} else {
 			@versions = $config->varrange('v');
-			die
-			"${VTred}Option --allversions cannot be used because no versions found automatically.${VTnorm}  Use --version=VERSION or fix lxr.conf.\n"
-			if scalar @versions <= 0;
+			die "${VTred}Option --allversions cannot be used because no versions found automatically.${VTnorm}"
+				. "Use --version=VERSION or fix $lxrconf.\n"
+				if scalar @versions <= 0;
 		}
 	} else {
 		@versions = $option{'version'};
@@ -405,7 +460,7 @@ foreach my $treedescr (@config) {
 				cleanindex($version);
 			}
 			if ($files->isa("LXR::Files::Plain")) {
-				if ($foundglimpse || $foundswishe) {
+				if ($foundglimpse > 0 || $foundswishe > 0) {
 					gensearch($version);
 				} else {
 					print STDERR "${VTyellow}Free-text search disabled${VTnorm}\n";
@@ -513,28 +568,29 @@ sub directorytreetraversal {
 sub feedswish {
 	my ($pathname, $releaseid, $swish, $filelist) = @_;
 
-	print(STDERR "&&& $pathname $releaseid \n");
-
 	if ($pathname =~ m|/$|) {
+		print(STDERR "&&& $pathname $releaseid \n");
 		map { feedswish($pathname . $_, $releaseid, $swish, $filelist) }
 		  $files->getdir($pathname, $releaseid);
 	} else {
-		print $filelist "$pathname\n";
-		my $fh = $files->getfilehandle($pathname, $releaseid);
-		if ($files->getfilesize($pathname, $releaseid) > 0
-			&& $filetype->checktype_filehandle($fh) =~ m%(text|message)/%)
-		{
-			my $contents = $files->getfile($pathname, $releaseid);
-			$swish->print(
-				"Path-Name: $pathname\n",
-				"Content-Length: " . length($contents) . "\n",
-				"Document-Type: TXT\n",
-				"\n", $contents
-			);
-		} else {
-			$binaryfiles{$pathname} = 1;
+		if (my $fh = $files->getfilehandle($pathname, $releaseid)) {
+			if ($files->getfilesize($pathname, $releaseid) > 0
+				&& $filetype->checktype_filehandle($fh) =~ m%(text|message)/%)
+			{
+				print(STDERR "&&> $pathname $releaseid \n");
+				print $filelist "$pathname\n";
+				my $contents = $files->getfile($pathname, $releaseid);
+				$swish->print(
+					"Path-Name: $pathname\n",
+					"Content-Length: " . length($contents) . "\n",
+					"Document-Type: TXT\n",
+					"\n", $contents
+				);
+			} else {
+				$binaryfiles{$pathname} = 1;
+			}
+			close($fh);
 		}
-		close($fh);
 	}
 }
 
@@ -542,7 +598,7 @@ sub gensearch {
 	my ($releaseid) = @_;
 	my $string;
 
-	if ($config->glimpsedir and $config->glimpseindex) {
+	if ($config->{'glimpsedir'} && $config->{'glimpseindex'}) {
 
 		$string = $config->glimpsedir . "/" . $releaseid;
 		mkdir $string;
@@ -564,7 +620,7 @@ sub gensearch {
 		system("chmod 644 $string");
 	}
 
-	if ($config->swishdir and $config->swishbin) {
+	if ($config->{'swishdir'} && $config->{'swishbin'}) {
 		my $swish = IO::Handle->new();
 		die ${VTred} . $config->swishdir . " does not exist${VTnorm}"
 			unless -d $config->swishdir;

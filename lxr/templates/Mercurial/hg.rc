@@ -1,0 +1,5 @@
+[extensions]
+lxr-ext = %LXRroot%/%LXRconfdir%/hg-lxr-ext.py
+
+[trusted]
+users = %LXRconfUser%

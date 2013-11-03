@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Markup.pm,v 1.7 2012/09/17 12:15:43 ajlittoz Exp $
+# $Id: Markup.pm,v 1.8 2012/11/21 13:39:28 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ syntactic components or otherwise interesting elements of a block.
 
 package LXR::Markup;
 
-$CVSID = '$Id: Markup.pm,v 1.7 2012/09/17 12:15:43 ajlittoz Exp $';
+$CVSID = '$Id: Markup.pm,v 1.8 2012/11/21 13:39:28 ajlittoz Exp $';
 
 use strict;
 
@@ -273,7 +273,7 @@ sub markupfile {
 
 	my ($fileh, $outfun) = @_;
 	my ($dir) = $pathname =~ m|^(.*/)|;
-	my $graphic = $config->graphicfile;
+	my $graphic = $config->{'graphicfile'};
 
 	#	Every line is tagged with an <A> anchor so that it can be referenced
 	#	and jumped to. The easiest way to create this anchor is to generate
@@ -341,7 +341,7 @@ sub markupfile {
 			&$outfun($ofrag);
 		}
 
-	} elsif ($pathname =~ m/\.$graphic$/) {
+	} elsif ($pathname =~ m/\.($graphic)$/) {
 	# Graphic files are detected by their extension
 		&$outfun("<b>Image: </b>");
 		&$outfun("<img src=\""

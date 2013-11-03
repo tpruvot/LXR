@@ -1,6 +1,70 @@
 This file draws your attention on changes made for
 
         ======================
+        LXR 1.0  -->  LXR 1.1
+        ======================
+
+Easy upgrade
+------------
+Since the database definition did not change between 1.0 and 1.1,
+you can upgrade without reconfiguring not reindexing.
+1/ Save lxr.conf and other customised files (mainly apache-lxrserver.conf
+   and lighttpd-lxrserver.conf)
+2/ Install the new release.
+3/ Reload lxr.conf and other saved customised files
+4/ Restart your web server
+
+User'Manual
+-----------
+Updated to reflect new 1.1 features; separately downloadable on SourceFourge.
+Please, read it; a lot of time has been invested in its writing.
+
+Installation
+------------
+Few user-visible changes, instructions for 1.0 still valid
+Better web server configuration taking into account the way are described
+in lxr.conf
+Configuration can disable free-text search if no search engine is detected,
+allowing to test LXR without the burden of installing a text search engine
+Script configure-lxr.pl modified so that all (configuration) templates are
+processed the same. Extended macro language (now called LCL) well defined
+and made easily readable.
+
+Directory and file view, identifier cross-references
+----------------------------------------------------
+Visual feedback if file is newer than cross-reference database (useful
+to developers to warn about erroneous line number references in changed
+files); cross-references may be fixed by running again genxref
+												=> needs to rebuild database
+Note: to avoid the pain of manually reconfiguring LXR, read the tip
+====| about "rebuilding LXR databases" on http://lxr.sourceforge.net
+
+Extended exclusion rules
+------------------------
+'ignorefiles' added to hide files. Like 'ignoredirs', operates only
+on the final segment of file path.
+'filterdirs' and 'filterfiles' added to operate on the complete path.
+
+Identifier search
+-----------------
+Query extended to show approximate matches differing in case
+
+Language parsers
+----------------
+Ant, asm, Fortran, Java, JavaScript, Make, Pascal, PHP, SQL enabled
+
+Mercurial.pm: NEW NEW NEW
+-------------
+Experimental support for Mercurial VCS.
+Repository restricted to directory in the local file system, no network
+access allowed.
+Note: this preliminary implementation runs horribly sloooooooow on directory
+====| listing (rougly 0.5 seconds per line). The problem lies in function
+    | getdir(). Though it is similar to Subversion's, it does not run with
+    | the expected speed.
+    | Please send suggestions for improvement.
+
+        ======================
         LXR 0.11  -->  LXR 1.0
         ======================
 

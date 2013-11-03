@@ -1,7 +1,7 @@
 # -*- tab-width: 4; cperl-indent-level: 4 -*-
 ###############################################
 #
-# $Id: Lang.pm,v 1.45 2012/09/17 12:15:43 ajlittoz Exp $
+# $Id: Lang.pm,v 1.48 2012/11/14 18:39:27 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ categories editing.
 
 package LXR::Lang;
 
-$CVSID = '$Id: Lang.pm,v 1.45 2012/09/17 12:15:43 ajlittoz Exp $ ';
+$CVSID = '$Id: Lang.pm,v 1.48 2012/11/14 18:39:27 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -65,14 +65,15 @@ sub new {
 
 	# Try first to find a handler based on the file name
 	# (usually only its extension)
-	foreach $langkey (keys %{ $config->{'filetype'} }) {
-		$type = $config->{'filetype'}{$langkey};
+	foreach my $lk (keys %{ $config->{'filetype'} }) {
+		$type = $config->{'filetype'}{$lk};
 		if ($pathname =~ m/$$type[1]/) {
 			eval "require $$type[2]";
 			die "Unable to load $$type[2] Lang class, $@" if $@;
 			my $create = $$type[2] . '->new($pathname, $releaseid, $$type[0])';
 			$lang = eval($create);
 			die "Unable to create $$type[2] Lang object, $@" unless defined $lang;
+			$langkey = $lk;
 			last;
 		}
 	}
@@ -112,6 +113,59 @@ sub new {
 	$$lang{'ltype'} = $langkey;
 
 	return $lang;
+}
+
+
+=head2 C<parseable ($pathname)>
+
+Function C<parseable> return 1 if the designated file can be parsed
+some way or other.
+
+=over
+
+=item 1 C<$pathname>
+
+a I<string> containing the name of the file to parse
+
+=back
+
+This a streamlined version of method C<new> where the filename argument
+is checked against the patterns from I<filetype.conf>
+or the first line of the file against the I<interpreters> list.
+
+=cut
+
+sub parseable {
+	my ($pathname) = @_;
+	my ($lang, $langkey, $type);
+
+	# Try first to find a handler based on the file name
+	# (usually only its extension)
+	foreach my $lk (keys %{ $config->{'filetype'} }) {
+		$type = $config->{'filetype'}{$lk};
+		if ($pathname =~ m/$$type[1]/) {
+			return 1;
+		}
+	}
+
+	# If it did not succeed, read the first line and try for an interpreter
+	# Try to see if it's a #! script or an emacs mode-tagged file
+	my $fh = $files->getfilehandle($pathname, $releaseid);
+	return undef if !defined $fh;
+	my $line = $fh->getline;
+	($line =~ m/^\#!\s*(\S+)/s)
+	|| ($line =~ m/^.*-[*]-.*?[ \t;]mode:[ \t]*(\w+).*-[*]-/);
+
+	my $shebang  = $1;
+	my %inter    = %{ $config->{'interpreters'} };
+	foreach my $patt (keys %inter) {
+		if ($shebang =~ m/${patt}$/) {
+			return 1;
+		}
+	}
+
+	# No match for this file
+	return undef;
 }
 
 

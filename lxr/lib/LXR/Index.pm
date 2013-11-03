@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Index.pm,v 1.21 2012/09/10 17:22:20 ajlittoz Exp $
+# $Id: Index.pm,v 1.23 2012/12/01 15:03:19 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ If needed, the methods are overridden in the specific modules.
 
 package LXR::Index;
 
-$CVSID = '$Id: Index.pm,v 1.21 2012/09/10 17:22:20 ajlittoz Exp $ ';
+$CVSID = '$Id: Index.pm,v 1.23 2012/12/01 15:03:19 ajlittoz Exp $ ';
 
 use LXR::Common;
 use strict;
@@ -274,8 +274,8 @@ sub new {
 		$index->{'status_insert'} =
 			$index->{dbh}->prepare
 				( "insert into ${prefix}status"
-				. " (fileid, relcount, status)"
-				. " values (?, 0, ?)"
+				. " (fileid, relcount, indextime, status)"
+				. " values (?, 0, 0, ?)"
 				);
 	}
 	if (!exists($index->{'status_select'})) {
@@ -290,6 +290,21 @@ sub new {
 			$index->{dbh}->prepare
 				( "update ${prefix}status"
 				. " set status = ?"
+				. " where fileid = ?"
+				);
+	}
+	if (!exists($index->{'status_timestamp'})) {
+		$index->{'status_timestamp'} =
+			$index->{dbh}->prepare
+				( "select indextime from ${prefix}status"
+				. " where fileid = ?"
+				);
+	}
+	if (!exists($index->{'status_update_timestamp'})) {
+		$index->{'status_update_timestamp'} =
+			$index->{dbh}->prepare
+				( "update ${prefix}status"
+				. " set indextime = ?"
 				. " where fileid = ?"
 				);
 	}
@@ -379,9 +394,15 @@ sub new {
 # Generic implementation of this interface
 #
 
+=head2 C<fileidifexists ($filename, $revision)>
+
 =head2 C<fileid ($filename, $revision)>
 
-C<getdir> returns a unique id for a file with a given revision.
+C<fileid> returns a unique id for a file with a given revision.
+
+C<fileidifexists> is similar, but returns C<undef> if the given
+revision is unknown, which can happen if the revision was created
+after the latest I<genxref> indexation.
 
 =over
 
@@ -413,20 +434,30 @@ B<Requires:>
 
 =cut
 
-sub fileid {
+sub fileidifexists {
 	my ($self, $filename, $revision) = @_;
 	my $fileid;
 
 	unless (defined($fileid = $files{"$filename\t$revision"})) {
 		$self->{'files_select'}->execute($filename, $revision);
 		($fileid) = $self->{'files_select'}->fetchrow_array();
-		unless ($fileid) {
-			$self->{'files_insert'}->execute($filename, $revision);
-			$self->{'files_select'}->execute($filename, $revision);
-			($fileid) = $self->{'files_select'}->fetchrow_array();
-			$self->{'status_insert'}->execute($fileid, 0);
-		}
 # opt		$self->{'files_select'}->finish();
+		$files{"$filename\t$revision"} = $fileid;
+	}
+	return $fileid
+}
+
+sub fileid {
+	my ($self, $filename, $revision) = @_;
+	my $fileid;
+
+	$fileid = $self->fileidifexists($filename, $revision);
+	unless ($fileid) {
+		$self->{'files_insert'}->execute($filename, $revision);
+		$self->{'files_select'}->execute($filename, $revision);
+		($fileid) = $self->{'files_select'}->fetchrow_array();
+		$self->{'status_insert'}->execute($fileid, 0);
+# opt	$self->{'files_select'}->finish();
 		$files{"$filename\t$revision"} = $fileid;
 	}
 	return $fileid;
@@ -611,6 +642,9 @@ sub fileindexed {
 C<setfileindexed> marks the file referred to by
 C<$fileid> as being indexed.
 
+Since indexing (i.e. symbol definition collecting) is usually
+done outside LXR, indexing time is not updated.
+
 =over
 
 =item 1 C<$fileid>
@@ -695,10 +729,12 @@ sub filereferenced {
 	return defined($status) && $status & 2;
 }
 
-=head2 C<setfileindexed ($fileid)>
+=head2 C<setfilereferenced ($fileid)>
 
 C<setfilereferenced> marks the file referred to by
 C<$fileid> as having been parsed for references.
+
+Indexing time is updated for user information.
 
 =over
 
@@ -718,6 +754,8 @@ B<Requires:>
 
 =item C<status_update>
 
+=item C<status_update_timestamp>
+
 =back
 
 =cut
@@ -735,6 +773,49 @@ sub setfilereferenced {
 	} elsif (!($status & 2)) {
 		$self->{'status_update'}->execute($status|2, $fileid);
 	}
+	$self->{'status_update_timestamp'}->execute(time(), $fileid);
+}
+
+=head2 C<filetimestamp ($fileid)>
+
+C<filetimestamp> retrieves the time when the file
+was parsed for references.
+
+=over
+
+=item 1 C<$fileid>
+
+an I<integer> representing a file in the DB
+
+=back
+
+B<Requires:>
+
+=over
+
+=item C<status_select>
+
+=item C<status_insert>
+
+=item C<status_update>
+
+=item C<status_update_timestamp>
+
+=back
+
+=cut
+
+sub filetimestamp {
+	my ($self, $filename, $revision) = @_;
+	my ($fileid, $timestamp);
+    
+	$fileid = $self->fileidifexists($filename, $revision);
+	if (defined($fileid)) {
+		$self->{'status_timestamp'}->execute($fileid);
+		$timestamp = $self->{'status_timestamp'}->fetchrow_array();
+		$self->{'status_timestamp'}->finish();
+	}
+	return $timestamp;
 }
 
 =head2 C<symdeclarations ($symname, $releaseid)>
@@ -840,8 +921,8 @@ sub setsymdeclaration {
 			$cntcache{$relsym} += 1;
 		}
 	}
-die "Symbol cache not initialised for $symname\n" if (!defined($symcache{$symname}));
-die "Symbol cache not initialised for $relsym\n"
+die "Symbol cache not initialised for sym $symname\n" if (!defined($symcache{$symname}));
+die "Symbol cache not initialised for rel $relsym\n"
 	if (defined($relsym) && !defined($symcache{$relsym}));
 }
 

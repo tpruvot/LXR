@@ -2,7 +2,7 @@
 /*
  *	SQL template for creating MySQL tables
  *	(C) 2012 A. Littoz
- *	$Id: initdb-s-template.sql,v 1.1 2012/09/22 12:56:27 ajlittoz Exp $
+ *	$Id: initdb-s-template.sql,v 1.3 2013/01/11 12:08:48 ajlittoz Exp $
  *
  *	This template is intended to be customised by Perl script
  *	initdb-config.pl which creates a ready to use shell script
@@ -28,8 +28,8 @@
 -*/
 /*--*/
 /*--*/
-/*@X echo "*** SQLite -  Configuring tables %DB_tbl_prefix% in database %DB_name%"*/
-/*@X sqlite3 %DB_name% <<END_OF_TABLES*/
+/*@XQT echo "*** SQLite -  Configuring tables %DB_tbl_prefix% in database %DB_name%"*/
+/*@XQT sqlite3 %DB_name% <<END_OF_TABLES*/
 drop table if exists %DB_tbl_prefix%filenum;
 drop table if exists %DB_tbl_prefix%symnum;
 drop table if exists %DB_tbl_prefix%typenum;
@@ -77,9 +77,10 @@ create index %DB_tbl_prefix%filelookup
 	on %DB_tbl_prefix%files(filename);
 
 /* Status of files in the DB */
-/*	fileid:	refers to base version
-	relcount: number of releases associated with base version
-	status:	set of bits with the following meaning
+/*	fileid:		refers to base version
+	relcount:	number of releases associated with base version
+	indextime:	time when file was parsed for references
+	status:		set of bits with the following meaning
 		1	declaration have been parsed
 		2	references have been processed
 	Though this table could be merged with 'files',
@@ -91,6 +92,7 @@ create index %DB_tbl_prefix%filelookup
 create table %DB_tbl_prefix%status
 	( fileid    int     not null primary key
 	, relcount  int
+	, indextime int
 	, status    tinyint not null
 	, constraint %DB_tbl_prefix%fk_sts_file
 		foreign key (fileid)
@@ -255,5 +257,5 @@ create trigger %DB_tbl_prefix%remove_usage
 			where symid = old.symid
 			and symcount > 0;
 	end;
-/*@X END_OF_TABLES*/
+/*@XQT END_OF_TABLES*/
 

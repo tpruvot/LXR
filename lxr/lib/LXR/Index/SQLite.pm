@@ -1,7 +1,7 @@
 # -*- tab-width: 4 perl-indent-level: 4-*-
 ###############################
 #
-# $Id: SQLite.pm,v 1.2 2012/09/10 17:22:21 ajlittoz Exp $
+# $Id: SQLite.pm,v 1.3 2012/11/14 11:27:31 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 
 package LXR::Index::SQLite;
 
-$CVSID = '$Id: SQLite.pm,v 1.2 2012/09/10 17:22:21 ajlittoz Exp $ ';
+$CVSID = '$Id: SQLite.pm,v 1.3 2012/11/14 11:27:31 ajlittoz Exp $ ';
 
 use strict;
 use DBI;
@@ -148,16 +148,12 @@ sub new {
 sub fileid {
 	my ($self, $filename, $revision) = @_;
 	my ($fileid);
-	unless (defined($fileid = $LXR::Index::files{"$filename\t$revision"})) {
-		$self->{'files_select'}->execute($filename, $revision);
-		($fileid) = $self->{'files_select'}->fetchrow_array();
-# opt		$self->{'files_select'}->finish();
-		unless ($fileid) {
-			$fileid = ++$filenum;
-			$self->{'files_insert'}->execute($filename, $revision, $fileid);
-			$self->{'status_insert'}->execute($fileid, 0);
+	$fileid = $self->fileidifexists($filename, $revision);
+	unless ($fileid) {
+		$fileid = ++$filenum;
+		$self->{'files_insert'}->execute($filename, $revision, $fileid);
+		$self->{'status_insert'}->execute($fileid, 0);
 # 			$self->commit;
-		}
 		$LXR::Index::files{"$filename\t$revision"} = $fileid;
 	}
 	return $fileid;

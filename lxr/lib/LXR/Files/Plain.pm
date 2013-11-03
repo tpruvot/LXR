@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Plain.pm,v 1.30 2012/09/21 17:11:54 ajlittoz Exp $
+# $Id: Plain.pm,v 1.33 2013/01/17 09:30:01 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ Methods are sorted in the same order as in the super-class.
 
 package LXR::Files::Plain;
 
-$CVSID = '$Id: Plain.pm,v 1.30 2012/09/21 17:11:54 ajlittoz Exp $ ';
+$CVSID = '$Id: Plain.pm,v 1.33 2013/01/17 09:30:01 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
@@ -62,24 +62,13 @@ sub getdir {
 		
 	$dir = $self->toreal($pathname, $releaseid);
 	opendir(DIR, $dir) || return ();
-  FILE: while (defined($node = readdir(DIR))) {
-		# Skip files starting with a dot (usually invisible),
-		# ending with a tilde (editor backup)
-		# or having "orig" extension
-		next if $node =~ m/^\.|~$|\.orig$/;
-		# Skip also CVS
-		next if $node eq 'CVS';
-		# More may be added if necessary
-
-		# Check directories to ignore
+	while (defined($node = readdir(DIR))) {
 		if (-d $dir . $node) {
-			foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
-				next FILE if $node eq $ignoredir;
-			}
-			# Directory to keep: suffix name with a slash
+			next if $self->_ignoredirs($pathname, $node);
+			# Keep this directory: suffix name with a slash
 			push(@dirs, $node . '/');
-		} else {
-			# File: don't change the name
+		} elsif (!$self->_ignorefiles($pathname, $node)) {
+			# Keep this file: don't change the name
 			push(@files, $node);
 		}
 	}
@@ -92,6 +81,9 @@ sub getdir {
 #	just return the empty list
 sub getannotations {
 	return ();
+}
+sub getnextannotation {
+	return undef;
 }
 
 #	No annotations also means no author
@@ -244,10 +236,10 @@ This function should not be used outside this module.
 sub toreal {
 	my ($self, $pathname, $releaseid) = @_;
 
-# nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
-	foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
-		return undef if $pathname =~ m!/$ignoredir(/|$)!;
-	}
+# # nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
+# 	foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
+# 		return undef if $pathname =~ m!/$ignoredir(/|$)!;
+# 	}
 
 	return ($self->{'rootpath'} . $releaseid . $pathname);
 }

@@ -1,0 +1,112 @@
+#- -*- mode: perl -*-
+#- LXR master configuration file
+#-	Tree configuration section
+#-		Data storage subsection
+#-
+#-	$Id: datastorage.conf.part,v 1.1 2013/01/11 12:04:27 ajlittoz Exp $
+#-
+#-
+#-	This file fragment is meant to be "included" to form the
+#-	complete configuration file.
+#-
+#-
+#-		# Data storage subsection #
+#-		#=========================#
+#-
+#@LOG Configuring data storage
+
+		# The DBI identifier for the database to use
+		# For MySQL, the format is dbi:mysql:dbname=<name>
+		# for Postgres, it is dbi:Pg:dbname=<name>;host=localhost
+		# for Oracle, it is dbi:Oracle:host=localhost;sid=DEVMMS;port=1521
+		# for SQLite, it is dbi:SQLite:dbname=<filename>
+#@CASE	%_dbengine%
+	#- ----- MySQL -----
+#@m:
+#@	IF	!%_globaldb%
+#@		ASK --- Database name?; -2
+#@		DEFINE DB_name="%A%"
+#@	ENDIF
+	, 'dbname' => 'dbi:mysql:dbname=%DB_name%'
+	#-
+	#- ----- Oracle -----
+#@o:
+	, 'dbname' => 'dbi:Oracle:host=localhost;sid=DEVMMS;port=1521'
+	#-
+	#- ----- PostgreSQL -----
+#@p:
+#@	IF	!%_globaldb%
+#@		ASK --- Database name?; -2
+#@		DEFINE DB_name="%A%"
+#@	ENDIF
+	, 'dbname' => 'dbi:Pg:dbname=%DB_name%;host=localhost'
+	#-
+	#- ----- SQLite -----
+#@s:
+#@	IF	!%_globaldb%
+#@		ASK --- Database file? (e.g. /home/myself/storage.db); -2
+#@		DEFINE DB_name="%A%"
+#@	ENDIF
+	, 'dbname' => 'dbi:SQLite:dbname=%DB_name%'
+#@ENDC	%_dbengine%
+#-
+#-
+#@IF	%_dbengine% ne "s"
+#@	IF		!%_dbuser%
+#@		ASK --- DB user name?; -1; ; lxr
+#@		DEFINE DB_tree_user="%A%"
+#@		ASK --- DB password?; -1; ; lxrpw
+#@		DEFINE DB_tree_password="%A%"
+
+	, 'dbuser'		=> '%DB_tree_user%'
+	, 'dbpass'		=> '%DB_tree_password%'
+#-
+#@	ELSEIF	!%_globaldb%
+#@		ASK,C Do you want to override the global '%DB_user%' user name?; 2; yes,no; Y,N
+#@		IF	%C% eq "Y"
+#@			ASK --- DB user name?; -1; ; lxr
+#@			DEFINE DB_tree_user="%A%"
+#@			ASK --- DB password?; -1; ; lxrpw
+#@			DEFINE DB_tree_password="%A%"
+
+	, 'dbuser'		=> '%DB_tree_user%'
+	, 'dbpass'		=> '%DB_tree_password%'
+#@		ELSE
+		# If you need to specify the username or password for the database connection,
+		# uncomment the following two lines
+#	, 'dbuser'		=> 'lxr'
+#	, 'dbpass'		=> 'lxrpw'
+#@		ENDIF
+#@	ENDIF
+#@ENDIF	%_dbengine% ne "s"
+#-
+#-
+#@IF	!%_dbprefix%
+#@	ASK --- DB table prefix?; -1; ; lxr_
+#@	DEFINE DB_tbl_prefix="%A%"
+
+	, 'dbprefix'	=> '%DB_tbl_prefix%'
+#-
+#@ELSEIF	!%_globaldb%
+
+#@	ASK,C Do you want to override the global '%DB_global_prefix%' table prefix?; 2; yes,no; Y,N
+#@	IF	%C% eq "Y"
+#@		ASK --- DB table prefix?; -1; ; lxr_
+#@		DEFINE DB_tbl_prefix="%A%"
+	, 'dbprefix'	=> '%DB_tbl_prefix%'
+#@	ELSE
+		# If you need multiple lxr configurations in one database, set different table
+		# prefixes for them.
+#	, 'dbprefix'	=> 'lxr_'
+#@	ENDIF
+#@ENDIF	%_dbprefix%
+
+		# The following two parameters are now automatically
+		# generated from 'glimpsedirbase' or 'swishdirbase' and
+		# 'virtroot'.
+		# They may nevertheless be overridden here by uncommenting
+		# them and filling-in an appropriate absolute path.
+		# For using glimpse, the directory to store the .glimpse files in is required
+#	, 'glimpsedir' => '/path/to/glimpse/databases'
+		# Location of swish-e index database files if using swish-e
+#	, 'swishdir' => '/path/to/swish/databases'

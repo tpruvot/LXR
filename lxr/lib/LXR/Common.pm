@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Common.pm,v 1.101 2012/09/17 12:01:34 ajlittoz Exp $
+# $Id: Common.pm,v 1.103 2013/01/11 17:35:51 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ content.>
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.101 2012/09/17 12:01:34 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.103 2013/01/11 17:35:51 ajlittoz Exp $ ';
 
 use strict;
 
@@ -741,7 +741,7 @@ sub printhttp {
 
 	my $time = $files->getfiletime($pathname, $releaseid);
 	my $time2 = (stat($config->confpath))[9];
-	$time = $time2 if !defined $time or $time2 > $time;
+	$time = $time2 if !defined $time || $time2 > $time;
 
 	# Remove this to see if we get a speed increase by not stating all
 	# the modules.  Since for most sites the modules change rarely,
@@ -865,6 +865,7 @@ sub httpinit {
 
 	$config     = LXR::Config->new($script_path);
 	unless (defined $config) {
+		$config = LXR::Config->emergency($script_path);
 		LXR::Template::makeerrorpage('htmlfatal');
 		die "Can't find config for " . $HTTP->{'this_url'};
 	}
@@ -901,8 +902,12 @@ sub httpinit {
 	# on a directory name.
 	$pathname   = $HTTP->{'path_info'};
 	$releaseid  = clean_release($config->variable('v'));
+	$releaseid  =~ m/(.*)/;
+	$releaseid  = $1;	# untaint for future use
 	$config->variable('v', $releaseid);  # put back into config obj
 	$pathname   = fixpaths($HTTP->{'path_info'});
+	$pathname   =~ m/(.*)/;
+	$pathname   = $1;		# untaint for future use
 
 	printhttp;
 }

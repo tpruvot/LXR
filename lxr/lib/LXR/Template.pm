@@ -1017,9 +1017,20 @@ sub modeexpand {
 		);
 
 	$modename = "General search";
-	if ($who eq 'search')
-	{	$modelink = "<span class='modes-sel'>$modename</span>";
+	if ($who eq 'search') {
+		$modelink = "<span class='modes-sel'>$modename</span>";
 		$modecss  = "modes-sel";
+		$modeaction= "";
+		$modeoff  = "disabled";
+	} elsif
+		(	!$files->isa("LXR::Files::Plain")
+		||	$config->{'glimpsebin'}
+			&& $config->{'glimpsebin'} =~ m!^(.*/)?true$!
+		||	$config->{'swishbin'}
+			&& $config->{'swishbin'} =~ m!^(.*/)?true$!
+		) {
+		$modelink = "<span class='modes-dis'>$modename</span>";
+		$modecss  = "modes-dis";
 		$modeaction= "";
 		$modeoff  = "disabled";
 	} else {
@@ -1509,7 +1520,7 @@ sub makeheader {
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
 			,	'atticlink'  => \&atticlink
-			,	'LXRversion' => sub { "1.0.0" }
+			,	'LXRversion' => sub { "1.1.0" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
 			  # --other trees--
@@ -1575,7 +1586,7 @@ sub makefooter {
 				'caption'    => sub { captionexpand(@_, $who) }
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
-			,	'LXRversion' => sub { "1.0.0" }
+			,	'LXRversion' => sub { "1.1.0" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
 			  # --variables buttons & links--
@@ -1628,7 +1639,7 @@ sub makeerrorpage {
 					, "<html><body><hr>\n"
  					,  "<hr>\n"
 						. "<h1 style='text-align:center'>Unrecoverable Error</h1>\n"
-						. "<p>Source-tree \$tree unknown</p>\n"
+						. "<p>Source-tree &gt;&gt; \$target &lt;&lt; unknown</p>\n"
 						. "</body></html>\n"
 					);
 
@@ -1641,7 +1652,7 @@ sub makeerrorpage {
 		(	$template
 		,	( 'target' =>  sub { targetexpand(@_, $who) }
 			, 'stylesheet' => \&stylesheet
-			, 'LXRversion' => sub { "1.0.0" }
+			, 'LXRversion' => sub { "1.1.0" }
 			)
 		)
 	);

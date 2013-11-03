@@ -1,7 +1,7 @@
 # -*- tab-width: 4 perl-indent-level: 4-*-
 ###############################
 #
-# $Id: Postgres.pm,v 1.36 2012/09/10 17:22:21 ajlittoz Exp $
+# $Id: Postgres.pm,v 1.37 2012/11/14 11:27:31 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 
 package LXR::Index::Postgres;
 
-$CVSID = '$Id: Postgres.pm,v 1.36 2012/09/10 17:22:21 ajlittoz Exp $ ';
+$CVSID = '$Id: Postgres.pm,v 1.37 2012/11/14 11:27:31 ajlittoz Exp $ ';
 
 use strict;
 use DBI;
@@ -118,15 +118,12 @@ sub fileid {
 	my ($self, $filename, $revision) = @_;
 	my $fileid;
 
-	unless (defined($fileid = $LXR::Index::files{"$filename\t$revision"})) {
-		$self->{'files_select'}->execute($filename, $revision);
-		($fileid) = $self->{'files_select'}->fetchrow_array();
-		unless ($fileid) {
-			$self->{'filenum_nextval'}->execute();
-			($fileid) = $self->{'filenum_nextval'}->fetchrow_array();
-			$self->{'files_insert'}->execute($filename, $revision, $fileid);
-			$self->{'status_insert'}->execute($fileid, 0);
-		}
+	$fileid = $self->fileidifexists($filename, $revision);
+	unless ($fileid) {
+		$self->{'filenum_nextval'}->execute();
+		($fileid) = $self->{'filenum_nextval'}->fetchrow_array();
+		$self->{'files_insert'}->execute($filename, $revision, $fileid);
+		$self->{'status_insert'}->execute($fileid, 0);
 		$LXR::Index::files{"$filename\t$revision"} = $fileid;
 	}
 	return $fileid;

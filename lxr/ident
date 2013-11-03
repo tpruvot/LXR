@@ -1,6 +1,6 @@
 #!/usr/bin/perl -T
-# $Id: ident,v 1.34 2012/09/17 11:46:57 ajlittoz Exp $
-
+# $Id: ident,v 1.36 2012/11/21 15:04:44 ajlittoz Exp $
+#
 # ident --	Look up identifiers
 #
 #	Arne Georg Gleditsch <argggh@ifi.uio.no>
@@ -20,23 +20,46 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
+#
 ######################################################################
 
-$CVSID = '$Id: ident,v 1.34 2012/09/17 11:46:57 ajlittoz Exp $ ';
+$CVSID = '$Id: ident,v 1.36 2012/11/21 15:04:44 ajlittoz Exp $ ';
 
 use strict;
-use lib '.'; # for Local.pm
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
+
+=head1 indent script
+
+This script manages the HTTP requests for identifier search.
+
+=cut
 
 use LXR::Common;
 use LXR::Template;
 use Local;
 
+#
+# Global variables
+#
 our $defonly = undef;
 my $reference_hits;
 my $declare_hits;
 my $file_hits;
+my $bad_refs;
+
+
+=head2 C<varinputs ()>
+
+Function C<varinputs> is a "$variable" substitution function.
+It returns a string which is a concatenation of tags
+
+C<<E<lt>input type="hidden" name=">>I<variable_name>C<" value=">I<variable_value>C<<"E<gt> >>
+
+one for each variable defined in configuration parameter C<'variables'>.
+
+This is how the current state is forwarded to the next HTTP request..
+
+=cut
 
 sub varinputs {
 	my $ret = '';
@@ -47,6 +70,23 @@ sub varinputs {
 	}
 	return $ret;
 }
+
+
+=head2 C<countfiles ($refs)>
+
+Function C<countfiles> returns the number of files for the references.
+
+=over
+
+=item 1 C<$refs>
+
+a I<reference> to an array containing the references
+
+=back
+
+The result can be used to display a short informative message.
+
+=cut
 
 sub countfiles {
 	my $refs = shift;
@@ -60,13 +100,173 @@ sub countfiles {
 	}
 }
 
+
+=head2 C<checkvalidref ($file)>
+
+Function C<checkvalidref> is a "$variable" substitution function.
+It returns CSS class name C<identinvalid>
+if the file timestamp is incorrect,
+meaning the file has been modified after I<genxref> indexing.
+Otherwise, it returns an empty string.
+
+=over
+
+=item 1 C<$file>
+
+a I<string> containing the filename to check
+
+=back
+
+Bad referenced file counter is updated to note the existence of
+possible trouble.
+
+=cut
+
+sub checkvalidref {
+	my ($file) = @_;
+
+	if (	!$index->filetimestamp
+				( $file
+				, $files->filerev($file, $releaseid)
+				)
+	# Strictly speaking, call to parseable() is pointless since
+	# identifier search requests information from the database
+	# only. The file has thus been parsed and parseable() will
+	# always return true.
+	# However, the line is left here in case some evolution would
+	# need it
+	#	&&	LXR::Lang::parseable($file)
+		) {
+		$bad_refs++; 'identinvalid'
+	} else {''}
+}
+
+
+=head2 C<expandwarning ($templ)>
+
+Function C<expandwarning> is a "$function" substitution function.
+It returns its argument if bad referenced file counter is not zero.
+Otherwise, it returns an empty string.
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template (i.e. argument)
+
+=back
+
+The block for this marker should contain some warning message for
+inaccurate cross-references.
+
+=cut
+
+sub expandwarning {
+	my ($templ) = @_;
+
+	if ($bad_refs) {
+		return expandtemplate($templ)
+	} else {
+		''
+	}
+}
+
+
+=head2 C<ref_in_file ($desc, $css, $path, $line)>
+
+Function C<ref_in_file> is an auxiliary front-end function to
+C<fileref> to handle the case of negative line numbers.
+
+=over
+
+=item 1 C<$desc>
+
+a I<string> containing the visible text for the link
+
+=item 1 C<$cc>
+
+a I<string> containing HTML C<class> attribute
+
+=item 1 C<$path>
+
+a I<string> containing the file name for the link
+
+=item 1 C<$desc>
+
+an I<integer> equal to the line number
+
+=back
+
+A negative line number flags a match in case insensitive mode.
+The real identifier may differ in case from the search key.
+Such a reference will be marked C<identapprox> to flag the
+approximative match.
+
+=cut
+
+sub ref_in_file {
+	my ($desc, $css, $path, $line) = @_;
+
+	if ($line < 0) {
+		return fileref($desc, $css." identapprox", $path, -$line);
+	} else {
+		return fileref($desc, $css, $path, $line);
+	}
+}
+
+
+=head2 C<refsexpand ($templ, $refs)>
+
+Function C<refsexpand> is a "$function" substitution function.
+It returns an HTML string which is the concatenation of its
+expanded argument applied to every reference in array
+C<$refs>.
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template (i.e. argument)
+
+=item 1 C<$refs>
+
+a I<reference> to an array containing the usages
+
+=back
+
+The block may use one of two variants for the usages. The variant
+is detected from C<$lines> marker use in the template.
+Processing is then dispatched on the "one ref per line" (no
+C<$lines> marker) or "many refs per line" (C<$lines> marker used)
+processing.
+
+This basic expansion function is used both for definitions and uses.
+The difference is driven by the block content.
+
+B<CAVEAT:>
+
+=over
+
+I<The element of the references array is a list.
+This list does not contain the same number of items for
+definitions and usages. In case of modification (notably
+the database transactions), take care to keep the file name
+and the line number as the first two items in the lists.
+Correct operation relies on this constraint.>
+
+=back
+
+=cut
+
 sub refsexpand {
 	my ($templ, $refs) = @_;
 	my $ret   = '';
 	my $last_file;
 
 	countfiles ($refs);
+	# Select usage layout on the presence of a specific marker
 	if ($templ =~ m/\$lines\b/) {
+	# We are in "many refs per line" layout
 		my @lines;
 		$last_file = @$refs[0];
 		($last_file) = @$last_file;
@@ -84,20 +284,20 @@ LAST_EXPAND:
 				$ret .= expandtemplate
 						( $templ
 						,	( 'file'	=>
-					sub { fileref("$last_file", "identfile", $last_file) }
+					sub { ref_in_file($last_file, "identfile", $last_file) }
 							, 'fileonce'=>
-					sub { return fileref("$last_file", "identfile", $last_file) }
+					sub { ref_in_file($last_file, "identfile", $last_file) }
 							, 'lines'	=> sub {
 								join	( ' '
-										, map { fileref( "$_", "identline", $last_file, $_)
+										, map { ref_in_file( abs($_), "identline", $last_file, $_)
 											} @lines
 										) }
 							, 'type'	=> sub { $type }
-							, 'rel'		=>
-					sub { return idref("$rel", "identrel", $rel) }
+							, 'rel'		=> sub { if ($rel) { idref($rel, "identrel", $rel) } }
 							, 'fileref'	=> sub {
-								fileref("$last_file, line $line", "identline", $last_file, $line);
+								ref_in_file("$last_file, line ".abs($line), "identline", $last_file, $line);
 											}
+						, 'refinvalid'	=> sub { checkvalidref($last_file) }
 							)
 						);
 				@lines = ($line);
@@ -111,23 +311,24 @@ LAST_EXPAND:
 		$last_file = $file;
 		}
 	} else {
+	# We are in "one ref per line" layout
 		foreach my $ref (@$refs) {
 			my ($file, $line, $type, $rel) = @$ref;
 			my $fileonce = $file if $last_file ne $file;
 			$ret .= expandtemplate
 					( $templ
 					,	( 'file'	=>
-				sub { fileref("$file", "identfile", $file) }
+				sub { ref_in_file($file, "identfile", $file) }
 						, 'fileonce'=>
-				sub { if ($fileonce) { return fileref("$fileonce", "identfile", $file) } }
+				sub { if ($fileonce) { ref_in_file($fileonce, "identfile", $file) } }
 						, 'line'	=>
-				sub { return fileref( "$line", "identline", $file, $line) }
+				sub { ref_in_file( abs($line), "identline", $file, $line) }
 						, 'type'	=> sub { $type }
-						, 'rel'		=>
-				sub { return idref("$rel", "identrel", $rel) }
+						, 'rel'		=> sub { if ($rel) { idref($rel, "identrel", $rel) } }
 						, 'fileref'	=> sub {
-							fileref("$file, line $line", "search-decl", $file, $line);
+							ref_in_file("$file, line ".abs($line), "identline", $file, $line);
 										}
+						, 'refinvalid'	=> sub { checkvalidref($file) }
 						)
 					);
 			$last_file = $file;
@@ -136,47 +337,189 @@ LAST_EXPAND:
 	return $ret;
 }
 
+
+=head2 C<cmprefs ($a, $b)>
+
+Function C<cmprefs> compares its arguments and returns +1, 0 or +1
+if the left argument precedes, is equal or follows the right argument.
+
+=over
+
+=item 1 C<$a>, C<$b>
+
+I<references> to the arrays to compare
+
+=back
+
+The references are I<arrays> containing the file name and line number
+of the reference. For definitions, these elements are followed by
+type name and parent name.
+
+B<Note:>
+
+=over
+
+For usages, the last two element do no exist.
+The comparison stops after the first two steps.
+
+=cut
+
+sub cmprefs {
+	my $val;
+
+	$val = $$a[0] cmp $$b[0];			# compare file names
+	return $val if $val != 0;
+	$val = abs($$a[1]) <=> abs($$b[1]);	# line numbers
+	return $val if $val != 0;
+	return $val unless defined $$a[2];
+	$val = $$a[2] cmp $$b[2];			# compare types
+	return $val if $val != 0;
+	return $$a[3] cmp $$b[3];			# compare parents
+}
+
+
+=head2 C<defsexpand ($templ)>
+
+Function C<defsexpand> is a "$function" substitution function.
+It returns an HTML string which is the concatenation of its
+expanded argument applied to every declaration.
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template (i.e. argument)
+
+=back
+
+The function queries the database for definitions, then hands over
+definition layout to C<refsexpand>.
+
+Since some languages are case-insensitive, the database is also
+queried for the case-insensitive version of the identifier.
+The returned definitions are flagged with their line numbers set
+negative.
+The two lists are merged, removing duplicates and sorted as if a
+single query was made.
+
+=cut
+
 sub defsexpand {
 	my $templ = shift;
 	my $ret;
 
-	my @defs = $index->symdeclarations($identifier, $releaseid);
-	countfiles (\@defs);
-	return '' if (scalar(@defs) == 0);
+	my @defs  = $index->symdeclarations($identifier, $releaseid);
+	my @idefs = $index->symdeclarations(uc($identifier), $releaseid);
+	return '' if (scalar(@defs)+scalar(@idefs) == 0);
 
+	my %defs;	# Quich access to native-case definition, key is file
+	foreach my $i (@defs) {	# Group all definitions from a file
+		my @defn = @$i;
+		$defs{$defn[0]} = [] unless defined($defs{$defn[0]});
+		push($defs{$defn[0]}, [ @defn[1..3] ]);
+	}
+NATIVE_CASE:	# Remove uppercase duplicates
+	foreach (@idefs) {
+		my @idefn = @$_;	# Next uppercase definition
+		foreach (@{$defs{$idefn[0]}}) {
+			my @defn = @$_;
+			if	(	$idefn[1] == $defn[0]	# same line number
+				&&	$idefn[2] eq $defn[1]	# same type
+				&&	$idefn[3] eq $defn[2]	# same parent
+				) {
+				next NATIVE_CASE;			# Skip, this is a duplicate
+			}
+		}
+		$idefn[1] = -$idefn[1];		# Flag case-isensitive definition
+		push (@defs, [ @idefn ] );	# Add to list
+	}
+	@defs = sort cmprefs @defs;
+
+	countfiles (\@defs);
+	$bad_refs = 0;	# Reset "inaccurate xref" indicator
 	my $last_file;
 	$ret = expandtemplate
 			( $templ
 			,	( 'refs'	=> sub { refsexpand (@_, \@defs) }
 				, 'occurs'	=> sub { scalar(@defs) }
 				, 'filehits'=> sub { $file_hits }
+				, 'indexwarning' => sub { expandwarning(@_) }
 				)
 			);
 	return $ret;
 }
+
+
+=head2 C<usessexpand ($templ)>
+
+Function C<usessexpand> is a "$function" substitution function.
+It returns an HTML string which is the concatenation of its
+expanded argument applied to every usage.
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template (i.e. argument)
+
+=back
+
+The function queries the database for usages, then hands over
+definition layout to C<refsexpand>.
+
+=cut
 
 sub usesexpand {
 	my $templ = shift;
 	my $ret   = '';
 
 	return '' if $defonly;
-	my @uses = $index->symreferences($identifier, $releaseid);
-	countfiles (\@uses);
-	return '' if (scalar(@uses) == 0);
+	my @uses  = $index->symreferences($identifier, $releaseid);
+	my @iuses = $index->symreferences(uc($identifier), $releaseid);
+	return '' if (scalar(@uses)+scalar(@iuses) == 0);
 
+	my %uses;	# Quich access to native-case usages, key is file
+	foreach my $i (@uses) {	# Group all usages from a file
+		my @ref = @$i;
+		$uses{$ref[0]} = [] unless defined($uses{$ref[0]});
+		push ($uses{$ref[0]},  @ref[1]);
+	}
+NATIVE_CASE:	# Remove uppercase duplicates
+	foreach (@iuses) {
+		my @iref = @$_;	# Next uppercase usage
+		foreach (@{$uses{$iref[0]}}) {
+			if	(	$iref[1] == $_	# same line number
+				) {
+				next NATIVE_CASE;			# Skip, this is a duplicate
+			}
+		}
+		$iref[1] = -$iref[1];		# Flag case-isensitive definition
+		push (@uses, [ @iref ] );	# Add to list
+	}
+	@uses = sort cmprefs @uses;
+
+	countfiles (\@uses);
+	$bad_refs = 0;	# Reset "inaccurate xref" indicator
 	my $last_file;
 	$ret = expandtemplate
 			( $templ
 			,	( 'refs'	=> sub { refsexpand (@_, \@uses) }
 				, 'occurs'	=> sub { scalar(@uses) }
 				, 'filehits'=> sub { $file_hits }
+				, 'indexwarning' => sub { expandwarning(@_) }
 				)
 			);
 	return $ret;
 }
 
+
+=head2 C<printident ()>
+
+Sub C<printident> is the main driver for identifier search.
+
+=cut
+
 sub printident {
-	my $dir = shift;
 	my $templ;
 	my $errorsig = "<!-- ! -->";
 

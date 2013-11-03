@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Python.pm,v 1.6 2012/09/17 13:17:56 ajlittoz Exp $
+# $Id: Python.pm,v 1.7 2012/11/21 15:08:48 ajlittoz Exp $
 #
 # Enhances the support for the Python language over that provided by
 # Generic.pm
@@ -33,7 +33,7 @@ It only overrides C<processinclude> for efficiency.
 
 package LXR::Lang::Python;
 
-$CVSID = '$Id: Python.pm,v 1.6 2012/09/17 13:17:56 ajlittoz Exp $ ';
+$CVSID = '$Id: Python.pm,v 1.7 2012/11/21 15:08:48 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -70,15 +70,14 @@ sub processinclude {
 
 	my $source = $$frag;
 	my $dirname;	# include directive name
-	my $spacer;		# spacing
 	my $file;		# language include file
 	my $path;		# OS include file
 	my $link;		# link to include file
 
 	# Faster surrogate for 'directive'
 	if ($source !~ s/^		# reminder: no initial space in the grammar
-					([\w]+)	# reserved keyword for include construct
-					(\s+)	# space
+					([\w]+	# reserved keyword for include construct
+					\s+)	# and space
 					([\w.]+)
 					//sx) {
 		# Variant that we can't (or don't want to) handle, such as
@@ -92,18 +91,24 @@ sub processinclude {
 	}
 
 	$dirname = $1;
-	$spacer  = $2;
-	$file    = $3;
+	$file    = $2;
 	$path    = $file;
 
 	# Faster surrogates 'last'
-	$path =~ s@\.@/@g;		# Replace Perl delimiters
+	$path =~ s@\.@/@g;		# Replace Python delimiters
 	$path =~ s@$@.py@;		# Add file extension
 
 	# Create the hyperlinks
 	$link = &LXR::Common::incref($file, "include" ,$path ,$dir);
 	if (!defined($link)) {
 		# Can it be a directory ('from ... import ...' instruction ?)
+		# NOTE: the parser is too rudimentary to cope with a directory
+		#		after the import keyword since it has lost any knowledge
+		#		of the possible from sentence. It cannot resolve the
+		#		name (or directory) context needed for import.
+		# NOTE: we could also link to __init__.py in the directory but
+		#		this would suppress the possibility to click-link to
+		#		the directory itself.
 		$path =~ s@\.py$@@;	# Remove file extension
 		$link = &LXR::Common::incdirref($file, "include", $path, $dir);
 		# Erase last path separator from <a> link to enable
@@ -133,7 +138,6 @@ sub processinclude {
 
 	# Assemble the highlighted bits
 	$$frag =	"<span class='reserved'>$dirname</span>"
-			.	$spacer
 			.	( defined($link)
 				? $link
 				: $file

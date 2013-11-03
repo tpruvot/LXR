@@ -1,0 +1,201 @@
+#- -*- mode: perl -*-
+#- LXR master configuration file
+#-	Global configuration section
+#-
+#-	$Id: global.conf.part,v 1.2 2013/01/21 10:49:36 ajlittoz Exp $
+#-
+#-
+#-	This file fragment is meant to be "included" to form the
+#-	complete configuration file.
+#-
+#-
+#-		################################
+#-		# Global configuration section #
+#-		################################
+#-
+	{
+		# Auxiliary tools subsection #
+		#============================#
+#@LOG Configuring auxiliary tool paths
+
+		#- Place where lxr can write temporary files
+	  'tmpdir' => '/tmp'
+
+		#- Define this OR the swish-e variable depending which search engine you want to use.
+		#- Path to glimpse executables.
+		#- e.g.: , 'glimpsebin'   => '/usr/local/bin/glimpse'
+#@U	, 'glimpsebin'     => '%glimpse%'
+#@U	, 'glimpseindex'   => '%glimpseindex%'
+#@U	, 'glimpsedirbase' => '%glimpsedirbase%'
+		#- Location of SWISH-E binary
+		#- e.g.: , 'swishbin' => '/usr/local/bin/swish-e'
+#@U	, 'swishbin'     => '%swish%'
+#@U	, 'swishdirbase' => '%swishdirbase%'
+		#- Location of the SWISH-E.conf file
+	, 'swishconf' => '%LXRroot%/templates/swish-e.conf'
+
+		#- Path to Exuberant Ctags executable
+	, 'ectagsbin' => '%ctags%'
+		#- Location of the ectags.conf file
+	, 'ectagsconf' => '%LXRroot%/templates/ectags.conf'
+
+		#- Paths for CVS module
+	, 'cvspath' => '/bin:/usr/local/bin:/usr/bin:/usr/sbin'
+
+		# Computer DNS names subsection #
+		#================================
+#@LOG Configuring host name or IP (as http://...)
+#-#@ASK --- Host name?; -2
+#-	, 'host_names' =>	[ '%A%'
+#@LOG Host name previously defined as %scheme%%hostname%
+	,	'host_names' =>	[ '%scheme%%hostname%'
+#@KEEPON --- Alias name ? (hit return to stop)
+						, '%A%'
+#@ENDK
+#-						, //localhost
+#-						, https://192.168.1.1
+#-						, 'http://mycomputer.outside.domain:12345'
+						]
+
+		# HTML subsection #
+		#=================#
+#@LOG Configuring HTML parameters
+
+		# All paths in this subsection are relative to LXR root directory
+
+		# Templates used for headers and footers
+	, 'htmlfatal'		=> 'templates/html/html-fatal.html'
+#@MSG 'Buttons-and-menus' interface is recommended for the kernel
+#@MSG to avoid screen cluttering.
+#@ASK --- Use 'buttons-and-menus' instead of 'link' interface?; 1;yes, no; Y, N
+#@IF	"%A%" eq 'Y'
+	, 'htmlhead'		=> 'templates/html/html-head-btn.html'
+#@ELSE
+	, 'htmlhead'		=> 'templates/html/html-head.html'
+#@ENDIF
+	, 'htmltail'		=> 'templates/html/html-tail.html'
+	, 'htmldir'			=> 'templates/html/html-dir-indexing.html'
+		# If you do not need the "last indexed" column in directory
+		# display (e.g. for a stable unchanging tree), erase the
+		# '-indexing' suffix above.
+	, 'htmlident'		=> 'templates/html/html-ident.html'
+	, 'htmlsearch'		=> 'templates/html/html-search-%search_engine%.html'
+	, 'htmlconfig'		=> 'templates/html/html-config.html'
+
+		# htmlhead and htmltail can be customised for the various
+		# LXR operations. Just replace html by source (listing file),
+		# sourcedir (displaying directory), diff (difference markup),
+		# ident (identifier search), search (free-text search)
+		# as below (which changes nothing):
+#	, 'sourcehead'		=> 'templates/html/html-head.html'
+#	, 'sourcedirhead'	=> 'templates/html/html-head.html'
+
+		# showconfig script is a bit special since "version" has
+		# no meaning for it. Better to wipe out the 'variables' selection
+		# links with an adequate header:
+	, 'showconfighead'		=> 'templates/html/config-head-btn-smaller.html'
+
+		# Default character width of left version (for diff)
+	, 'diffleftwidth'	=> 50
+
+		# Default identifier search constraint (for ident)
+#	, 'identdefonly'	=> 1
+
+		# CSS style sheet
+	, 'stylesheet'		=> 'templates/lxr.css'
+	, 'alternate_stylesheet' => [ 'templates/classic.css' ]
+
+		# Default character encoding
+	, 'encoding'	=> 'utf-8'
+
+		# File management subsection #
+		#============================#
+#@LOG Configuring file subsection
+
+		# Which files should be excluded from indexing (and display).
+	, 'ignorefiles' =>
+		'^\\.|~$|\\.(o|a|orig)$|^CVS$|^core$'
+		# Which extensions to treat as images when browsing.  If a file is an image,
+		# it is displayed.
+	, 'graphicfile' =>
+		'bitmap|bmp|gif|icon?|jp2|jpe?g|pjpe?g|png|svg|tiff?|xbm|xpm'
+
+		# Which file extensions are associated with which icon
+		# Below is an example using 'Oxygen' theme available with KDE
+		# small-icons/ is a symbolic link to
+		#		 /usr/share/icons/oxygen/22x22/mimetypes/
+		# (This location is valid for Fedora distributions,
+		# check for others)
+# 	, 'iconfolder' => 'small-icons/'
+		# Don't forget the final / above.
+# 	, 'icons' =>
+# 		{	'c|pc'				=> 'text-x-csrc.png'
+# 		,	'h|hh'				=> 'text-x-chdr.png'
+# 		,	'c\+\+|cc|cpp|cxx'	=> 'text-x-c++src.png'
+# 		,	'hpp|hxx|h\+\+'		=> 'text-x-c++hdr.png'
+# 		,	'java'				=> 'text-x-java.png'
+# 		,	'js'				=> 'application-x-javascript.png'
+# 		,	'pl|pm|perl'		=> 'application-x-perl.png'
+# 		,	'php|php3|phtml'	=> 'application-x-php.png'
+# 		,	'py|python'			=> 'text-x-python.png'
+# 		,	'sh|bsh|bash|ksh|zsh' => 'text-x-script.png'
+# 		,	's?html?'			=> 'text-html.png'
+# 		,	'css'				=> 'text-css.png'
+# 		,	'pdf'				=> 'application-pdf.png'
+# 		,	'txt'				=> 'text-plain.png'
+# 		,	'p|pas'				=> 'text-x-pascal.png'
+# 		,	'patch'				=> 'text-x-patch.png'
+# 		,	'sql'				=> 'text-x-sql.png'
+# 		,	'rb'				=> 'application-x-ruby.png'
+# 		,	'ui'				=> 'text-xml.png'
+# 		,	'.*\~'				=> 'application-x-trash'
+# 		}
+# 	, 'graphicicon' => 'image-x-generic.png'
+# 	, 'defaulticon' => 'unknown.png'
+# 	, 'diricon' => 'inode-directory.png'
+
+		#- How to map files to languages
+	, 'filetypeconf' => '%LXRroot%/templates/filetype.conf'
+
+		#- Location of the Generic.pm config file
+	, 'genericconf' => '%LXRroot%/lib/LXR/Lang/generic.conf'
+
+		# "Common factor" subsection #
+		#============================#
+#@LOG Configuring "common factors"
+
+		# In case your LXR installation controls several trees,
+		# put here what you consider common parameters between
+		# your source trees.
+		# A parameter is "common" if its value must be simultaneously
+		# adjusted in every tree.
+
+		# Pattern for extracting tree name from URL, since all
+		# trees are usually served from the same physical server.
+#@IF	%_singlecontext%
+		# Meaningful only in multiple trees context. Example for
+		# built-in method where tree id is last before script name
+#	, 'treeextract' => '([^/]*)/[^/]*$'
+#@ELSE
+		# Built-in method where tree id is last before script name
+	, 'treeextract' => '([^/]*)/[^/]*$'
+#@ENDIF
+
+#@IF	!%_dbuser%
+		# User name and password for DB access can be the same,
+		# even if the database name is tree-specific.
+#	, 'dbuser'		=> 'lxr'
+#	, 'dbpass'		=> 'lxrpw'
+#@ELSE
+	, 'dbuser'		=> '%DB_user%'
+	, 'dbpass'		=> '%DB_password%'
+#@ENDIF	!%_dbuser%
+#@IF	!%_dbprefix%
+		# Table prefix is also a common parameter
+		# unless you stuff all tree data in a single database.
+		# It has a default hard-coded value:
+#	, 'dbprefix'	=> 'lxr_'
+#@ELSE
+	, 'dbprefix'	=> '%DB_global_prefix%'
+#@ENDIF	!%_dbprefix%
+	}

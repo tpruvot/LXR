@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: QuestionAnswer.pm,v 1.1 2012/09/22 08:50:33 ajlittoz Exp $
+# $Id: QuestionAnswer.pm,v 1.2 2012/12/04 17:42:27 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 #
 ###############################################
 
-# $Id: QuestionAnswer.pm,v 1.1 2012/09/22 08:50:33 ajlittoz Exp $
+# $Id: QuestionAnswer.pm,v 1.2 2012/12/04 17:42:27 ajlittoz Exp $
 
 package QuestionAnswer;
 
@@ -117,7 +117,7 @@ sub get_user_choice {
 		if (defined($choices) && @$choices) {
 			print " [${VTyellow}", join("${VTnorm}/${VTyellow}", @$choices), "${VTnorm}]";
 		}
-		print " ";
+		print " ${VTslow}${VTyellow}>${VTnorm} ";
 		my $userentry = <STDIN>;
 		chomp($userentry);
 		#	See if user just hit "return"; if this is valid, give

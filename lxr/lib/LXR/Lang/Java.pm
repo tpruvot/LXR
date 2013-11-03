@@ -1,6 +1,7 @@
-# -*- tab-width: 4 -*- ###############################################
+# -*- tab-width: 4 -*-
+###############################################
 #
-# $Id: Java.pm,v 1.8 2009/05/10 11:54:29 adrianissott Exp $
+# $Id: Java.pm,v 1.9 2012/11/21 15:08:48 ajlittoz Exp $
 #
 # Enhances the support for the Java language over that provided by
 # Generic.pm
@@ -18,10 +19,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+###############################################
 
 package LXR::Lang::Java;
 
-my $CVSID = '$Id: Java.pm,v 1.8 2009/05/10 11:54:29 adrianissott Exp $ ';
+my $CVSID = '$Id: Java.pm,v 1.9 2012/11/21 15:08:48 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -37,32 +39,79 @@ require LXR::Lang::Generic;
 sub processinclude {
 	my ($self, $frag, $dir) = @_;
 
+	my $source = $$frag;
+	my $dirname;	# directive name and spacing
+	my $file;		# language path
+	my $path;		# OS file path
+	my $link;		# link to file
+	my $class;		# Java class
+
 	# Deal with package declaration of the form
 	# "package java.lang.util"
-	$$frag =~ s#(package\s+)([\w.]+)#
-	    "<span class='reserved'>$1</span>".
-	    ($index->issymbol($2, $$self{'releaseid'}) ?
-		join($2, @{$$self{'itag'}}) : $2)
-	    #e;
+	if ($source =~ s/^
+				(package\s+)
+				([\w.]+)	# package 'path'
+				//sx) {
+		$dirname = $1;
+		$file    = $2;
+		$path    = $file;
+		$path =~ s@\.@/@g;		# Replace Java delimiters
+		$link = _packagelinks ($file, $path, $dir);
+	}
 
 	# Deal with import declaration of the form
 	# "import java.awt.*" by providing link to the package
-	$$frag =~ s#(import\s+)([\w.]+)(\.\*)#
-		"<span class='reserved'>$1</span>".
-			($index->issymbol($2, $$self{'releaseid'}) ?
-			 join($2, @{$$self{'itag'}}) : $2) . 
-				 $3 #e;
 
 	# Deal with import declaration of the form
 	# "import java.awt.classname" by providing links to the
 	# package and the class
-	$$frag =~ s#(import\s+)([\w.]+)\.(\w+)(\W)#
-		"<span class='reserved'>$1</span>".
-  			($index->issymbol($2, $$self{'releaseid'}) ?
-  			 join($2, @{$$self{'itag'}}) : $2) . "." .
-				 ($index->issymbol($3, $$self{'releaseid'}) ?
-				  join($3, @{$$self{'itag'}}) : $3) . $4#e;
+	elsif ($source =~ s/^
+				(import\s+)
+				([\w.]+)	# package 'path'
+				\.(\*|\w+)	# class or *
+				//sx) {
+		$dirname = $1;
+		$file    = $2;
+		$path    = $file;
+		$class   = $3;
+		$path =~ s@\.@/@g;		# Replace Java delimiters
+		$link = _packagelinks ($file, $path, $dir)
+			.	'.'
+			.	( $index->issymbol($class, $releaseid)
+				? join($class, @{$$self{'itag'}})
+				: $class
+				);
+	}
 
+		# As a goodie, rescan the tail of use/require for Perl code
+		&LXR::SimpleParse::requeuefrag($source);
+
+		# Assemble the highlighted bits
+		$$frag =	"<span class='reserved'>$dirname</span>"
+				.	( defined($link)
+					? $link
+					: $file
+					);
+}
+
+sub _packagelinks {
+	my ($file, $path, $dir) = @_;
+
+	my $link = &LXR::Common::incdirref
+				($file, "include", $path, $dir);
+	if (defined($link)) {
+		while ($file=~m!\.!) {
+			$link =~ s!^([^>]+>)([^.]*\.)+?([^.<]+<)!$1$3!;
+			$file =~ s!\.[^.]*$!!;
+			$path =~ s!/[^/]+$!!;
+			$link = &LXR::Common::incdirref($file, "include", $path, $dir)
+					. "."
+					. $link ;
+		}
+	} else {
+		$link = $file;
+	}
+	return $link;
 }
 
 1;

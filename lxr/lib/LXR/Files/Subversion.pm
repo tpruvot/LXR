@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Subversion.pm,v 1.1 2012/09/21 17:17:08 ajlittoz Exp $
+# $Id: Subversion.pm,v 1.5 2013/01/17 09:30:01 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,10 +31,11 @@ Methods are sorted in the same order as in the super-class.
 
 package LXR::Files::Subversion;
 
-$CVSID = '$Id: Subversion.pm,v 1.1 2012/09/21 17:17:08 ajlittoz Exp $ ';
+$CVSID = '$Id: Subversion.pm,v 1.5 2013/01/17 09:30:01 ajlittoz Exp $ ';
 
 use strict;
 use FileHandle;
+use Time::Local;
 use LXR::Common;
 
 @LXR::Files::Subversion::ISA = ('LXR::Files');
@@ -48,13 +49,9 @@ sub new {
 	$rootpath=~ s{/+$}{};
 	$self->{'rootpath'} = 'file://' . $rootpath;
 	$self->{'svn_blame'} = $$params{'svn_blame'};
-	$self->{'svn_annotations'} = $$params{'svn_annotations'};
-	if ($self->{'svn_blame'}) {
-		# Blame support will only work when commit revisions are available,
-		# called annotations here...
-		$self->{'svn_annotations'} = 1;
-	}
-
+	$self->{'svn_annotations'} = $$params{'svn_annotations'}
+		# Blame support will only work when annotations are available,
+			|| $$params{'svn_blame'};
 	return $self;
 }
 
@@ -72,22 +69,12 @@ sub getdir {
 	open(DIR, "svn list $path |")
 	|| die("svn subprocess died unexpextedly: $!");
 
-FILE:
 	while($node = <DIR>) { 
 		chomp($node);	# Remove trailing newline
-		# Skip files starting with a dot (usually invisible),
-		# ending with a tilde (editor backup)
-		# or having "orig" extension
-		next if $node =~ m/^\.|~$|\.orig$/;
-		# More may be added if necessary
-
-		# Check directories to ignore
 		if ($node =~ m!/$!) {
-			foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
-				next FILE if $node eq $ignoredir . '/';
-			}
+			next if $self->_ignoredirs($pathname, substr($node,0,-1));
 			push(@dirs, $node);
-		} else {
+		} elsif (!$self->_ignorefiles($pathname, $node)) {
 			push(@files, $node);
 		}
 	}
@@ -115,31 +102,28 @@ sub getannotations {
 	return @revlist;
 }
 
-sub getauthor {
-	my ($self, $filename, $releaseid, $rev) = @_;
-	my ($uri, $res);
+sub getnextannotation {
+	my ($self, $filename, $releaseid) = @_;
 
-	return undef unless $self->{'svn_blame'};
-	#
-	# Note that $rev is a real revision number this time
-	# (returned by getannotations() above). This is
-	# _not_ a tag name!
+	return undef
+		unless $self->{'svn_annotations'};
 
-	$uri = $self->revpath($filename,$releaseid);
-	$uri =~ m/(.*)/;
-	$uri = $1;	# Untaint path
-	open(LOG,"svn log $uri |")
-	|| die("svn subprocess died unexpextedly: $!");
-	$res = "unknown";
-	while(<LOG>){
-		m/^r([\d]+)\s*\|\s*([^\s]+)/;
-		if ($1 == $rev) {
-			$res = $2;
-			last;
-		}
+	if (scalar(@{$self->{'annotations'}}) <= 0) {
+		$self->loadline();
 	}
-	close(LOG);
-	return $res;
+	return shift @{$self->{'annotations'}};
+}
+
+sub getauthor {
+	my ($self, $pathname, $releaseid, $rev) = @_;
+
+	return undef
+		unless $self->{'svn_blame'};
+
+	if (scalar(@{$self->{'authors'}}) <= 0) {
+		$self->loadline();
+	}
+	return shift @{$self->{'authors'}};
 }
 
 sub filerev {
@@ -159,20 +143,66 @@ sub filerev {
 }
 
 sub getfilehandle {
-	my ($self, $filename, $releaseid) = @_;
+	my ($self, $filename, $releaseid, $withannot) = @_;
 	my $fileh;
 
 	my $path = $self->revpath($filename, $releaseid);
 	$path =~ m/(.*)/;
 	$path = $1;	# Untaint path
-	# Suppress errors/warnings for following command
-	# (mainly, don't flood web-server log with "file doesn't
-	# exist" messages).
-	# When debugging, it is wise to remove 2>/dev/null.
-	open ($fileh, "svn cat $path 2>/dev/null |")
-	|| die("svn subprocess died unexpextedly: $!");
-	return undef if eof($fileh);
-	return $fileh;
+
+	if	(	$withannot
+		&&	$self->{'svn_annotations'}
+		) {
+		open ($fileh, "svn blame $path 2>/dev/null |")
+		|| die("svn subprocess died unexpextedly: $!");
+		return undef if eof($fileh);
+		$self->{'fileh'}       = $fileh;
+		$self->{'nextline'}    = undef;
+		$self->{'annotations'} = [];
+		$self->{'authors'}     = [];
+		return $self;
+	} else {
+		# Suppress errors/warnings for following command
+		# (mainly, don't flood web-server log with "file doesn't
+		# exist" messages).
+		# When debugging, it is wise to remove 2>/dev/null.
+		open ($fileh, "svn cat $path 2>/dev/null |")
+		|| die("svn subprocess died unexpextedly: $!");
+		return undef if eof($fileh);
+		return $fileh;
+	}
+}
+
+sub loadline {
+	my ($self) = @_;
+
+	return if !exists $self->{'fileh'};
+	my $svnline = $self->{'fileh'}->getline();
+	if (!defined($svnline)) {
+		delete $self->{'nextline'};
+		delete $self->{'fileh'};
+	}
+	(my $tag, my $auth, $self->{'nextline'}) =
+		$svnline =~
+			m/^\s*(\d+)\s+(\S+)\s(.*)/s;
+	if ($self->{'svn_annotations'}) {
+		push @{$self->{'annotations'}}, $tag;
+		push @{$self->{'authors'}}, $auth
+			if $self->{'svn_blame'};
+	}
+}
+
+sub getline {
+	my ($self) = @_;
+
+	return undef if !exists $self->{'fileh'};
+	if (!defined($self->{'nextline'})) {
+		$self->loadline();
+	}
+	return undef if !exists $self->{'nextline'};
+	my $line = $self->{'nextline'};
+	$self->{'nextline'} = undef;
+	return $line;
 }
 
 sub getfilesize {
@@ -189,16 +219,28 @@ sub getfilesize {
 
 sub getfiletime {
 	my ($self, $filename, $releaseid) = @_;
-	my $res;
+	my ($line, $res);
 
 	return undef if $filename =~ m!\.\.!;
 	my $path = $self->revpath($filename,$releaseid);
 	$path =~ m/(.*)/;
 	$path = $1;	# Untaint path
-	$res = `LANGUAGE=en svn info $path|grep 'Last Changed Date'`;
-	$res =~ m/(\d[\d-+ :]+)/;
-	$res = $1;
-	$res =~ s/\s*$//;
+	$line = `LANGUAGE=en svn info $path|grep 'Last Changed Date'`;
+	$line =~ m/(\d[\d-+ :]+)/;
+	$line = $1;
+	# Extract local time
+	my ($y, $m, $d, $hh, $mm, $ss) = $line =~ m/(....).(..).(..)\s+(..).(..).(..)/;
+	# Convert as if an UTC value
+	$res = timegm($ss, $mm, $hh, $d, --$m, $y);
+	# Get difference between local and UTC time
+	($d, $hh, $mm) = $line =~ m/\s+([+-])(..)(..)\s*$/;
+	my $delta = ($hh*60 + $mm) * 60;
+	# Adjust taking care to invert sign of difference
+	if ($d eq '+') {
+		$res -= $delta;
+	} else {
+		$res += $delta;
+	}
 	return $res;
 }
 
@@ -245,7 +287,7 @@ sub revpath {
 		$releaseid = 'trunk';
 	} else {
 		$releaseid =~ m/(.+)==(.+)/;
-		$releaseid = "$1";
+		$releaseid = $1;
 		$rev = "-r $2";
 	}
 	return $self->{'rootpath'} . "/$releaseid$filename $rev";
@@ -274,7 +316,7 @@ sub allbranches {
 	my ($self, $filename) = @_;
 	my ($uri, @brch, %rel);
 
-	$uri = $self->{'rootpath'} . "/branches";
+	$uri = $self->{'rootpath'} . '/branches';
 	$uri =~ m/(.*)/;
 	$uri = $1;	# Untaint path
 	open(BRCH,"svn list $uri |")
@@ -307,7 +349,7 @@ sub alltags {
 	my ($self, $filename) = @_;
 	my ($uri, @tags, %rel);
 
-	$uri = $self->{'rootpath'} . "/tags";
+	$uri = $self->{'rootpath'} . '/tags';
 	$uri =~ m/(.*)/;
 	$uri = $1;	# Untaint path
 	open(TAGS,"svn list $uri |")

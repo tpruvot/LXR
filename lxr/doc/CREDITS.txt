@@ -31,9 +31,10 @@ Jens Heimann <jens.heimann@materna.de>			Oracle database support
 Patrick Gerlier <page74010-sf@yahoo.fr>			en & fr User's manual
 Andre-Littoz <ajlittoz@users.sf.net>			Website
 	"						Config scripts, genxref "POST" checks
+	"						Interactive configurator
 	"						Revised INSTALL document
 	"						Directory re-org
-	"						Git & Subversion backends
+	"						Git, Mercurial & Subversion backends
 	"						SQLite backend & many DB patches
 
 
@@ -42,4 +43,4 @@ To get your name added to this list, see:
  
    http://sf.net/projects/lxr
  
-Last updated: $Date: 2012/09/22 13:08:14 $
+Last updated: $Date: 2013/01/25 14:43:43 $

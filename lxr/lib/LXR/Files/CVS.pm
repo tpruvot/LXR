@@ -1,8 +1,8 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: CVS.pm,v 1.43 2012/09/21 17:11:54 ajlittoz Exp $
-
+# $Id: CVS.pm,v 1.47 2013/01/17 09:30:01 ajlittoz Exp $
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
+#
 ###############################################
 
 =head1 CVS module
@@ -31,7 +31,7 @@ Methods are sorted in the same order as in the super-class.
 
 package LXR::Files::CVS;
 
-$CVSID = '$Id: CVS.pm,v 1.43 2012/09/21 17:11:54 ajlittoz Exp $ ';
+$CVSID = '$Id: CVS.pm,v 1.47 2013/01/17 09:30:01 ajlittoz Exp $ ';
 
 use strict;
 use Time::Local;
@@ -42,14 +42,15 @@ use LXR::Common;
 our %cvs;
 our $cache_filename = '';
 our $gnu_diff;
+our @anno;
 
 sub new {
 	my ($self, $rootpath) = @_;
 
 	$self = bless({}, $self);
 	$self->{'rootpath'} = $rootpath;
-	$self->{'rootpath'} =~ s@/*$@/@;
-	$self->{'path'} = $config->cvspath;
+	$self->{'rootpath'} =~ s@/*$@@;
+	$self->{'path'} = $config->{'cvspath'};
 	
 	unless (defined $gnu_diff) {
 
@@ -73,33 +74,26 @@ sub getdir {
 
 	# Directories are real directories in CVS
 	opendir($DIRH, $real) || return ();
-  FILE: while (defined($node = readdir($DIRH))) {
-		# Skip files starting with a dot (usually invisible),
-		# ending with a tilde (editor backup)
-		# or having "orig" extension
-		next if $node =~ m/^\.|~$|\.orig$/;
-		# Skip also CVS
-		next if $node eq 'CVS';
-		# More may be added if necessary
-	# NOTE: this filter is the same as dirempty's
-
-		# Check directories to ignore
+	while (defined($node = readdir($DIRH))) {
 		if (-d $real . $node) {
-			foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
-				next FILE if $node eq $ignoredir;
-			}
+			next if $self->_ignoredirs($pathname, $node);
+			$node = $node . '/';
 			# The "Attic" directory is where CVS stores removed files
 			# Add them just in case.
-			if ($node eq 'Attic') {
-				push(@files, $self->getdir($pathname . $node . '/', $releaseid));
+			if ($node eq 'Attic/') {
+				push(@files, $self->getdir($pathname . $node, $releaseid));
 			} else {
 			# Directory to keep (unless empty): suffix name with a slash
-				push(@dirs, $node . '/')
+				push(@dirs, $node)
 				  unless defined($releaseid)
-				  && $self->dirempty($pathname . $node . '/', $releaseid);
+				  && $self->dirempty($pathname . $node, $releaseid);
 			}
 		# Consider only files managed by CVS (ending with ,v)
-		} elsif ($node =~ m/(.*),v$/) {
+		} elsif	($node =~ m/(.*),v$/) {
+			# Special care is needed to use standard _ignorefiles() filter.
+			# CVS file names are created from original files by suffixing
+			# with ',v'. Removing this suffix, we can proceed as usual.
+				next if $self->_ignorefiles($pathname, $1);
 
 			# For normal display (i.e. some revisions reachable from 'head'),
 			# check if requested version is alive. Looking for the file
@@ -111,7 +105,7 @@ sub getdir {
 			if (!$$LXR::Common::HTTP{'param'}{'_showattic'}) {
 				$self->parsecvs($pathname . $1);
 				my $rev = $cvs{'header'}{'symbols'}{$releaseid};
-				if ($cvs{'branch'}{$rev}{'state'} eq "dead") {
+				if ($cvs{'branch'}{$rev}{'state'} eq 'dead') {
 					next;
 				}
 			}
@@ -182,7 +176,7 @@ sub getannotations {
 				map { $anno[$_] = $lrev if $_ ne ''; } splice(@head, $1 - $off - 1, $2);
 				$off += $2;					# Increase adjustment
 			} else {
-				warn("Oops! Out of sync!");
+				warn('Oops! Out of sync!');
 			}
 		}
 	}
@@ -223,7 +217,7 @@ sub getannotations {
 					splice(@anno, $1 + $off - 1, $2);
 					$off -= $2;
 				} else {
-					warn("Oops! Out of sync!");
+					warn('Oops! Out of sync!');
 				}
 			}
 			last if $arev eq $hrev;	# Are we done on this branch?
@@ -233,6 +227,12 @@ sub getannotations {
 	}
 
 	return @anno;
+}
+
+sub getnextannotation {
+	my ($self, $filename, $releaseid) = @_;
+
+	return shift @anno;
 }
 
 sub getauthor {
@@ -270,7 +270,7 @@ sub filerev {
 #	getfilehandle returns a handle to a pipe through which the
 #	checked out content can be read.
 sub getfilehandle {
-	my ($self, $filename, $releaseid) = @_;
+	my ($self, $filename, $releaseid, $withannot) = @_;
 	my ($fileh);
 
 	$self->parsecvs($filename);
@@ -279,6 +279,10 @@ sub getfilehandle {
 
 	return undef unless defined($self->toreal($filename, $releaseid));
 
+	if ($withannot) {
+		@anno = $self->getannotations($filename, $releaseid);
+	}
+
 	$rev =~ m/([\d\.]*)/;
 	$rev = $1;    # untaint
 	my $clean_filename = $self->cleanstring($self->toreal($filename, $releaseid));
@@ -286,10 +290,9 @@ sub getfilehandle {
 	$clean_filename = $1;    # technically untaint here (cleanstring did the real untainting)
 
 	$ENV{'PATH'} = $self->{'path'};
-	my $rtn;
 	# Option -q: quiet, no diagnostics printed
-	$rtn = open($fileh, "-|", "co -q -p$rev $clean_filename");
-	die("Error executing \"co\"; rcs not installed?") unless $rtn;
+	open($fileh, '-|', "co -q -p$rev $clean_filename 2>/dev/null")
+	|| die('Error executing "co"; rcs not installed?');
 
 	return $fileh;
 }
@@ -371,10 +374,10 @@ sub toreal {
 	my ($self, $pathname, $releaseid) = @_;
 	my $real = $self->{'rootpath'} . $pathname;
 
-# nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
-	foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
-		return undef if $real =~ m!/$ignoredir(/|$)!;
-	}
+# # nearly all (if not all) method calls eventually call toreal(), so this is a good place to block file access
+# 	foreach my $ignoredir (@{$config->{'ignoredirs'}}) {
+# 		return undef if $real =~ m!/$ignoredir(/|$)!;
+# 	}
 
 	# If directory, nothing more to do
 	return $real if -d $real;
@@ -389,7 +392,7 @@ sub toreal {
 	if (!$$LXR::Common::HTTP{'param'}{'_showattic'}) {
 		$self->parsecvs($pathname);
 		my $rev = $cvs{'header'}{'symbols'}{$releaseid};
-		if ($cvs{'branch'}{$rev}{'state'} eq "dead") {
+		if ($cvs{'branch'}{$rev}{'state'} eq 'dead') {
 			return undef;
 		}
 	}
@@ -463,8 +466,8 @@ sub getdiff {
 	# Option -q: quiet, no diagnostics printed
 	# Option -a: all files considered text files (diff option)
 	# Option -n: RCS format for differences (diff option)
-	open($fileh, "-|", "rcsdiff -q -a -n -r$rev1 -r$rev2 $clean_filename");
-	die("Error executing \"rcsdiff\"; rcs not installed?") unless $fileh;
+	open($fileh, '-|', "rcsdiff -q -a -n -r$rev1 -r$rev2 $clean_filename");
+	die('Error executing "rcsdiff"; rcs not installed?') unless $fileh;
 	return $fileh->getlines;
 }
 
@@ -492,6 +495,12 @@ A valid revision is sufficient to decide non-empty directory.
 
 If the algorithm reaches the end of content, directory is empty.
 
+Contained subdirectories or files are not excluded by C<'ignoredirs'>
+or C<'ignorefiles'> filters to give a visual feedback of directory
+existence.
+These subdirectories or files will be effectively excluded when
+displaying the directory.
+
 =cut
 
 sub dirempty {
@@ -502,15 +511,6 @@ sub dirempty {
 
 	opendir($DIRH, $real) || return 1;
 	while (defined($node = readdir($DIRH))) {
-		# Skip files starting with a dot (usually invisible),
-		# ending with a tilde (editor backup)
-		# or having "orig" extension
-		next if $node =~ m/^\.|~$|\.orig$/;
-		# Skip also CVS
-		next if $node eq 'CVS';
-		# More may be added if necessary
-	# NOTE: this filter is the same as getdir's
-
 		# Build two lists: one with the subdirectories,
 		# the other with CVS difference files.
 		if (-d $real . $node) {
@@ -722,7 +722,10 @@ sub parsecvs {
 
 	my $file = '';
 	open(CVS, $self->toreal($filename, undef));
-	close CVS and return if -d CVS;    # we can't parse a directory
+	if (-d CVS) {
+		close(CVS);
+		return;		# we can't parse a directory
+	}
 	while (<CVS>) {
 		if (m/^text\s*$/) {
 			# stop reading when we hit the text.

@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Config.pm,v 1.53 2012/09/21 08:18:02 ajlittoz Exp $
+# $Id: Config.pm,v 1.57 2013/01/22 09:39:28 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ an abstract interface to the C<'variables'>.
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.53 2012/09/21 08:18:02 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.57 2013/01/22 09:39:28 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -67,6 +67,25 @@ sub new {
 	} else {
 		return undef;
 	}
+}
+
+
+=head2 C<emergency ()>
+
+Method C<emergency> returns whatever can be retrieved from
+the configuration file.
+
+It is intended to allow editing user-friendly error message when
+a catastrophic event occurred during initialisation.
+
+=cut
+
+sub emergency {
+	my ($class, @parms) = @_;
+	my $self = {};
+	bless($self);
+	$self->_initialize(@parms);
+	return ($self);
 }
 
 
@@ -216,7 +235,7 @@ sub _initialize {
 #	parameters (which needs to spplit $url); "compatibility"
 #	identification uses 'baseurl' and 'baseurl_aliases'.
 #	The target id ends up in 'baseurl' in both cases.
-	$url =~ m!(^.*?://.*?)/!;	# host name and port used to access server
+	$url =~ m!(^.*?://[^/]+)!;	# host name and port used to access server
 	my $host = $1;
 		# To allow simultaneous Apache and lighttpd operation
 		# on 2 different ports, remove port for identification
@@ -245,8 +264,13 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 		};
 		my $virtroot = $config->{'virtroot'};
 		my $hits = $virtroot =~ s!/+$!!;	# ensure no ending /
-		$hits += $virtroot =~ s!^/+!/!;		# and a single starting /
-		if ($hits > 0) { $config->{'virtroot'} = $virtroot }
+		$hits += $virtroot =~ s!^/*!/!;		# and a single starting /
+		if ($hits > 0) {
+			$config->{'virtroot'} = $virtroot
+		}
+		if ('/' eq $virtroot) {				# special case: LXR at root
+			$config->{'virtroot'} = '';		# make sure no trouble on relative links
+		}
 		if (scalar(@hostnames)>0) {
 			foreach my $rt (@hostnames) {
 				$rt =~ s!/*$!!;		# remove trailing /
@@ -334,7 +358,7 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 	_ensuredirexists($self->{'tmpdir'});
 
 #	See if there is ambiguity on the free-text search engine
-	if (exists $self->{'glimpsebin'} and exists $self->{'swishbin'}) {
+	if (exists $self->{'glimpsebin'} && exists $self->{'swishbin'}) {
 		die "Both Glimpse and Swish have been specified in $confpath.\n"
 			."Please choose one of them by commenting out either glimpsebin or swishbin.\n";
 		
