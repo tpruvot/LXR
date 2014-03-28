@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Tagger.pm,v 1.1 2012/09/22 07:49:17 ajlittoz Exp $
+# $Id: Tagger.pm,v 1.3 2013/11/17 15:57:42 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 
 package Tagger;
 
-$CVSID = '$Id: Tagger.pm,v 1.1 2012/09/22 07:49:17 ajlittoz Exp $ ';
+$CVSID = '$Id: Tagger.pm,v 1.3 2013/11/17 15:57:42 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Lang;
@@ -41,18 +41,27 @@ sub processfile {
 
 	if ($index) {
 		my $fileid = $index->fileid($pathname, $revision);
-
 		$index->setfilerelease($fileid, $releaseid);
 
 		if (!$index->fileindexed($fileid)) {
 # 			$index->emptycache();
-			print(STDERR " ${VTgreen}$fileid${VTnorm}\n");
+			print(STDERR " ${VTgreen}$fileid${VTnorm}");
 
 			my $path = $files->realfilename($pathname, $releaseid);
-			$lang->indexfile($pathname, $path, $fileid, $index, $config);
-			$index->setfileindexed($fileid);
-			$index->flushcache();
-			$index->commit;
+			if (defined($path)) {
+				my $ns = $lang->indexfile($pathname, $path, $fileid, $index, $config);
+				print(STDERR ' :: ', $ns, "\n");
+				$index->flushcache(0);
+				$index->setfileindexed($fileid);
+### The following line is commented out to improve performance.
+### The consequence is a higher load on memory since DB updates
+### are kept in memory until commit time (at least on directory
+### exit).
+# 				$index->commit();
+### This line is ABSOLUTELY mandatory in case multi-thread is publicly released
+			} else {
+				print(STDERR " ${VTred}FAILED${VTnorm}\n");
+			}
 			$files->releaserealfilename($path);
 		} else {
 			print(STDERR " ${VTyellow}already indexed${VTnorm}\n");
@@ -81,14 +90,34 @@ sub processrefs {
 		my $fileid = $index->fileid($pathname, $revision);
 
 		if (!$index->filereferenced($fileid)) {
-# 			$index->emptycache();
 			print(STDERR " ${VTgreen}$fileid${VTnorm} ");
 
 			my $path = $files->realfilename($pathname, $releaseid);
-			$lang->referencefile($pathname, $path, $fileid, $index, $config);
-			$index->setfilereferenced($fileid);
-			$index->flushcache();
-			$index->commit;
+			if	(defined($path)) {
+				my ($ln, $ns) = $lang->referencefile
+							( $pathname
+							, $path
+							, $fileid
+							, $index
+							, $config
+							);
+				if (0 > $ln) {
+					# This happens sometimes in CVS
+					print(STDERR " ${VTred}### FAILED${VTnorm}\n");
+				} else {
+					print(STDERR "+++ $ln/$ns\n");
+				}
+				$index->flushcache(0);
+				$index->setfilereferenced($fileid);
+### The following line is commented out to improve performance.
+### The consequence is a higher load on memory since DB updates
+### are kept in memory until commit time (at least on directory
+### exit).
+# 				$index->commit();
+### This line is ABSOLUTELY mandatory in case multi-thread is publicly released
+			} else {
+				print(STDERR " ${VTred}FAILED${VTnorm}\n");
+			}
 			$files->releaserealfilename($path);
 		} else {
 			print(STDERR " ${VTyellow}already referenced${VTnorm}\n");

@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: LCLInterpreter.pm,v 1.2 2013/01/21 10:49:36 ajlittoz Exp $
+# $Id: LCLInterpreter.pm,v 1.4 2013/11/07 16:44:21 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 #
 ###############################################
 
-# $Id: LCLInterpreter.pm,v 1.2 2013/01/21 10:49:36 ajlittoz Exp $
+# $Id: LCLInterpreter.pm,v 1.4 2013/11/07 16:44:21 ajlittoz Exp $
 
 package LCLInterpreter;
 
@@ -42,7 +42,7 @@ use VTescape;
 
 ##############################################################
 #
-#	LXR Control Language Interpreter
+#	LXR Configuration Language Interpreter
 #
 ##############################################################
 
@@ -70,16 +70,24 @@ use VTescape;
 # intervening whitespace. If more than one label is needed, repeat the
 # construct without intervening whitespace.
 
-# NOTE: in the present implementation, labels cannot prefix a command.
-#		In context where labels are meaningful (i.e. @CASE blocks), the
-#		line containing the label is eaten up by skipping code. When
-#		control is returned to the interpreter, this line is lost.
-#		It can no longer trigger any action.
+# NOTE: labels can prefix a command.
 
-# = Statement: @<name> [<arguments>]
+# = Statement =
+# @<name> [<arguments>]
+# @<label>: <name> [<arguments>]
 # <name> is an alphanumeric string. Case is indifferent.
 # The following sections list the known statements.
-# An error is issued for an unknown statement .
+# An error is issued for an unknown statement.
+
+# == Substitution error suppression ==
+# @U <data line>
+# Flags the to-be data line as containing potentially unknown/undefined
+# subtitution symbols.
+# If substitutions succeed, the data line is output without the @U
+# LCL command, as if it had been written as an ordinary line.
+# If any substitution fails, the whole line is copied unchanged to output.
+# Application example: use it for 'glimpsebin'/'swishbin' parameter
+# value since only one of them should be defined.
 
 # == Message display ==
 # @LOG    message
@@ -98,6 +106,8 @@ use VTescape;
 # @ELSEIF <expr>
 # @ELSE
 # @ENDIF
+# Note:	if <expr> consists of only <var>, it is a test for existence.
+#		This is handy for probing the presence of an "option".
 
 # @CASE <variable>
 # <Label>
@@ -108,7 +118,7 @@ use VTescape;
 # @ASK[,<var>] <question>; <kind>; <choices>; <answers>
 
 # Continuous until empty answer, with input kept in <var>: 
-# @KEEPON[,<var>] <question>[; -2]
+# @KEEPON[,<var>] <question>[; -3[; <validation>]]
 # @ON first
 # @ENDON
 # @ON last
@@ -125,9 +135,11 @@ use VTescape;
 #  -1 any, empty string implies default answer
 #   0 one among choices, empty string not allowed
 # i>0 one among choices, empty string means choice number i
-# choices is empty for -2 and -3
+# choices do not make sense for -2 and -3 but if a list is present
+# for any open question (-1, -2, -3), it is interpreted as a set
+# of regexp,message to validate the answer.
 # answers provides "normalised" answers corresponding to choices.
-#  If kind=-1, must define a default answer (possibly empty).
+# If kind=-1, must define a default answer (possibly empty).
 # choices and answers are comma-separated lists.
 # Answer to question is stored for use in <var>, by default A.
 
@@ -139,16 +151,40 @@ use VTescape;
 # @KEEPON blocks may be nested in other conditional blocks and may
 # contain arbitrary content, including other @KEEPON blocks.
 
+# Transform (aka. "canonise") a user answer
+# @CANON[G][,<var>] <rules>
+# rules is a comma-separated list composed of pairs of
+# regexp,replacement esquivalent to a Perl s/regexp/replacement/.
+
+# == Array content insertion ==
+# @ARRAY <array>[,<var>] [<array>[,<var>]]...
+# @ON prolog
+# @ENDON
+# @ON epilog
+# @ENDON
+# @ON none
+# @ENDON
+# @ENDA
+# The lines between @ARRAY and @ENDA are repetitively interpreted
+# with <var> containing successive elements of <array>.
+# By default, <var> is E if not specified.
+# The variable is used in substitutions inside the block
+# interpreted for every element in the array.
+
+# When several arrays are specified in the command, they must have
+# the same length. Of course, only one of them can be associated with
+# the default variable (otherwise the others are shadowed out).
+# In the prolog and epilog blocks, the variables contain the size
+# of the arrays.
+# In the none block, the variables must not be used since no data is
+# available (value of the variables is not specified!, i.e. they are
+# not set to any value and retain the one they eventually had before).
+
 # == Variable definition ==
 # @DEFINE <var>=<expr>
 # Define a %marker% (% characters are internally added) equal to the
 # value of an expression.
 # Afterwards, %marker% can be used for substitution.
-# NOTE:	since the simple parser only allows for A-Za-z0-9_ characters
-#		in both marker and option, a translation is needed between the
-#		shell option name and the #@D option name.
-#		This is done through the hash reference $option_trans, i.e.
-#		$$option_trans{'option'} gives the value to use.
 
 # == Shell command insertion ==
 # @XQT <shell command>
@@ -166,7 +202,7 @@ use VTescape;
 #	2.	Consequence of 1., do not open any block (@CASE, @IF, @KEEPON,
 #		@PASS2) in one file and put the closing command in another file.
 #		Due to the possible skip of intervening statements, the @ADD
-#		containing the opening orclosing statement might be not
+#		containing the opening or closing statement might be not
 #		interpreted and the stream will appear incorrectly bracketed.
 # File name path: the current directory is the one in effect when the
 #	configurator is launched. It might be better to use OS-absolute paths.
@@ -227,8 +263,9 @@ sub expand {
 SCAN:
 	while ($line = &$source()) {
 		# 	Are we done?
-		return parse_statement ($line, $comstart, $comend)
-			if $line =~ m/^${comstart}\@$end_label/;
+		if ($line =~ m/^${comstart}\@$end_label/) {
+			return parse_statement ($source, \$line, $comstart, $comend)
+		}
 
 		#	Suppress erasable comments
 		if ($comend eq '') {
@@ -269,7 +306,7 @@ SCAN:
 		#	Is this an LCL statement?
 		if ($line =~ m/^${comstart}@/) {
 			my ($args, $var, $command, @labels)
-				= parse_statement($line, $comstart, $comend);
+				= parse_statement($source, \$line, $comstart, $comend);
 
 			if ($command eq '') {		# Label only?
 				# Keep it in output file (NOTE: should not occur)
@@ -278,287 +315,15 @@ SCAN:
 			} elsif ($command eq 'U') {
 				# Is processed below
 
-										# Shell command
-			} elsif ($command eq 'XQT') {
-				if ($$markers{'%_shell%'}) {
-					$line =~ s:^${comstart}\@${command}\s(.*)\s*${comend}\s*\n:$1\n:;
-				} #else {		# Uncomment to remove line from output
-				#	next;
-				#}
-				# Is further processed below
-
-										# Messages
-			} elsif ($command eq 'ERROR') {
-				substitute_markers (\$args, $markers, $comstart, $comend);
-				print "${VTred}ERROR:${VTnorm} $args\n";
-				next;
-			} elsif ($command eq 'REMIND') {
-				substitute_markers (\$args, $markers, $comstart, $comend);
-				print "${VTyellow}Reminder:${VTnorm} $args\n";
-				next;
-			} elsif ($command eq 'LOG') {
-				substitute_markers (\$args, $markers, $comstart, $comend);
-				print "${VTyellow}***${VTnorm} $args\n" if $verbose;
-				next;
-			} elsif ($command eq 'MSG') {
-				substitute_markers (\$args, $markers, $comstart, $comend);
-				print "${VTyellow}***${VTnorm} $args\n" if $verbose > 1;
-				next;
-
-										# User interaction
-			} elsif ( $command eq 'ASK') {
-				substitute_markers (\$args, $markers, $comstart, $comend);
-				$$markers{"%$var%"} = ask_question($args);
-				next;
-			} elsif ($command eq 'KEEPON') {
-				my %keep;
-				if ($args =~ s/;\s*(-\d+)$//) {
-					if ($1 != -2 && $1 != -3) {
-						print "${VTred}ERROR:${VTnorm} illegal type $1 question for \@KEEPON!\n";
-						$args .= ';-3';
-					} else {
-						$args .= ";$1";
-					}
-				} else {
-					$args .= ';-3';
-				}
-				substitute_markers (\$args, $markers, $comstart, $comend);
-				$keep{'q'} = $args;
-				$keep{'v'} = $var;
-				my @kbody;
-				while ($command ne 'ENDK') {
-					$line = &$source();
-					if ($line =~ m/${comstart}\@/) {
-						($args, $var, $command, @labels)
-							= parse_statement($line, $comstart, $comend);
-						last if $command eq 'ENDK';
-						if ($command eq 'ON') {
-							my ($type) = $args =~ m/^(\w+)(?:\s|$)/;
-							$type = lc($type);
-							if	(  $type ne 'first'
-								&& $type ne 'last'
-								&& $type ne 'none'
-								) {
-								print "${VTred}ERROR:${VTnorm} unknown $type KEEPON action type!\n";
-								skip_until	( $source
-											, qr/ENDON\b/i
-											, 'KEEPON', 'ENDK'
-											, $comstart, $comend
-											)
-							} else {
-								$keep{$type} = [ grab_block
-									( $source
-									, qr/ENDON\b/i
-									, 'KEEPON', 'ENDK'
-									, $comstart, $comend
-									) ];
-							}
-						} elsif ($command eq 'KEEP') {
-							push	( @kbody
-									, grab_block	( $source
-													, qr/ENDK\b/i
-													, 'KEEPON', 'ENDK'
-													, $comstart, $comend
-													)
-									);
-						} else {
-							push (@kbody, $line);
-						}
-					} else {
-						push (@kbody, $line);
-					}
-				}
-				$keep{'body'} = [ @kbody ];
-				my $answer = ask_question($keep{'q'});
-				$$markers{"%${keep{'v'}}%"} = $answer;
-				$keep{'q'} =~ s/;-2$/;-3/; # Ensure loop can be left
-				if ($answer eq '') {
-					# initial answer is empty, block is skipped.
-					# See if action 'none' should be triggered.
-					if (exists($keep{'none'})) {
-						@kbody = @{$keep{'none'}};
-						expand	( sub { pop(@kbody) }
-								, $dest
-								, $markers
-								, $verbose
-								, $comstart, $comend
-								, '~~~TO~EOF~~~'
-								);
-					}
-					next;
-				}
-				if (exists($keep{'first'})) {
-						@kbody = @{$keep{'first'}};
-						expand	( sub { pop(@kbody) }
-								, $dest
-								, $markers
-								, $verbose
-								, $comstart, $comend
-								, '~~~TO~EOF~~~'
-								);
-				}
-				while ($answer ne '') {
-					@kbody = @{$keep{'body'}};
-					expand	( sub { pop(@kbody) }
-							, $dest
-							, $markers
-							, $verbose
-							, $comstart, $comend
-							, '~~~TO~EOF~~~'
+			} else {
+				next if interpret_statement
+							( $source, $dest		#  ^
+							, $markers				# for recursive
+							, $verbose				# calls to expand
+							, $comstart, $comend	#  v
+							, \$line				# access to input
+							, $args, $var, $command	# statement
 							);
-					$answer = ask_question($keep{'q'});
-					$$markers{"%${keep{'v'}}%"} = $answer;
-				}
-				if (exists($keep{'last'})) {
-						@kbody = @{$keep{'last'}};
-						expand	( sub { pop(@kbody) }
-								, $dest
-								, $markers
-								, $verbose
-								, $comstart, $comend
-								, '~~~TO~EOF~~~'
-								);
-				}
-				next;
-
-										# Conditional block
-			} elsif ($command eq 'IF') {
-				while ($command ne 'ENDIF')
-				{	if	(  $command eq 'ELSE'
-						|| evaluate_expr($args, $markers)
-						)
-					{	($args, $var, $command, @labels)
-							= expand	( $source, $dest
-										, $markers
-										, $verbose
-										, $comstart, $comend
-										, qr/\s*(ELSE(IF)?|ENDIF)\b/i
-										)
-					;	if ($command ne 'ENDIF')
-						{	skip_until	( $source
-										, qr/ENDIF\b/i
-										, 'IF', 'ENDIF'
-										, $comstart, $comend
-										)
-						}
-					;	last
-					}
-				;	($args, $var, $command, @labels)
-						= skip_until	( $source
-										, qr/(ELSE(IF)?|ENDIF)\b/i
-										, 'IF', 'ENDIF'
-										, $comstart, $comend
-										)
-				}
-				next;
-
-										# Selection block
-			} elsif ($command eq 'CASE') {
-				my $thecase = evaluate_expr($args, $markers);
-				while (1)
-				{	($args, $var, $command, @labels)
-						= skip_until	( $source
-										, qr/(\w+):/
-										, 'CASE', 'ENDC'
-										, $comstart, $comend
-										)
-				;	if ($command eq 'ENDC')
-					{	print "${VTred}ERROR:${VTnorm} no '$thecase' case label!\n";
-					;	last
-					}
-				;	if (grep {$thecase eq $_} @labels)
-					{	($args, $var, $command, @labels)
-							= expand	( $source, $dest
-										, $markers
-										, $verbose
-										, $comstart, $comend
-										, qr/((\w+):|((?i)\s*ENDC\b))/
-										)
-					;	if ($command ne 'ENDC')
-						{	skip_until	( $source
-										, qr/ENDC\b/i
-										, 'CASE', 'ENDC'
-										, $comstart, $comend
-										)
-						}
-					;	last
-					}
-				}
-				next;
-
-										# Symbol definition
-			} elsif ( $command eq 'DEFINE') {
-				my ($var, $string) = ($args =~ m/^(\w+)\s*=\s*(.+)/);
-				if (substr($var, 0, 1) eq '_') {
-					print "${VTred}ERROR:${VTnorm} can't set read-only variable $var!\n";
-				} else {
-					$$markers{"\%$var\%"} = evaluate_expr($string, $markers);
-				}
-				next;
-
-										# Include a file
-			} elsif ($command eq 'ADD') {
-				if (!defined($args)) {
-					print "${VTred}ERROR:${VTnorm} no file target on ADD!\n";
-					next;
-				}
-				if ($addnesting >= $addnestingmax) {
-					print "${VTred}ERROR:${VTnorm} too many nested ADD files with \"${args}\"\n";
-					next;
-				}
-				my ($string) = ($args =~ m/^["']?(.+)["']?$/);
-				$string = evaluate_expr("\"$string\"", $markers);
-				if (open(ADD, '<', $string)) {
-					++$addnesting;
-					expand	( sub { <ADD> }
-							, $dest
-							, $markers
-							, $verbose
-							, $comstart, $comend
-							, '~~~TO~EOF~~~'
-							);
-					--$addnesting;
-				} else {
-					print "${VTred}ERROR:${VTnorm} couldn't open ADD'ed file \"${string}\"\n";
-				}
-				close ADD;
-				next;
-
-										# Block for pass 2
-			} elsif ($command eq 'PASS2') {
-				if (!defined($args)) {
-					if ('R' eq $var) {
-						print "${VTred}ERROR:${VTnorm} PASS2 must define a label replacement for the block!\n";
-					}
-					$args = 'courtesy_label';
-				}
-				# Replace block with a label unlessoption R and adding trees
-				if	(	'R' ne $var
-					||	0 == $$markers{'%_add%'}
-					) {
-					$line =~ s/^(${comstart}\@).+(${comend})\s*\n/$1${args}:$3\n/;
-				}
-				skip_until	( $source
-							, qr/ENDP2\b/i
-							, '~~~TO~EOF~~~', '~~~TO~EOF~~~'
-							, $comstart, $comend
-							)
-
-			} elsif (  $command eq 'ELSE'
-					|| $command eq 'ELSEIF'
-					|| $command eq 'ENDIF'
-					|| $command eq 'ENDC'
-					|| $command eq 'ENDK'
-					|| $command eq 'ON'
-					|| $command eq 'ENDON'
-					|| $command eq 'PASS2'
-					) {
-				print "${VTred}ERROR:${VTnorm} spurious $command!\n";
-				next;
-
-			} else {					# Unknown LCL statement
-				print "${VTred}ERROR:${VTnorm} unknown command $command!\n";
-				next;
 			}
 		}
 
@@ -602,7 +367,7 @@ sub pass2 {
 	while ($line = <$source>) {
 		if ($line =~ m/^${comstart}\@\s*PASS2\b/) {
 			my ($args, $var, $command, @labels)
-				= parse_statement($line, $comstart, $comend);
+				= parse_statement($source, \$line, $comstart, $comend);
 			if (!defined($args)) {
 				if ('R' eq $var) {
 					print "${VTred}Warning:${VTnorm} using a courtesy label for missing PASS2 label!\n";
@@ -652,21 +417,587 @@ sub pass2 {
 ##############################################################
 
 #	parse_statement splits an LCL statement into components
+#	after capturing its full extent if it spans several lines.
 #	Command name is uppercased to ease processing independent of
 #	case. If no variable is defined, a default A is provided.
 sub parse_statement {
-	my ($line, $comstart, $comend) = @_;
-	$line =~ s/^${comstart}@//;	# Get rid of prefix
+	my ($source, $line, $comstart, $comend) = @_;
+	my $linenr = $.;	# For a potential error
+
+	my $cline;		# Continuation line
+	if ($comend eq '') {
+		while ($$line =~ m/\\\n$/) {
+			if (!($cline = &$source())) {
+				die "EOF while expecting statement continuation";
+			}
+			if ($cline !~ s/^\s*${comstart}\@\s*//) {
+				die "Incorrect continuation for statement at line $linenr!";
+			}
+			chomp($$line);
+			chop($$line);
+			$$line .= $cline;
+		}
+	} else {
+		while ($$line !~ m/${comend}\s*\n$/) {
+			if (!($cline = &$source())) {
+				die "EOF while expecting statement continuation";
+			}
+			if ($cline !~ s/^\s*//) {
+				die "Incorrect continuation for statement at line $linenr!";
+			}
+			chomp($$line);
+			$$line .= $cline;
+		}
+	}
+	my $copy = $$line;	# Do not mess up caller's line
+	$copy =~ s/^${comstart}@//;	# Get rid of prefix
 	my @labels;
-	while ($line =~ s/^(\w+)://g) {	# Grab labels
+	while ($copy =~ s/^(\w+)://g) {	# Grab labels
 		push @labels, $1;
 	}
-	$line =~ s/^\s*(\w+)//;		# Grab command name
+	$copy =~ s/^\s*(\w+)//;		# Grab command name
 	my $command = uc($1);
 	my $var = 'A';				# Grab var name
-	$var = $1  if $line =~ s/^,(\w+)//;
-	my ($args) = ($line =~ m/^\s+(.*)\s*${comend}\s*\n/);
+	$var = $1 if $copy =~ s/^,(\w+)//;
+	my ($args) = ($copy =~ m/^\s+(.*)\s*${comend}\s*\n/);
 	return ($args, $var, $command, @labels);
+}
+
+#	interpret_statement interprets a parsed statement.
+#	It returns 1 if the LCL statement has been fully interpreted
+#	(no need for extra processing in the caller).
+#	It returns undef if the input line, after internal modification
+#	should be further processed for substitution and copied to
+#	output by the caller.
+sub interpret_statement {
+	my	( $source, $dest, $markers, $verbose, $comstart, $comend
+		, $outerline
+		, $args, $var, $command
+		) = @_;
+
+								# Shell command
+	if ($command eq 'XQT') {
+		if ($$markers{'%_shell%'}) {
+			$$outerline =~ s:^${comstart}\@${command}\s(.*)\s*${comend}\s*\n:$1\n:;
+		} #else {		# Uncomment to remove line from output
+		#	return 1;
+		#}
+		# Is further processed
+		return undef;
+	}
+
+								# Messages
+	if ($command eq 'ERROR') {
+		substitute_markers (\$args, $markers, $comstart, $comend);
+		print "${VTred}ERROR:${VTnorm} $args\n";
+		return 1;
+	}
+	if ($command eq 'REMIND') {
+		substitute_markers (\$args, $markers, $comstart, $comend);
+		print "${VTyellow}Reminder:${VTnorm} $args\n";
+		return 1;
+	}
+	if ($command eq 'LOG') {
+		substitute_markers (\$args, $markers, $comstart, $comend);
+		print "${VTyellow}***${VTnorm} $args\n" if $verbose;
+		return 1;
+	}
+	if ($command eq 'MSG') {
+		substitute_markers (\$args, $markers, $comstart, $comend);
+		print "${VTyellow}***${VTnorm} $args\n" if $verbose > 1;
+		return 1;
+	}
+
+								# User interaction
+	if ( $command eq 'ASK') {
+		if (substr($var, 0, 1) eq '_') {
+			print "${VTred}ERROR:${VTnorm} can't use read-only variable $var in \@ASK!\n";
+		} else {
+			substitute_markers (\$args, $markers, $comstart, $comend);
+			$$markers{"%$var%"} = ask_question($args);
+		}
+		return 1;
+	}
+	if ($command eq 'KEEPON') {
+		my %keep;
+		if (2 < $args =~ tr/;//) {
+			print "${VTred}ERROR:${VTnorm} too many arguments in \@KEEPON $args!\n";
+			$args = substr($args, 0, 1+index($args, ';')) . ';-3';
+		} elsif ($args =~ s/;\s*(-\d+)(\s*;.*)?$//) {
+			if ($1 != -3) {
+				print "${VTred}ERROR:${VTnorm} illegal type $1 question for \@KEEPON!\n";
+			}
+				$args .= ';-3' . $2;
+		} else {
+			$args .= ';-3';
+		}
+		substitute_markers (\$args, $markers, $comstart, $comend);
+		$keep{'q'} = $args;
+		$keep{'v'} = $var;
+		my @kbody;
+		my $line;
+		my @labels;
+		while ($command ne 'ENDK') {
+			$line = &$source();
+			if ($line =~ m/${comstart}\@/) {
+				($args, $var, $command, @labels)
+					= parse_statement($source, \$line, $comstart, $comend);
+				last if $command eq 'ENDK';
+				if ($command eq 'ON') {
+					my ($type) = $args =~ m/^(\w+)(?:\s|$)/;
+					$type = lc($type);
+					if	(  $type ne 'first'
+						&& $type ne 'epilog'
+						&& $type ne 'none'
+						) {
+						print "${VTred}ERROR:${VTnorm} unknown $type KEEPON action type!\n";
+						skip_until	( $source
+									, qr/ENDON\b/i
+									, 'KEEPON', 'ENDK'
+									, $comstart, $comend
+									)
+					} else {
+						$keep{"=$type"} = [ grab_block
+							( $source
+							, qr/ENDON\b/i
+							, 'KEEPON', 'ENDK'
+							, $comstart, $comend
+							) ];
+					}
+				} elsif ($command eq 'KEEPON') {
+					push	( @kbody
+							, grab_block	( $source
+											, qr/ENDK\b/i
+											, 'KEEPON', 'ENDK'
+											, $comstart, $comend
+											)
+							);
+				} else {
+					push (@kbody, $line);
+				}
+			} else {
+				push (@kbody, $line);
+			}
+		}
+		if (substr($var, 0, 1) eq '_') {
+			print "${VTred}ERROR:${VTnorm} can't use read-only variable $var in \@KEEPON!\n";
+			return 1;
+		}
+		$keep{'=body'} = [ @kbody ];
+		my $answer = ask_question($keep{'q'});
+		$$markers{"%${keep{'v'}}%"} = $answer;
+		$keep{'q'} =~ s/;-2$/;-3/; # Ensure loop can be left
+		if ($answer eq '') {
+			# initial answer is empty, block is skipped.
+			# See if action 'none' should be triggered.
+			if (exists($keep{'=none'})) {
+				@kbody = @{$keep{'=none'}};
+				expand	( sub { shift(@kbody) }
+						, $dest
+						, $markers
+						, $verbose
+						, $comstart, $comend
+						, '~~~TO~EOF~~~'
+						);
+			}
+			return 1;
+		}
+		if (exists($keep{'=first'})) {
+				@kbody = @{$keep{'=first'}};
+				expand	( sub { shift(@kbody) }
+						, $dest
+						, $markers
+						, $verbose
+						, $comstart, $comend
+						, '~~~TO~EOF~~~'
+						);
+		}
+		while ($answer ne '') {
+			@kbody = @{$keep{'=body'}};
+			expand	( sub { shift(@kbody) }
+					, $dest
+					, $markers
+					, $verbose
+					, $comstart, $comend
+					, '~~~TO~EOF~~~'
+					);
+			$answer = ask_question($keep{'q'});
+			$$markers{"%${keep{'v'}}%"} = $answer;
+		}
+		if (exists($keep{'=epilog'})) {
+				@kbody = @{$keep{'=epilog'}};
+				expand	( sub { shift(@kbody) }
+						, $dest
+						, $markers
+						, $verbose
+						, $comstart, $comend
+						, '~~~TO~EOF~~~'
+						);
+		}
+		return 1;
+	}
+
+								# "Canonize" a string
+								# usually an user answer
+	if	(	$command eq 'CANON'
+		||	$command eq 'CANONR'
+		) {
+		my @rules = split(/(?<!\\),/, $args);
+		my ($match, $replace);
+		my $globalflag = 'R' eq substr($command, -1);
+		my $string = $$markers{"%$var%"};
+		while ($match = shift(@rules)) {
+		# Don't strip whitespace as they may be significant
+			$replace = shift(@rules);
+			if ($globalflag) {
+				$string =~ s/$match/$replace/g;
+			} else {
+				$string =~ s/$match/$replace/;
+			}
+		}
+		$$markers{"%$var%"} = $string;
+		next;
+	}
+
+								# Conditional block
+								# (processing similar to continuous
+								# user interaction)
+	if ($command eq 'IF') {
+		while ($command ne 'ENDIF')
+		{	if	(  $command eq 'ELSE'
+				|| evaluate_expr($args, $markers)
+				)
+			{	($args, $var, $command)	# @labels intentionally dropped
+					= expand	( $source, $dest
+								, $markers
+								, $verbose
+								, $comstart, $comend
+								, qr/\s*(ELSE(IF)?|ENDIF)\b/i
+								)
+			;	if ($command ne 'ENDIF')
+				{	skip_until	( $source
+								, qr/ENDIF\b/i
+								, 'IF', 'ENDIF'
+								, $comstart, $comend
+								)
+				}
+			;	last
+			}
+		;	($args, $var, $command)	# @labels intentionally dropped
+				= skip_until	( $source
+								, qr/(ELSE(IF)?|ENDIF)\b/i
+								, 'IF', 'ENDIF'
+								, $comstart, $comend
+								)
+		}
+		return 1;
+	}
+
+								# Selection block
+	if ($command eq 'CASE') {
+		if (substr($var, 0, 1) eq '_')
+		{	print "${VTred}ERROR:${VTnorm} can't use read-only variable $var in \@CASE!\n"
+		;	skip_until	( $source
+						, qr/ENDC\b/i
+						, 'CASE', 'ENDC'
+						, $comstart, $comend
+						)
+		;	return 1
+		}
+		my $thecase = evaluate_expr($args, $markers);
+		my $line;
+		my @labels;
+		while (1)
+		{	($args, $var, $command, @labels)
+				= skip_until	( $source
+								, qr/(\w+):/
+								, 'CASE', 'ENDC'
+								, $comstart, $comend
+								)
+		;	if ($command eq 'ENDC')
+			{	print "${VTred}ERROR:${VTnorm} no '$thecase' case label!\n";
+			;	last
+			}
+		;	if (grep {$thecase eq $_} @labels)
+			{	if ($command)
+				{ interpret_statement
+						( $source, $dest
+						, $markers
+						, $verbose
+						, $comstart, $comend
+						, \$line
+						, $args, $var, $command
+						)
+				}
+			;	($args, $var, $command)	# @labels intentionally dropped
+					= expand	( $source, $dest
+								, $markers
+								, $verbose
+								, $comstart, $comend
+								, qr/((\w+):|((?i)\s*ENDC\b))/
+								)
+			;	if ($command ne 'ENDC')
+				{	skip_until	( $source
+								, qr/ENDC\b/i
+								, 'CASE', 'ENDC'
+								, $comstart, $comend
+								)
+				}
+			;	last
+			}
+		}
+		return 1;
+	}
+
+								# Dump array content
+	if ($command eq 'ARRAY') {
+		my %array;
+		my $errorflag;
+		while ($args =~ m/(\w+)(?:,(\w+))?/g) {
+			if	(	exists($$markers{"%$1%"})
+				&&	('ARRAY' eq ref($$markers{"%$1%"}))
+				) {
+				if (defined($2)) {
+					if (substr($2, 0, 1) eq '_') {
+						print "${VTred}ERROR:${VTnorm} can't use read-only variable $2 in \@ARRAY!\n";
+						$errorflag = 1;
+					} else {
+						$array{$2} = $1;
+					}
+				} else {
+					$array{'E'} = $1;
+				}
+			} else {
+				print "${VTred}ERROR:${VTnorm} unknown $1 substitution marker or not array!\n";
+				$errorflag = 1;
+			}
+		}
+		if ($errorflag) {
+			skip_until	( $source
+						, qr/ENDA\b/i
+						, 'ARRAY', 'ENDA'
+						, $comstart, $comend
+						);
+			return 1;
+		}
+		my @abody;
+		my $line;
+		while ($command ne 'ENDA') {
+			$line = &$source();
+			if ($line =~ m/${comstart}\@/) {
+				($args, $var, $command)	# @labels intentionally dropped
+					= parse_statement($source, \$line, $comstart, $comend);
+				last if $command eq 'ENDA';
+				if ($command eq 'ON') {
+					my ($type) = $args =~ m/^(\w+)(?:\s|$)/;
+					$type = lc($type);
+					if	(  $type ne 'prolog'
+						&& $type ne 'epilog'
+						&& $type ne 'none'
+						) {
+						print "${VTred}ERROR:${VTnorm} unknown $type ARRAY action type!\n";
+						skip_until	( $source
+									, qr/ENDON\b/i
+									, 'ARRAY', 'ENDA'
+									, $comstart, $comend
+									)
+					} else {
+						$array{"=$type"} = [ grab_block
+							( $source
+							, qr/ENDON\b/i
+							, 'ARRAY', 'ENDA'
+							, $comstart, $comend
+							) ];
+					}
+				} elsif ($command eq 'ARRAY') {
+					push	( @abody
+							, grab_block	( $source
+											, qr/ENDA\b/i
+											, 'ARRAY', 'ENDA'
+											, $comstart, $comend
+											)
+							);
+				} else {
+					push (@abody, $line);
+				}
+			} else {
+				push (@abody, $line);
+			}
+		}
+		$array{'=body'} = [ @abody ];
+		my $arraylen;
+		while ((my $v, my $m) = each %array) {
+			next if '=' eq substr($v, 0, 1);
+			if (defined($arraylen)) {
+				if (scalar(@{$$markers{"%$m%"}}) != $arraylen) {
+					print "${VTred}ERROR:${VTnorm} ARRAY arrays have not all the same length!\n";
+					next SCAN;
+				}
+			} else {
+				$arraylen = scalar(@{$$markers{"%$m%"}});
+			}
+		}
+		if (0 >= $arraylen) {
+		# See if action 'none' should be triggered.
+			if (exists($array{'=none'})) {
+				@abody = @{$array{'=none'}};
+				expand	( sub { shift(@abody) }
+						, $dest
+						, $markers
+						, $verbose
+						, $comstart, $comend
+						, '~~~TO~EOF~~~'
+						);
+			}
+			return 1;
+		}
+
+		if (exists($array{'=prolog'})) {
+			while ((my $v, my $m) = each %array) {
+				next if '=' eq substr($v, 0, 1);
+				$$markers{"%$v%"} = scalar(@{$$markers{"%$m%"}});
+			}
+			@abody = @{$array{'=prolog'}};
+			expand	( sub { shift(@abody) }
+					, $dest
+					, $markers
+					, $verbose
+					, $comstart, $comend
+					, '~~~TO~EOF~~~'
+					);
+		}
+		for my $i (0..$arraylen-1) {
+			while ((my $v, my $m) = each %array) {
+				next if '=' eq substr($v, 0, 1);
+				$$markers{"%$v%"} = ${$$markers{"%$m%"}}[$i];
+			}
+			@abody = @{$array{'=body'}};
+			expand	( sub { shift(@abody) }
+					, $dest
+					, $markers
+					, $verbose
+					, $comstart, $comend
+					, '~~~TO~EOF~~~'
+					);
+		}
+		if (exists($array{'=epilog'})) {
+			while ((my $v, my $m) = each %array) {
+				next if '=' eq substr($v, 0, 1);
+				$$markers{"%$v%"} = scalar(@{$$markers{"%$m%"}});
+			}
+			@abody = @{$array{'=epilog'}};
+			expand	( sub { shift(@abody) }
+					, $dest
+					, $markers
+					, $verbose
+					, $comstart, $comend
+					, '~~~TO~EOF~~~'
+					);
+		}
+		return 1;
+	}
+
+								# Symbol definition
+	if ( $command eq 'DEFINE') {
+		my ($var, $string) = ($args =~ m/^(\w+)\s*=\s*(.+)/);
+		if (substr($var, 0, 1) eq '_') {
+			print "${VTred}ERROR:${VTnorm} can't set read-only variable $var!\n";
+		} else {
+			$$markers{"\%$var\%"} = evaluate_expr($string, $markers);
+		}
+		return 1;
+	}
+
+								# Include a file
+	if ($command eq 'ADD') {
+		if (!defined($args)) {
+			print "${VTred}ERROR:${VTnorm} no file target on ADD!\n";
+			return 1;
+		}
+		if ($addnesting >= $addnestingmax) {
+			print "${VTred}ERROR:${VTnorm} too many nested ADD files with \"${args}\"\n";
+			return 1;
+		}
+		my $string;
+		if ($args =~ m/^("|')/) {	# A delimiter?
+			my $strdelim = substr($args, 0, 1);
+			($string) = ($args =~ m/^$strdelim(.+?)$strdelim$/);
+			# NOTE: If $args is not correctly delimited,
+			#	$string is undefined and no error is issued here.
+		} else {
+			($string) = ($args =~ m/^(\S+)/); # Keep only first word
+		};
+		if (0 >= length($string)) {
+			print "${VTred}ERROR:${VTnorm} bad filename syntax on ADD!\n";
+			return 1;
+		}
+		substitute_markers (\$string, $markers, $comstart, $comend);
+		# If filename (in $string) starts with ./, ../ or /,
+		# this means an "escaped" path, i.e. file is not located
+		# in the templates directories.
+		if ($string !~ m:^\.?\.?/:) {
+			if (-e $$markers{'%LXRovrdir%'}.'/'.$string) {
+				$string = $$markers{'%LXRovrdir%'}.'/'.$string;
+			} elsif (-e $$markers{'%LXRtmpldir%'}.'/'.$string){
+				$string = $$markers{'%LXRtmpldir%'}.'/'.$string;
+			}
+		}
+		if (open(ADD, '<', $string)) {
+			++$addnesting;
+			expand	( sub { <ADD> }
+					, $dest
+					, $markers
+					, $verbose
+					, $comstart, $comend
+					, '~~~TO~EOF~~~'
+					);
+			--$addnesting;
+		} else {
+			print "${VTred}ERROR:${VTnorm} couldn't open ADD'ed file \"${string}\"\n";
+		}
+		close ADD;
+		return 1;
+	}
+
+								# Block for pass 2
+	if ($command eq 'PASS2') {
+		if (!defined($args)) {
+			if ('R' eq $var) {
+				print "${VTred}ERROR:${VTnorm} PASS2 must define a label replacement for the block!\n";
+			}
+			$args = 'courtesy_label';
+		}
+		# Replace block with a label unless option R and adding trees
+		if	(	'R' ne $var
+			||	0 == $$markers{'%_add%'}
+			) {
+			$$outerline =~ s/^(${comstart}\@).+(${comend})\s*\n/$1${args}:$3\n/;
+		}
+		skip_until	( $source
+					, qr/ENDP2\b/i
+					, '~~~TO~EOF~~~', '~~~TO~EOF~~~'
+					, $comstart, $comend
+					);
+		return undef;
+	}
+
+	if	(  $command eq 'ELSE'
+		|| $command eq 'ELSEIF'
+		|| $command eq 'ENDIF'
+		|| $command eq 'ENDA'
+		|| $command eq 'ENDC'
+		|| $command eq 'ENDK'
+		|| $command eq 'ON'
+		|| $command eq 'ENDON'
+		|| $command eq 'ENDP2'
+		) {
+		print "${VTred}ERROR:${VTnorm} spurious $command!\n";
+		return 1;
+	}
+
+								# Unknown LCL statement
+	print "${VTred}ERROR:${VTnorm} unknown command $command!\n";
+	return undef;	# For debugging; 1 could just do as well
 }
 
 #	substitute_markers replaces %xxx% occurrences by value of
@@ -718,7 +1049,7 @@ sub evaluate_expr {
 
 	# List used variables and check for illegal computation
 	# NOTE: $op can be extended for more complex valid expressions
-	my $op = qr/(?:eq|ne)/;
+	my $op = qr/(?:eq|ne|==|!=)/;
 	while ($expr =~ m/($op\s*)?%(\w+)%(\s*$op)?/g) {
 		# Make a difference between test for existence/definedness and
 		# usage in a comparison/computation where value is needed
@@ -734,7 +1065,15 @@ sub evaluate_expr {
 	# Build the expression to evaluate
 	$expr =~ s/%(\w+)%/\$\{_${1}_\}/g;
 	foreach my $newvar (keys %exprvars) {
-		$theeval .= 'my $_' . $newvar . '_ = "' . $$markers{"\%$newvar\%"} . '"; ';
+		$theeval .= 'my $_' . $newvar . '_ = "';
+		if (!ref($$markers{"\%$newvar\%"})) {
+			$theeval .= $$markers{"\%$newvar\%"};	# get value of ordinary variable
+		} elsif ('ARRAY' eq ref($$markers{"\%$newvar\%"})) {
+			$theeval .= scalar(@{$$markers{"\%$newvar\%"}});	# get number of elements
+		} else {
+			print "${VTred}ERROR:${VTnorm} $2 substitution marker has an illegal type!\n";
+		}
+		$theeval .= '"; ';
 	}
 	$theeval .= $expr;
 	my $res = eval($theeval);
@@ -752,18 +1091,31 @@ sub skip_until {
 	my ($source, $sentinel, $begin, $end, $comstart, $comend) = @_;
 
 	my $stop;
-	if ($sentinel =~ m/\):/) {
+	# $sentinel may be given as qr/.../, which is somehow rewritten
+	# and : is internally used in (?...: constructs. Consequently,
+	# presence of : cannot be simply tested to decide if we are
+	# targeting a label. We must test for the label name before
+	# the colon.
+	if  (  0 <= index($sentinel, 'w+):')
+		|| 0 <= index($sentinel, 'w+:')
+		) {
 		$stop       = qr/^${comstart}\@${sentinel}/;
 	} else {
-		$stop       = qr/^${comstart}\@\s*${sentinel}/;
+		if	(	0 <= index($sentinel, 'END')	# Statements without
+			||	0 <= index($sentinel, 'ELSE')	#  labels: ENDx, ELSEx
+			) {
+			$stop       = qr/^${comstart}\@\s*${sentinel}/;
+		} else {		# Other statements may be labelled
+			$stop       = qr/^${comstart}\@(?:w+:)*\s*${sentinel}/;
+		}
 	}
-	my $start_block = qr/^${comstart}\@\s*${begin}\b\s/i;
+	my $start_block = qr/^${comstart}\@(?:w+:)*\s*${begin}\b\s/i;
 	my $end_block   = qr/^${comstart}\@\s*${end}\b/i;
 
 	my $nesting = 0;
 	while (my $line = &$source()) {
 		if ($line =~ m/$end_block/) {
-			return parse_statement($line, $comstart, $comend)
+			return (parse_statement($source, \$line, $comstart, $comend))
 				if $nesting == 0;
 			$nesting--;
 			next;
@@ -775,7 +1127,7 @@ sub skip_until {
 		if	(  $nesting == 0
 			&& $line =~ m/$stop/
 			) {
-			return parse_statement($line, $comstart, $comend);
+			return (parse_statement($source, \$line, $comstart, $comend));
 		}
 	}
 	print "${VTred}ERROR:${VTnorm} improper nesting of conditional block!\n";
@@ -790,19 +1142,26 @@ sub grab_block {
 	my @blocklines;
 
 	my $stop;
-	if ($sentinel =~ m/\):/) {
+	# $sentinel may be given as qr/.../, which i somehow rewritten
+	# and : is internally used in (?...: constructs. Consequently,
+	# presence of : cannot be simply tested to decide if we are
+	# targeting a label. We must test for the label name defore
+	# the colon.
+	if  (  0 <= index($sentinel, 'w+):')
+		|| 0 <= index($sentinel, 'w+:')
+		) {
 		$stop       = qr/^${comstart}\@${sentinel}/;
 	} else {
 		$stop       = qr/^${comstart}\@\s*${sentinel}/;
 	}
-	my $start_block = qr/^${comstart}\@\s*${begin}\s/i;
+	my $start_block = qr/^${comstart}\@(?:w+:)*\s*${begin}\s/i;
 	my $end_block   = qr/^${comstart}\@\s*${end}\b/i;
 
 	my $nesting = 0;
 	while (my $line = &$source()) {
 		if ($line =~ m/$end_block/) {
 # Finding an end-of-block sentinel before the correct termination
-# is an error when recording sample code. This will be catched
+# is an error when recording sample code. This will be caught
 # at EOF (or, at least, I hope).
 #			return @blocklines if $nesting == 0;
 			$nesting--;
@@ -820,7 +1179,7 @@ sub grab_block {
 		push @blocklines, $line;
 	}
 	print "${VTred}ERROR:${VTnorm} improper sample block limits!\n";
-	print "${VTred}ERROR:${VTnorm} still expecting $sentinel sentinel!\n";
+	print "${VTred}ERROR:${VTnorm} still expecting $stop sentinel!\n";
 	die "Sample block overflow";
 }
 
@@ -832,12 +1191,12 @@ sub ask_question {
 
 	$#choices = -1;
 	$#answers = -1;
-	($qtext, $qdeft, $choices, $answer) = split(/;/, shift);
+	($qtext, $qdeft, $choices, $answer) = split(/(?<!\\);/, shift);
 	if (defined($choices)) {
-		@choices = map({s/^\s*(.*)\s*$/$1/; $_} split(/,/, $choices));
+		@choices = map({s/^\s*(.*)\s*$/$1/; $_} split(/(?<!\\),/, $choices));
 	}
 	if (defined($answer)) {
-		@answers = map({s/^\s*(.*)\s*$/$1/; $_} split(/,/, $answer));
+		@answers = map({s/^\s*(.*)\s*$/$1/; $_} split(/(?<!\\),/, $answer));
 	}
 	$answer = get_user_choice
 		( $qtext

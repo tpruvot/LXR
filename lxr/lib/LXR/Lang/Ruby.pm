@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Ruby.pm,v 1.4 2013/04/12 15:01:09 ajlittoz Exp $
+# $Id: Ruby.pm,v 1.6 2014/03/09 16:04:12 ajlittoz Exp $
 #
 # Enhances the support for the Ruby language over that provided by
 # Generic.pm
@@ -22,7 +22,7 @@
 
 package LXR::Lang::Ruby;
 
-$CVSID = '$Id: Ruby.pm,v 1.4 2013/04/12 15:01:09 ajlittoz Exp $ ';
+$CVSID = '$Id: Ruby.pm,v 1.6 2014/03/09 16:04:12 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -45,7 +45,7 @@ sub processinclude {
 	my $link;		# link to include file
 	my $identdef = $self->langinfo('identdef');
 
-	if ($source =~ s/^				# Parse instruction
+	if ($source !~ s/^				# Parse instruction
 				([\w]+)				# reserved keyword for include construct
 				(\s+)				# space
 				(?|	(\")(.+?)(\")	# double quoted string
@@ -70,7 +70,7 @@ sub processinclude {
 	$path =~ s@(?<!\.rb)$@.rb@;
 	$link = $self->_linkincludedirs
 				( &LXR::Common::incref
-					($file, "include", $path, $dir)
+					($file, 'include', $path, $dir)
 				, $file
 				, '/'
 				, $path

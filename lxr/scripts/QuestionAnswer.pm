@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: QuestionAnswer.pm,v 1.2 2012/12/04 17:42:27 ajlittoz Exp $
+# $Id: QuestionAnswer.pm,v 1.4 2013/11/07 16:35:52 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 #
 ###############################################
 
-# $Id: QuestionAnswer.pm,v 1.2 2012/12/04 17:42:27 ajlittoz Exp $
+# $Id: QuestionAnswer.pm,v 1.4 2013/11/07 16:35:52 ajlittoz Exp $
 
 package QuestionAnswer;
 
@@ -43,7 +43,7 @@ sub find_unique_prefix {
 	my ($list) = @_;
 	my @pats;
 
-	my $flat = "#" . join("#", @$list);
+	my $flat = '#' . join('#', @$list);
 PAT:
 	foreach my $pat (@$list) {
 		my $pfix = "#";
@@ -52,8 +52,8 @@ PAT:
 			$pfix .= $c;
 			if (1 == (@_ = $flat =~ m/$pfix/ig)) {
 				my $sl = @chars;	#suffix length
-				$pfix .= "("x($sl>0) . join("(", @chars) . ")?"x$sl;
-				push(@pats, "^" . substr($pfix, 1));
+				$pfix .= '('x($sl>0) . join('(', @chars) . ')?'x$sl;
+				push(@pats, '^' . substr($pfix, 1));
 				next PAT;
 			}
 		}
@@ -72,13 +72,15 @@ PAT:
 #		-1, open question with default answer
 #		 0, closed question, no default answer
 #		>0, closed question, default answer number (first is 1)
-#	- $choices: ref to array of choice strings
+#	- $choices: ref to array of choice strings or optional validation
+#		pairs for dft < 0
 #	- $answers: ref to normalised answers
-#	$choices and $answers must have same number of strings.
+#	$choices and $answers must have same number of strings for dft >= 0.
 #	Both may be omitted if $default < 0.
 sub get_user_choice {
 	my ($question, $default, $choices, $answers) = @_;
 	my @pats;
+	my @choices;
 	my @opendefault;
 
 	#	Build the patterns associated with answers
@@ -87,7 +89,7 @@ sub get_user_choice {
 			|| !defined($answers)
 			|| @$choices != @$answers
 			) {
-		print "${VTred}FATAL:${VTnorm} incorrect choices and/or answers for $question!\n";
+		print "${VTred}FATAL:${VTnorm} incorrect choices and/or answers for \"$question\"!\n";
 		exit 2;
 		}
 		if ($default >= @$choices) {
@@ -95,46 +97,57 @@ sub get_user_choice {
 		exit 2;
 		}
 		@pats = find_unique_prefix ($choices);
-		@$choices = map(lc, @$choices);
+		@choices = map(lc, @$choices);
+	#	Uppercase default answer
+		$choices[$default] = $VTgreen . uc($$choices[$default]);
 	}
+
 	#	Check open-with-default case
 	if ($default == -2) {
 		if (defined($answers)) {
-			@opendefault[0] = $VTgreen . $$answers[0];
-			$choices = \@opendefault;
+			@choices[0] = $VTgreen . $$answers[0];
 		} else {
 			print "${VTred}FATAL:${VTnorm} no default choice for \"$question\"!\n";
 			exit 2;
 		}
 	}
-	#	Uppercase default answer
-	if ($default > -1) {
-		$$choices[$default] = $VTgreen . uc($$choices[$default]);
-	}
+
 	#	Get answer from user and return a normalised one
+QLOOP:
 	while (1) {
 		print $question;
-		if (defined($choices) && @$choices) {
-			print " [${VTyellow}", join("${VTnorm}/${VTyellow}", @$choices), "${VTnorm}]";
+		if (@choices) {
+			print " [${VTyellow}", join("${VTnorm}/${VTyellow}", @choices), "${VTnorm}]";
 		}
 		print " ${VTslow}${VTyellow}>${VTnorm} ";
 		my $userentry = <STDIN>;
 		chomp($userentry);
 		#	See if user just hit "return"; if this is valid, give
 		#	default answer, otherwise ask again.
-		if ($userentry eq "") {
+		if ($userentry eq '') {
 			if ($default >= 0) {
 				return $$answers[$default];
 			} elsif ($default == -2) {
 				return $$answers[0];
 			} elsif ($default == -4) {
-				return "";
+				return '';
 			}
 			print "No default choice, try again...\n";
 			next;
 		}
 		#	If open question, return free text
 		if ($default < -1) {
+			if (defined($choices)) {	# Any constraint check?
+				my ($chk, $msg, $i);
+				for ($i = 0; $i < $#$choices; $i++) {
+					$chk = $$choices[$i];
+					$msg = $$choices[++$i];
+					if ($userentry !~ m/$chk/) {
+						print "${VTred}ERROR:${VTnorm} $msg, try again ...\n";
+						next QLOOP;
+					}
+				}
+			}
 			return $userentry;
 		}
 		#	Closed question: find which choice

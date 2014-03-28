@@ -1,5 +1,7 @@
 #!/usr/bin/perl -T
-# $Id: ident,v 1.37 2013/04/08 16:05:04 ajlittoz Exp $
+######################################################################
+#
+# $Id: ident,v 1.39 2013/11/08 14:22:25 ajlittoz Exp $
 #
 # ident --	Look up identifiers
 #
@@ -23,12 +25,12 @@
 #
 ######################################################################
 
-$CVSID = '$Id: ident,v 1.37 2013/04/08 16:05:04 ajlittoz Exp $ ';
+$CVSID = '$Id: ident,v 1.39 2013/11/08 14:22:25 ajlittoz Exp $ ';
 
 use strict;
 use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
 
-=head1 indent script
+=head1 ident script
 
 This script manages the HTTP requests for identifier search.
 
@@ -53,7 +55,7 @@ my $bad_refs;
 Function C<varinputs> is a "$variable" substitution function.
 It returns a string which is a concatenation of tags
 
-C<<E<lt>input type="hidden" name=">>I<variable_name>C<" value=">I<variable_value>C<<"E<gt> >>
+C<E<lt>input type="hidden" name=">I<variable_name>C<" value=">I<variable_value>C<"E<gt>>
 
 one for each variable defined in configuration parameter C<'variables'>.
 
@@ -65,7 +67,12 @@ sub varinputs {
 	my $ret = '';
 	foreach ($config->allvariables) {
 		if ($config->variable($_) ne $config->vardefault($_)) {
-			$ret .= "<input type=\"hidden\" name=\"$_\" value=\"" . $config->variable($_) . "\">\n";
+			$ret .=	'<input type="hidden" name="'
+				.	$_
+				.	'" value="'
+				.	$config->variable($_)
+				.	'">'
+				.	"\n";
 		}
 	}
 	return $ret;
@@ -125,7 +132,7 @@ possible trouble.
 sub checkvalidref {
 	my ($file) = @_;
 
-	if (	!$index->filetimestamp
+	if (!$index->filetimestamp
 				( $file
 				, $files->filerev($file, $releaseid)
 				)
@@ -137,8 +144,11 @@ sub checkvalidref {
 	# need it
 	#	&&	LXR::Lang::parseable($file)
 		) {
-		$bad_refs++; 'identinvalid'
-	} else {''}
+		$bad_refs++;
+		'identinvalid'
+	} else {
+		''
+	}
 }
 
 
@@ -208,7 +218,7 @@ sub ref_in_file {
 	my ($desc, $css, $path, $line) = @_;
 
 	if ($line < 0) {
-		return fileref($desc, $css." identapprox", $path, -$line);
+		return fileref($desc, $css.' identapprox', $path, -$line);
 	} else {
 		return fileref($desc, $css, $path, $line);
 	}
@@ -247,6 +257,8 @@ B<CAVEAT:>
 
 =over
 
+=item
+
 I<The element of the references array is a list.
 This list does not contain the same number of items for
 definitions and usages. In case of modification (notably
@@ -265,7 +277,7 @@ sub refsexpand {
 
 	countfiles ($refs);
 	# Select usage layout on the presence of a specific marker
-	if ($templ =~ m/\$lines\b/) {
+	if (0 <= index($templ, '$lines')) {
 	# We are in "many refs per line" layout
 		my @lines;
 		$last_file = @$refs[0];
@@ -278,24 +290,24 @@ sub refsexpand {
 			}
 LAST_EXPAND:
 			++$i;
-			if	( $last_file ne $file
-				|| $i >= scalar (@$refs)
+			if	( 	$last_file ne $file
+				||	$i >= scalar (@$refs)
 				) {
 				$ret .= expandtemplate
 						( $templ
 						,	( 'file'	=>
-					sub { ref_in_file($last_file, "identfile", $last_file) }
+					sub { ref_in_file($last_file, 'identfile', $last_file) }
 							, 'fileonce'=>
-					sub { ref_in_file($last_file, "identfile", $last_file) }
+					sub { ref_in_file($last_file, 'identfile', $last_file) }
 							, 'lines'	=> sub {
 								join	( ' '
-										, map { ref_in_file( abs($_), "identline", $last_file, $_)
+										, map { ref_in_file( abs($_), 'identline', $last_file, $_)
 											} @lines
 										) }
 							, 'type'	=> sub { $type }
-							, 'rel'		=> sub { if ($rel) { idref($rel, "identrel", $rel) } }
+							, 'rel'		=> sub { if ($rel) { idref($rel, 'identrel', $rel) } }
 							, 'fileref'	=> sub {
-								ref_in_file("$last_file, line ".abs($line), "identline", $last_file, $line);
+								ref_in_file("$last_file, line ".abs($line), 'identline', $last_file, $line);
 											}
 						, 'refinvalid'	=> sub { checkvalidref($last_file) }
 							)
@@ -318,15 +330,15 @@ LAST_EXPAND:
 			$ret .= expandtemplate
 					( $templ
 					,	( 'file'	=>
-				sub { ref_in_file($file, "identfile", $file) }
+				sub { ref_in_file($file, 'identfile', $file) }
 						, 'fileonce'=>
-				sub { if ($fileonce) { ref_in_file($fileonce, "identfile", $file) } }
+				sub { if ($fileonce) { ref_in_file($fileonce, 'identfile', $file) } }
 						, 'line'	=>
-				sub { ref_in_file( abs($line), "identline", $file, $line) }
+				sub { ref_in_file( abs($line), 'identline', $file, $line) }
 						, 'type'	=> sub { $type }
-						, 'rel'		=> sub { if ($rel) { idref($rel, "identrel", $rel) } }
+						, 'rel'		=> sub { if ($rel) { idref($rel, 'identrel', $rel) } }
 						, 'fileref'	=> sub {
-							ref_in_file("$file, line ".abs($line), "identline", $file, $line);
+							ref_in_file("$file, line ".abs($line), 'identline', $file, $line);
 										}
 						, 'refinvalid'	=> sub { checkvalidref($file) }
 						)
@@ -359,8 +371,12 @@ B<Note:>
 
 =over
 
+=item
+
 For usages, the last two element do no exist.
 The comparison stops after the first two steps.
+
+=back
 
 =cut
 
@@ -450,9 +466,9 @@ NATIVE_CASE:	# Remove uppercase duplicates
 }
 
 
-=head2 C<usessexpand ($templ)>
+=head2 C<usesexpand ($templ)>
 
-Function C<usessexpand> is a "$function" substitution function.
+Function C<usesexpand> is a "$function" substitution function.
 It returns an HTML string which is the concatenation of its
 expanded argument applied to every usage.
 
@@ -466,6 +482,13 @@ a I<string> containing the template (i.e. argument)
 
 The function queries the database for usages, then hands over
 definition layout to C<refsexpand>.
+
+Since some languages are case-insensitive, the database is also
+queried for the case-insensitive version of the identifier.
+The returned definitions are flagged with their line numbers set
+negative.
+The two lists are merged, removing duplicates and sorted as if a
+single query was made.
 
 =cut
 
@@ -515,7 +538,10 @@ NATIVE_CASE:	# Remove uppercase duplicates
 
 =head2 C<printident ()>
 
-Sub C<printident> is the main driver for identifier search.
+Procedure C<printident> is the main driver for identifier search.
+
+It retrieves template C<'htmldir'> and expands it using the dedicated
+functions defined in this file.
 
 =cut
 
@@ -525,10 +551,10 @@ sub printident {
 
 	$templ = gettemplate	( 'htmlident'
 							, $errorsig
-							, "<h2 class\"error\">Identifier search not available without 'htmlident' template</h2>\n"
+							, ''
 							);
-		if ($templ =~ m/^$errorsig/) {
-		die "'htmlident' template not configured";
+	if ($templ =~ m/^$errorsig/) {
+		die "Identifier search not available without 'htmlident' template\n";
 	}
 
 	print(
@@ -537,13 +563,23 @@ sub printident {
 			,	( 'variables'		=> \&varinputs
 				, 'identifier'		=> sub { $_ = $identifier; s/</&lt;/g; s/>/&gt;/g; return $_; }
 				, 'identifier_escaped'=> sub { $_ = $identifier; s/\"/&quot;/g; s/</&lt;/g; s/>/&gt;/g; return $_; }
-				, 'checked'			=> sub { $defonly ? 'checked="checked"' : "" }
+				, 'checked'			=> sub { $defonly ? 'checked="checked"' : '' }
+				, 'varbtnaction'	=> sub { varbtnaction(@_, 'ident') }
+				, 'urlargs'			=> sub { urlexpand('-', 'ident') }
 				, 'defs'			=> \&defsexpand
 				, 'uses'			=> \&usesexpand
 				)
 			)
 	);
 }
+
+
+=head2 Script entry point
+
+Builds the header and footer and launches C<printident>
+for the real job.
+
+=cut
 
 httpinit;
 makeheader('ident');

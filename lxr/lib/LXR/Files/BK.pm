@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: BK.pm,v 1.10 2013/01/17 09:30:00 ajlittoz Exp $
+# $Id: BK.pm,v 1.13 2013/12/03 13:38:23 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ Andre J. Littoz - April 2012
 
 package LXR::Files::BK;
 
-$CVSID = '$Id: BK.pm,v 1.10 2013/01/17 09:30:00 ajlittoz Exp $ ';
+$CVSID = '$Id: BK.pm,v 1.13 2013/12/03 13:38:23 ajlittoz Exp $ ';
 
 use strict;
 use File::Spec;
@@ -63,13 +63,14 @@ our $memcachecount = 0;
 our $diskcachecount = 0;
 
 sub new {
-	my ($self, $rootpath, $params) = @_;
+	my ($self, $config) = @_;
 
 	$self = bless({}, $self);
-	$self->{'rootpath'} = $rootpath;
+	$self->{'rootpath'} = substr($config->{'sourceroot'}, 3);
 	$self->{'rootpath'} =~ s!/*$!!;
-	die "Must specify a cache directory when using BitKeeper" if !(ref($params) eq 'HASH');
-	$self->{'cache'} = $$params{'cachepath'};
+	$self->{'path'} = $config->{'cvspath'};
+	die 'Must specify a cache directory when using BitKeeper' if !(ref($params) eq 'HASH');
+	$self->{'cache'} = $config->{'sourceparams'}{'cachepath'};
 	return $self;
 }
 
@@ -190,20 +191,21 @@ sub isfile {
 }
 
 
+#
+# Private interface
+#
+
 sub openbkcommand {
 	my ($self, $command) = @_;
 
 	my $dir = getcwd();
 	chdir($self->{'rootpath'});
 	my $fileh = IO::File->new();
+	$ENV{'PATH'} = $self->{'path'};
 	$fileh->open($command) or die "Can't execute $command";
 	chdir($dir);
 	return $fileh;
 }
-
-#
-# Private interface
-#
 
 sub insert_entry {
 	my ($newtree, $path, $entry, $curfile, $rev) = @_;
@@ -284,13 +286,12 @@ sub get_tree {
 
 sub cachename {
 	my ($self, $releaseid) = @_;
-	return $self->{'cache'}."/treecache-".$releaseid;
+	return $self->{'cache'}.'/treecache-'.$releaseid;
 }
 
 sub canonise {
 	my $path = shift;
-	$path =~ s!^/!!;
-	return $path;
+	return substr($path, 1);
 }
 
 # Check that the specified pathname, version combination exists in repository

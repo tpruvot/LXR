@@ -1,0 +1,36 @@
+#-
+#-	LXR nginx server configuration
+#-		FastCGI block
+#-
+#-	$Id: nginx-fastcgi.conf.part,v 1.1 2013/09/24 10:00:54 ajlittoz Exp $
+#-
+#-
+#-	This file fragment is meant to be "included" to form the
+#-	complete configuration file.
+#-
+#-	This fragment sets up nginx parameters for launching LXR scripts
+#-	in FastCGI mode through a wrapper.
+#-
+		{
+			set $virtroot    $1;
+			set $script_name $2;
+			gzip off; #gzip makes scripts feel slower since they have to complete before getting gzipped
+			alias %LXRroot%/;
+		# Create FastCGI environment for LXR scripts
+			include fastcgi.conf;
+			fastcgi_split_path_info   (diff|ident|search|showconfig|source)(.*)$;
+				# nginx bug? fastcgi.conf sets SERVER_NAME to $server_name,
+				# but this variable is equal to first name on server_name
+				# directive.
+				# However, this fix is not bullet-proof: $host is equal to value
+				# of HTTP header Host: if it exists, otherwise it reverts
+				# to $server_name.
+				# Consequently, there are residual cases where the correct
+				# hostname is not captured and CSS stylesheets and icons
+				# are not retrieved.
+			fastcgi_param SERVER_NAME      $host;
+			fastcgi_param SCRIPT_FILENAME  $document_root$script_name;
+			fastcgi_param SCRIPT_NAME      $virtroot$script_name;
+			fastcgi_param PATH_INFO        $fastcgi_path_info;
+			fastcgi_pass  unix:/var/run/fcgiwrap.socket;
+		}

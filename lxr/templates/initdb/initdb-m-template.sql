@@ -1,8 +1,8 @@
 /*- -*- tab-width: 4 -*- */
 /*-
  *	SQL template for creating MySQL tables
- *	(C) 2012 A. Littoz
- *	$Id: initdb-m-template.sql,v 1.4 2013/01/21 16:35:04 ajlittoz Exp $
+ *	(C) 2012-2013 A. Littoz
+ *	$Id: initdb-m-template.sql,v 1.6 2013/11/17 15:33:55 ajlittoz Exp $
  *
  *	This template is intended to be customised by Perl script
  *	initdb-config.pl which creates a ready to use shell script
@@ -126,12 +126,27 @@ create database %DB_name%;
 /*--*/
 use %DB_name%;
 
+/*@IF 0 */
+/*@	DEFINE autoinc='auto_increment'*/
+/*@ELSE*/
+/*- Unique record id user management (initially developed for SQLite) -*/
+/*@	DEFINE autoinc='              '*/
+/*@ADD initdb/unique-user-sequences.sql*/
+alter table %DB_tbl_prefix%filenum
+	engine = MyISAM;
+alter table %DB_tbl_prefix%symnum
+	engine = MyISAM;
+alter table %DB_tbl_prefix%typenum
+	engine = MyISAM;
+
+/*@ENDIF*/
+
 /* Base version of files */
 /*	revision:	a VCS generated unique id for this version
 				of the file
  */
 create table %DB_tbl_prefix%files
-	( fileid    int auto_increment not null primary key
+	( fileid    int %autoinc% not null primary key
 	, filename  varbinary(255)     not null
 	, revision  varbinary(255)     not null
 	, constraint %DB_tbl_prefix%uk_files
@@ -223,7 +238,7 @@ create trigger %DB_tbl_prefix%remove_release
 /*	declaration:	provided by generic.conf
  */
 create table %DB_tbl_prefix%langtypes
-	( typeid       smallint         not null auto_increment
+	( typeid       smallint         not null %autoinc%
 	, langid       tinyint unsigned not null
 	, declaration  varchar(255)     not null
 	, constraint %DB_tbl_prefix%pk_langtypes
@@ -237,7 +252,7 @@ create table %DB_tbl_prefix%langtypes
  *	symname:	symbol name
  */
 create table %DB_tbl_prefix%symbols
-	( symid    int            not null auto_increment primary key
+	( symid    int            not null %autoinc% primary key
 	, symcount int
 	, symname  varbinary(255) not null unique
 	)
@@ -278,7 +293,6 @@ create table %DB_tbl_prefix%definitions
 	, constraint %DB_tbl_prefix%fk_defn_fileid
 		foreign key (fileid)
 		references %DB_tbl_prefix%files(fileid)
-	, index (typeid, langid)
 	, constraint %DB_tbl_prefix%fk_defn_type
 		foreign key (typeid, langid)
 		references %DB_tbl_prefix%langtypes(typeid, langid)
@@ -291,11 +305,18 @@ create table %DB_tbl_prefix%definitions
 /* The following trigger maintains correct symbol reference count
  * after definition deletion.
  */
+delimiter //
 drop trigger if exists %DB_tbl_prefix%remove_definition;
 create trigger %DB_tbl_prefix%remove_definition
 	after delete on %DB_tbl_prefix%definitions
 	for each row
-	call %DB_tbl_prefix%decsym(old.symid);
+	begin
+		call %DB_tbl_prefix%decsym(old.symid);
+		if old.relid is not null
+		then call %DB_tbl_prefix%decsym(old.relid);
+		end if;
+	end//
+delimiter ;
 
 /* Usages */
 create table %DB_tbl_prefix%usages
@@ -326,6 +347,19 @@ create procedure %DB_tbl_prefix%PurgeAll ()
 begin
 	set @old_check = @@session.foreign_key_checks;
 	set session foreign_key_checks = OFF;
+/*@IF 0 */
+/*@ELSE*/
+/*- Unique record id user management -*/
+	truncate table %DB_tbl_prefix%filenum;
+	truncate table %DB_tbl_prefix%symnum;
+	truncate table %DB_tbl_prefix%typenum;
+	insert into %DB_tbl_prefix%filenum
+		(rcd, fid) VALUES (0, 0);
+	insert into %DB_tbl_prefix%symnum
+		(rcd, sid) VALUES (0, 0);
+	insert into %DB_tbl_prefix%typenum
+		(rcd, tid) VALUES (0, 0);
+/*@ENDIF*/
 	truncate table %DB_tbl_prefix%definitions;
 	truncate table %DB_tbl_prefix%usages;
 	truncate table %DB_tbl_prefix%langtypes;

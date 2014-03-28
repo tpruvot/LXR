@@ -17,25 +17,36 @@ Malcolm Box <mbox@users.sf.net>
 
 Principal Developers
 --------------------
-
 Peder O. Klingenberg <peder@klingenberg.no>
+
 Contributors
 ------------
 
-Pavel Hlavnicka <pavel@gingerall.cz>			CSS support
-Jason Dorie Short <jshort@devon.dhs.org>		File re-org
+Pavel Hlavnicka <pavel@gingerall.cz>
+		CSS support
+Jason Dorie Short <jshort@devon.dhs.org>
+		File re-org
 Joseph Corral <joseph_corral@hp.com>
-Kristoffer Gleditsch <toffer@ping.uio.no>		Postgres patches
-Guido Sohne						Updated INSTALL document
-Jens Heimann <jens.heimann@materna.de>			Oracle database support
-Patrick Gerlier <page74010-sf@yahoo.fr>			en & fr User's manual
-Andre-Littoz <ajlittoz@users.sf.net>			Website
-	"						Config scripts, genxref "POST" checks
-	"						Interactive configurator
-	"						Revised INSTALL document
-	"						Directory re-org
-	"						Git, Mercurial & Subversion backends
-	"						SQLite backend & many DB patches
+Kristoffer Gleditsch <toffer@ping.uio.no>
+		Postgres patches
+Guido Sohne
+		Updated INSTALL document
+Jens Heimann <jens.heimann@materna.de>
+		Oracle database support
+Patrick Gerlier <page74010-sf@yahoo.fr>
+	"	en & fr User's manual
+	"	en Developer's Manual
+	"	en Documentation Guidelines and en, fr Templates for documentation
+Andre-Littoz <ajlittoz@users.sf.net>
+	"	Website
+	"	Config scripts, genxref "POST" checks
+	"	Interactive configurator
+	"	Revised INSTALL document
+	"	Directory re-org
+	"	Git, Mercurial & Subversion backends
+	"	SQLite backend & many DB patches
+	"	lighttpd, nginx, Cherokee, thtpd web-server support
+	"	Generic parser optimisation
 
 
 -------------------------------------------------------------------------
@@ -43,4 +54,4 @@ To get your name added to this list, see:
  
    http://sf.net/projects/lxr
  
-Last updated: $Date: 2013/01/25 14:43:43 $
+Last updated: $Date: 2013/12/03 14:33:37 $

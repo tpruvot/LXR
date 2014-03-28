@@ -1,4 +1,4 @@
-<!--$Id: html-search-swish.html,v 1.3 2012/11/14 11:28:13 ajlittoz Exp $ -->
+<!--$Id: html-search-swish.html,v 1.4 2013/09/04 15:22:42 ajlittoz Exp $ -->
 
 <!--				html-search-swish.html
 		A template for free-text search with swish-e
@@ -31,8 +31,9 @@ Type a string to find:
 <br>Matches are case-insensitive unless you check the box below.
 <br>To use full-fledged Perl regex in the filename filter, check the other box below.
 
-<form method="get" action="search">
+<form method="get" action="$varbtnaction">
 $variables{<input type="hidden" name="$variable" value="$value">
+}$urlargs{               <input type="hidden" name="$urlvar" value="$urlval">
 }	<table>
 		<tr>
 			<td>

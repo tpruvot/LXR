@@ -2,7 +2,7 @@
 #- LXR master configuration file
 #-	Global configuration section
 #-
-#-	$Id: global.conf.part,v 1.3 2013/03/18 13:20:57 ajlittoz Exp $
+#-	$Id: global.conf.part,v 1.7 2013/12/03 13:38:23 ajlittoz Exp $
 #-
 #-
 #-	This file fragment is meant to be "included" to form the
@@ -14,12 +14,43 @@
 #-		################################
 #-
 	{
+		#
+		# Master mode (where to find the tree name) #
+		#===========================================#
+
+		# Possible values are:
+		#	- 'single'		single-tree context, no tree name (implicit)
+		#	- 'host'		one host per tree
+		#	- 'prefix'		generic host prefixed with tree name
+		#	- 'section'		one section per tree (to be handled through symbolic
+		#	          		                      links or duplication)
+		#	- 'embedded'	tree name embedded in section path
+		#	- 'argument'	first argument is tree name [PREFERRED]
+		# CAUTION!
+		#	Changing this parameter after initial configuration may
+		#	require adjustements to other parameters!
+
+#@CASE	%_routing%
+#@N:
+	  'routing' => 'single'
+#@H:
+	  'routing' => 'host'
+#@P:
+	  'routing' => 'prefix'
+#@S:
+	  'routing' => 'section'
+#@E:
+	  'routing' => 'embedded'
+#@A:
+	  'routing' => 'argument'
+#@ENDC
+
 		# Auxiliary tools subsection #
 		#============================#
 #@LOG Configuring auxiliary tool paths
 
 		#- Place where lxr can write temporary files
-	  'tmpdir' => '/tmp'
+	, 'tmpdir' => '/tmp'
 
 		#- Define this OR the swish-e variable depending which search engine you want to use.
 		#- Path to glimpse executables.
@@ -39,23 +70,31 @@
 		#- Location of the ectags.conf file
 	, 'ectagsconf' => '%LXRroot%/templates/ectags.conf'
 
-		#- Paths for CVS module
+		#- Paths for VCS storage modules
 	, 'cvspath' => '/bin:/usr/local/bin:/usr/bin:/usr/sbin'
+	, 'gitpath' => '/bin:/usr/local/bin:/usr/bin:/usr/sbin'
+	, 'hgpath'  => '/bin:/usr/local/bin:/usr/bin:/usr/sbin'
+	, 'svnpath' => '/bin:/usr/local/bin:/usr/bin:/usr/sbin'
 
 		# Computer DNS names subsection #
 		#================================
-#@LOG Configuring host name or IP (as http://...)
-#-#@ASK --- Host name?; -2
-#-	, 'host_names' =>	[ '%A%'
-#@LOG Host name previously defined as %scheme%%hostname%
-	,	'host_names' =>	[ '%scheme%%hostname%'
-#@KEEPON --- Alias name ? (hit return to stop)
-						, '%A%'
-#@ENDK
-#-						, //localhost
-#-						, https://192.168.1.1
-#-						, 'http://mycomputer.outside.domain:12345'
+#@IF	'H' ne "%_routing%" && 'P' ne "%_routing%"
+#@	LOG Host name previously defined as %scheme%//%hostname%
+	,	'host_names' =>	[ '%scheme%//%hostname%'
+#@	ARRAY schemealiases,S hostaliases,A portaliases,P
+#@		ON	none
+			# Put here aliases for host name, such as
+			#			, '//localhost'
+			#			, 'https://192.168.1.1'
+			#			, 'http://mycomputer.outside.domain:12345'
+#@		ENDON
+						, '%S%//%A%:%P%'
+#@	ENDA
 						]
+#@ELSE
+
+			# Specific host names are defined in tree sections
+#@ENDIF
 
 		# HTML subsection #
 		#=================#
@@ -64,36 +103,36 @@
 		# All paths in this subsection are relative to LXR root directory
 
 		# Templates used for headers and footers
-	, 'htmlfatal'		=> 'templates/html/html-fatal.html'
+	, 'htmlfatal'		=> '%LXRroot%/templates/html/html-fatal.html'
 #@MSG 'Buttons-and-menus' interface is recommended for the kernel
 #@MSG to avoid screen cluttering.
 #@ASK --- Use 'buttons-and-menus' instead of 'link' interface?; 1;yes, no; Y, N
 #@IF	"%A%" eq 'Y'
-	, 'htmlhead'		=> 'templates/html/html-head-btn.html'
+	, 'htmlhead'		=> '%LXRroot%/templates/html/html-head-btn.html'
 #@ELSE
-	, 'htmlhead'		=> 'templates/html/html-head.html'
+	, 'htmlhead'		=> '%LXRroot%/templates/html/html-head.html'
 #@ENDIF
-	, 'htmltail'		=> 'templates/html/html-tail.html'
-	, 'htmldir'			=> 'templates/html/html-dir-indexing.html'
+	, 'htmltail'		=> '%LXRroot%/templates/html/html-tail.html'
+	, 'htmldir'			=> '%LXRroot%/templates/html/html-dir-indexing.html'
 		# If you do not need the "last indexed" column in directory
 		# display (e.g. for a stable unchanging tree), erase the
 		# '-indexing' suffix above.
-	, 'htmlident'		=> 'templates/html/html-ident.html'
-	, 'htmlsearch'		=> 'templates/html/html-search-%search_engine%.html'
-	, 'htmlconfig'		=> 'templates/html/html-config.html'
+	, 'htmlident'		=> '%LXRroot%/templates/html/html-ident.html'
+	, 'htmlsearch'		=> '%LXRroot%/templates/html/html-search-%search_engine%.html'
+	, 'htmlconfig'		=> '%LXRroot%/templates/html/html-config.html'
 
 		# htmlhead and htmltail can be customised for the various
 		# LXR operations. Just replace html by source (listing file),
 		# sourcedir (displaying directory), diff (difference markup),
 		# ident (identifier search), search (free-text search)
 		# as below (which changes nothing):
-#	, 'sourcehead'		=> 'templates/html/html-head.html'
-#	, 'sourcedirhead'	=> 'templates/html/html-head.html'
+#	, 'sourcehead'		=> '%LXRroot%/templates/html/html-head.html'
+#	, 'sourcedirhead'	=> '%LXRroot%/templates/html/html-head.html'
 
 		# showconfig script is a bit special since "version" has
 		# no meaning for it. Better to wipe out the 'variables' selection
 		# links with an adequate header:
-	, 'showconfighead'		=> 'templates/html/config-head-btn-smaller.html'
+	, 'showconfighead'		=> '%LXRroot%/templates/html/config-head-btn-smaller.html'
 
 		# Default character width of left version (for diff)
 	, 'diffleftwidth'	=> 50
@@ -129,33 +168,33 @@
 # 	, 'iconfolder' => 'small-icons/'
 		# Don't forget the final / above.
 # 	, 'icons' =>
-#		{	'[gm]?awk'			=> 'application-x-awk.png'
-#		,	'c|pc'				=> 'text-x-csrc.png'
-# 		,	'h|hh'				=> 'text-x-chdr.png'
-# 		,	'c\+\+|cc|cpp|cxx'	=> 'text-x-c++src.png'
-# 		,	'hpp|hxx|h\+\+'		=> 'text-x-c++hdr.png'
-# 		,	'java'				=> 'text-x-java.png'
-# 		,	'js'				=> 'application-x-javascript.png'
-#		,	'ma?k'				=> 'text-x-makefile.png'
-# 		,	'plx?|pm|perl'		=> 'application-x-perl.png'
-# 		,	'php3?|phtml'		=> 'application-x-php.png'
-# 		,	'py|python|px'		=> 'text-x-python.png'
-# 		,	'sh|ba?sh|ksh|zsh|m4' => 'text-x-script.png'
-# 		,	's?html?'			=> 'text-html.png'
-# 		,	'css'				=> 'text-css.png'
-# 		,	'p|pas'				=> 'text-x-pascal.png'
-# 		,	'patch'				=> 'text-x-patch.png'
-# 		,	'pdf'				=> 'application-pdf.png'
-# 		,	'sql|pk(s|b)'		=> 'text-x-sql.png'
-# 		,	'rb|ruby'			=> 'application-x-ruby.png'
-# 		,	'txt'				=> 'text-plain.png'
-# 		,	'ui'				=> 'text-xml.png'
-# 		,	'.*\~'				=> 'application-x-trash'
+#		{	'[gm]?awk'			=> 'mimetypes/application-x-awk.png'
+#		,	'c|pc'				=> 'mimetypes/text-x-csrc.png'
+# 		,	'h|hh'				=> 'mimetypes/text-x-chdr.png'
+# 		,	'c\+\+|cc|cpp|cxx'	=> 'mimetypes/text-x-c++src.png'
+# 		,	'hpp|hxx|h\+\+'		=> 'mimetypes/text-x-c++hdr.png'
+# 		,	'java'				=> 'mimetypes/text-x-java.png'
+# 		,	'js'				=> 'mimetypes/application-x-javascript.png'
+#		,	'ma?k'				=> 'mimetypes/text-x-makefile.png'
+# 		,	'plx?|pm|perl'		=> 'mimetypes/application-x-perl.png'
+# 		,	'php3?|phtml'		=> 'mimetypes/application-x-php.png'
+# 		,	'py|python|px'		=> 'mimetypes/text-x-python.png'
+# 		,	'sh|ba?sh|ksh|zsh|m4' => 'mimetypes/text-x-script.png'
+# 		,	's?html?'			=> 'mimetypes/text-html.png'
+# 		,	'css'				=> 'mimetypes/text-css.png'
+# 		,	'p|pas'				=> 'mimetypes/text-x-pascal.png'
+# 		,	'patch'				=> 'mimetypes/text-x-patch.png'
+# 		,	'pdf'				=> 'mimetypes/application-pdf.png'
+# 		,	'sql|pk(s|b)'		=> 'mimetypes/text-x-sql.png'
+# 		,	'rb|ruby'			=> 'mimetypes/application-x-ruby.png'
+# 		,	'txt'				=> 'mimetypes/text-plain.png'
+# 		,	'ui'				=> 'mimetypes/text-xml.png'
+# 		,	'.*\~'				=> 'mimetypes/application-x-trash'
 # 		}
-# 	, 'graphicicon' => 'image-x-generic.png'
-# 	, 'defaulticon' => 'unknown.png'
-# 	, 'diricon'     => 'inode-directory.png'
-##	, 'parenticon'  => 'go-up.png'	# this one, in the actions subdirectory
+# 	, 'graphicicon' => 'mimetypes/image-x-generic.png'
+# 	, 'defaulticon' => 'mimetypes/unknown.png'
+# 	, 'diricon'     => 'mimetypes/inode-directory.png'
+#	, 'parenticon'  => 'actions/go-up.png'
 
 		#- How to map files to languages
 	, 'filetypeconf' => '%LXRroot%/templates/filetype.conf'
@@ -172,16 +211,28 @@
 		# your source trees.
 		# A parameter is "common" if its value must be simultaneously
 		# adjusted in every tree.
+#@IF	%_shared%
+#@	IF	'H' eq "%_routing%" || 'P' eq "%_routing%" || 'A' eq "%_routing%"
+#@		IF	%_commonvirtroot%
+
+		# Virtual root shared by all trees (or hosts)
+	, 'virtroot' => '%virtrootbase%'
+#@		ENDIF
+#@	ENDIF
+#@ENDIF
 
 		# Pattern for extracting tree name from URL, since all
 		# trees are usually served from the same physical server.
-#@IF	%_singlecontext%
+#@IF	'E' ne "%_routing%"
 		# Meaningful only in multiple trees context. Example for
 		# built-in method where tree id is last before script name
 #	, 'treeextract' => '([^/]*)/[^/]*$'
 #@ELSE
 		# Built-in method where tree id is last before script name
 	, 'treeextract' => '([^/]*)/[^/]*$'
+#@	IF	'b' ne "%_virtrootpolicy%"
+		##### REPLACE WITH YOUR OWN METHOD #####
+#@	ENDIF
 #@ENDIF
 
 #@IF	!%_dbuser%

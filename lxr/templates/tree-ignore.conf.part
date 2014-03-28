@@ -1,0 +1,42 @@
+#- -*- mode: perl -*-
+#- LXR master configuration file
+#-	Tree configuration section
+#-		Subdirectory subsection
+#-			Ignore definitions
+#-
+#-	$Id: tree-ignore.conf.part,v 1.1 2013/09/03 08:45:12 ajlittoz Exp $
+#-
+#-
+#-	This file fragment is meant to be "included" to form the
+#-	complete configuration file.
+#-
+#-
+#-		###############################
+#-		# Tree configuration sections #
+#-		###############################
+#-
+#-		# Subdirectory subsection #
+#-		#=========================#
+
+		# Tree-specific files to ignore (in every directory of the tree)
+		# Extend and uncomment the following copy of the global
+		# parameter to override:
+#	, 'ignorefiles' =>
+#		'^\\.|~$|\\.(o|a|orig)$|^CVS$|^core$'
+
+		# Directories to always ignore. These usually are the SCM's
+		# private directories which possibly may contain non-public
+		# project history. Note that .xxx directories are hidden
+		# by an internal hard-coded rule. Redundant example:
+#	, 'ignoredirs' => ['CVSROOT', 'CVS', '.git']
+#@MSG Some directories may contain non-public project data (binaries,
+#@MSG compilers caches, SCM control data, ...). They can be hidden from LXR.
+#@KEEPON --- Directory to ignore, e.g. CVSROOT or CVS? (hit return to stop)
+#@	ON	first
+	, 'ignoredirs' =>	[qw(
+#@	ENDON
+					%A%
+#@	ON	epilog
+						)]
+#@	ENDON
+#@ENDK

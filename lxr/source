@@ -1,5 +1,7 @@
 #!/usr/bin/perl -T
-# $Id: source,v 1.65 2013/04/08 16:11:29 ajlittoz Exp $
+######################################################################
+#
+# $Id: source,v 1.68 2013/11/29 15:44:55 ajlittoz Exp $
 #
 # source --	Present sourcecode as html, complete with references
 #  the '/icons' images are available in any standard Apache installation
@@ -24,10 +26,10 @@
 #
 ######################################################################
 
-$CVSID = '$Id: source,v 1.65 2013/04/08 16:11:29 ajlittoz Exp $ ';
+$CVSID = '$Id: source,v 1.68 2013/11/29 15:44:55 ajlittoz Exp $ ';
 
 use strict;
-use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" };  # if LXR modules are in ./lib
+use lib do { $0 =~ m{(.*)/} ? "$1/lib" : 'lib' };  # if LXR modules are in ./lib
 
 =head1 source script
 
@@ -42,11 +44,51 @@ use LXR::Template;
 use Local;
 
 
+=head2 C<iconlink ($html_elt, $path)>
+
+Internal function C<iconlink> is a support routine for
+C<diricon> and C<fileicon>.
+It works around the protection implemented in C<fileref>
+which prevents from inserting HTML elements in the "description".
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the HTML element without delimiters
+
+=item 1 C<$path>
+
+a I<string> containing the path of the icon file
+
+=back
+
+Custom delimiters are added to the HTML element
+which is transformed into a file link by C<fileref>.
+The custom delimiters are replaced by standard HTML
+delimiters in the returned link which is then sent back
+to caller.
+
+=cut
+
+sub iconlink {
+	my ($html_elt, $path) = @_;
+	my $link = fileref
+				( "\0S$html_elt\0E"
+				, ''
+				, $path
+				);
+	$link =~ s/\0S/</g;	# Starting delimiter
+	$link =~ s/\0E/>/g;	# Ending delimiter
+	return $link;
+}
+
+
 =head2 C<diricon ($templ, $node, $dir)>
 
 Function C<diricon> is a "$variable" substitution function.
-It returns a HTML-string containing an C<<E<lt>AE<gt> >> block
-surrounding an C<<E<lt>IMGE<gt> >> tag for a folder icon.
+It returns an HTML-string containing an C<E<lt>AE<gt>> block
+surrounding an C<E<lt>IMGE<gt>> tag for a folder icon.
 The link allows to jump to the directory.
 
 =over
@@ -75,33 +117,34 @@ sub diricon {
 	my $img;
 
 	if ($node eq '../') {
-		if (exists $config->{'iconfolder'}
-		&&  exists $config->{'parenticon'}
-		) {
+		if	(exists $config->{'iconfolder'}
+			&&  exists $config->{'parenticon'}
+			) {
 			$img = $config->{'iconfolder'} . $config->{'parenticon'};
 		} else {
-			$img = "/icons/back.gif";
+			$img = '/icons/back.gif';
 		}
 	} else {
-		if (exists $config->{'iconfolder'}
-		&&  exists $config->{'diricon'}
-		) {
+		if	(exists $config->{'iconfolder'}
+			&&  exists $config->{'diricon'}
+			) {
 			$img = $config->{'iconfolder'} . $config->{'diricon'};
 		} else {
-			$img = "/icons/folder.gif";
+			$img = '/icons/folder.gif';
 		}
 	}
 
-	return fileref(
-		"<img src=\"$img\" alt=\"folder $node\">",
-		"", $dir . $node);
+	return iconlink
+				( "img src=\"$img\" alt=\"folder\""
+				, $dir . $node
+				);
 }
 
 
 =head2 C<dirname ($templ, $node, $dir)>
 
 Function C<dirname> is a "$variable" substitution function.
-It returns a HTML-string containing an C<<E<lt>AE<gt> >> tag
+It returns an HTML-string containing an C<E<lt>AE<gt>> tag
 linking to the directory.
 
 =over
@@ -126,9 +169,9 @@ sub dirname {
 	my ($templ, $node, $dir) = @_;
 
 	if ($node eq '../') {
-		return fileref("Parent directory", "dirfolder", $dir . $node);
+		return fileref('Parent directory', 'dirfolder', $dir . $node);
 	} else {
-		return fileref($node, "dirfolder", $dir . $node);
+		return fileref($node, 'dirfolder', $dir . $node);
 	}
 }
 
@@ -136,8 +179,8 @@ sub dirname {
 =head2 C<fileicon ($templ, $node, $dir)>
 
 Function C<fileicon> is a "$variable" substitution function.
-It returns a HTML-string containing an C<<E<lt>AE<gt> >> block
-surrounding an C<<E<lt>IMGE<gt> >> tag for a file icon.
+It returns an HTML-string containing an C<E<lt>AE<gt>> block
+surrounding an C<E<lt>IMGE<gt>> tag for a file icon.
 The link allows to jump to the file.
 
 =over
@@ -164,7 +207,8 @@ use the designated icon; otherwise revert to the default Apache icon.
 sub fileicon {
 	my ($templ, $node, $dir) = @_;
 	my $img;
-	my $graphic = $config->graphicfile;
+	my $link;
+	my $graphic = $config->{'graphicfile'};
 	my $icons = $config->{'icons'};
 
 	if (exists $config->{'iconfolder'}) {
@@ -175,23 +219,28 @@ sub fileicon {
 				if ($ext =~ m/^($pat)$/i) {
 					$img = $config->{'iconfolder'} . $iconfile;
 					keys %$icons;	# reset iterator
-					return fileref("<img src=\"$img\" alt=\"file $node\">", "", $dir . $node);
+					return iconlink
+							( "img src=\"$img\" alt=\"file\""
+							, $dir . $node
+							);
 				}
 			}
 			if ($ext =~ m/^($graphic)$/) {
-				return fileref("<img src=\""
-							. $config->{'iconfolder'}
-							. $config->{'graphicicon'}
-							. "\" alt=\"graphic file $node\">"
-							, "", $dir . $node);
+				return iconlink
+							( 'img src="'
+								. $config->{'iconfolder'}
+								. $config->{'graphicicon'}
+								. "\" alt=\"graphic file\""
+							, $dir . $node);
 			}
 		}
 
-		return fileref("<img src=\""
-						. $config->{'iconfolder'}
-						. $config->{'defaulticon'}
-						. "\" alt=\"file $node\">"
-						, "", $dir . $node);
+		return iconlink	( 'img src="'
+							. $config->{'iconfolder'}
+							. $config->{'defaulticon'}
+							. '" alt="file"'
+						, $dir . $node
+						);
 	}
 
 # Fallback to some generally universally available icons
@@ -199,28 +248,29 @@ sub fileicon {
 # but they are usually not appealing.
 	if (!defined $img) {
 		if ($node =~ /\.[ch]$/) {
-			$img = "/icons/c.gif";
+			$img = '/icons/c.gif';
 		} elsif ($node =~ /\.(cpp|cc|java)$/) {
-			$img = "/icons/c.gif";
-		} elsif ($node =~ /\.(txt)$/) {
-			$img = "/icons/text.gif";
+			$img = '/icons/c.gif';
+		} elsif (substr($node, -4) eq '.txt') {
+			$img = '/icons/text.gif';
 		} elsif ($node =~ /\.(jar|war|ear|zip|tar|gz|tgz|cab)$/) {
-			$img = "/icons/compressed.gif";
+			$img = '/icons/compressed.gif';
 		} elsif ($node =~ /\.($graphic)$/) {
-			$img = "/icons/image2.gif";
+			$img = '/icons/image2.gif';
 		} else {
-			$img = "/icons/generic.gif";
+			$img = '/icons/generic.gif';
 		}
 	}
-	return fileref("<img src=\"$img\" alt=''>",
-		"", $dir . $node);
+	return iconlink	( "img src=\"$img\" alt=''",
+					, $dir . $node
+					);
 }
 
 
 =head2 C<filename ($templ, $node, $dir)>
 
 Function C<filename> is a "$variable" substitution function.
-It returns a HTML-string containing an C<<E<lt>AE<gt> >> tag
+It returns a HTML-string containing an C<E<lt>AE<gt>> tag
 linking to the file.
 
 =over
@@ -243,7 +293,7 @@ a I<string> containing the name of the parent directory
 
 sub filename {
 	my ($templ, $node, $dir) = @_;
-	return fileref($node, "dirfile", $dir . $node);
+	return fileref($node, 'dirfile', $dir . $node);
 }
 
 
@@ -281,13 +331,13 @@ sub filesize {
 	my $s = $files->getfilesize($dir . $node, $releaseid);
 	my $str;
 
-	$str = "$s ";
+	$str = $s . ' ';
 	if (length($s) > 6) {
 		$s >>= 10;
-		$str = "${s}ki";
+		$str = ${s} . 'ki';
 		if (length($s) > 7) {
 			$s >>= 10;
-			$str = "${s}Mi";
+			$str = ${s} . 'Mi';
 		}
 	}
 # 	if ($s < 1 << 10) {
@@ -336,7 +386,7 @@ sub _edittime {
 		my @t = gmtime($thetime);
 		my ($sec, $min, $hour, $mday, $mon, $year) = @t;
 		return sprintf(
-			"%04d-%02d-%02d %02d:%02d:%02d",
+			'%04d-%02d-%02d %02d:%02d:%02d',
 			$year + 1900,
 			$mon + 1, $mday, $hour, $min, $sec
 		);
@@ -420,6 +470,58 @@ sub indextime {
 }
 
 
+=head2 C<descexpand ($templ, $node, $dir, $releaseid)>
+
+Function C<descexpand> is a "$function" substitution function.
+It returns a short description for a file or a subdirectory
+in a directory listing.
+If no description can be extracted, the called support routines
+MUST return the string "&nbsp;" to keep the table looking pretty.
+
+=over
+
+=item 1 C<$templ>
+
+a I<string> containing the template (empty for a "variable")
+
+=item 1 C<$node>
+
+a I<string> containing the name of the file
+
+=item 1 C<$dir>
+
+a I<string> containing the name of the parent directory
+
+=item 1 C<$releaseid>
+
+a I<string> containing the version name
+
+Presently, not used.
+
+=back
+
+Control is passed to custom function located in F<Local.pm>.
+
+=cut
+
+sub descexpand {
+	my ($templ, $node, $dir, $releaseid) = @_;
+	if (substr($node, -1) eq '/') {
+		return expandtemplate
+			( $templ
+			, ('desctext' => sub { return dirdesc($dir . $node, $releaseid); }
+			  )
+			);
+	} else {
+		return expandtemplate
+			( $templ
+			, ('desctext' => sub { return filedesc($node, $dir, $releaseid); }
+			  )
+			);
+	}
+}
+
+
 =head2 C<rowclass ($templ, $line)>
 
 Function C<indextime> is a "$variable" substitution function.
@@ -441,7 +543,7 @@ an I<integer> containing the line number of the display
 
 sub rowclass {
 	my ($templ, $line) = @_;
-	return ((($line - 1) / 3) % 2) ? "dirrow2" : "dirrow1";
+	return ((($line - 1) / 3) % 2) ? 'dirrow2' : 'dirrow1';
 }
 
 
@@ -490,7 +592,7 @@ sub direxpand {
 	unless (@nodes) {
 		print(  "<p class=\"error\">\n<i>The directory " . $dir
 			  . " does not exist, is empty or is hidden by an exclusion rule.</i>\n</p>\n");
-		if	(  $files->isa("LXR::Files::CVS")
+		if	(  $files->isa('LXR::Files::CVS')
 			&& !$HTTP->{'param'}{'_showattic'}
 			) {
 			print("<p class=\"error\">\n");
@@ -506,7 +608,7 @@ sub direxpand {
 
 	unshift(@nodes, '../') unless $dir eq '/';
 	foreach $node (@nodes) {
-		if ($node =~ /\/$/) {
+		if (substr($node, -1) eq '/') {
 			$direx .= expandtemplate
 				(	$templ
 				,	( 'iconlink' => sub { diricon(@_, $node, $dir) }
@@ -530,22 +632,35 @@ sub direxpand {
 					, 'indextime'   => sub {
 						my $t = indextime(@_,  $node, $dir);
 						if ('-' eq $t) {
-							if (LXR::Lang::parseable($dir.$node)) { return 'Not valid' };
+							if (LXR::Lang::parseable($dir.$node)) {
+								return 'Not valid'
+							};
 							return '-';
 						}
 						$t }
 					, 'dirclass'    => sub { rowclass(@_, $line++) }
 					, 'dirindexclass' =>
-						sub { if (	'-' eq indextime(@_,  $node, $dir)
-								 &&	LXR::Lang::parseable($dir.$node))
-								{'dirindexinvalid'}
-							  else {'dirindex'} }
+						sub	{	if	(	!$index->filetimestamp
+											( $dir.$node
+											, $files->filerev
+												( $dir.$node
+												, $releaseid
+												)
+											)
+									&&	LXR::Lang::parseable($dir.$node)
+									) {
+									'dirindexinvalid'
+								} else {
+									'dirindex'
+								}
+							}
 					, 'description' => sub {
 						( $files->isa('LXR::Files::CVS')
-								&& $files->toreal($dir . $node, $releaseid) =~
-							  m|/Attic/|
-							? "<i>In Attic</i>  "
-							: ""
+								&& 0 <= index	( $files->toreal($dir . $node, $releaseid)
+												, 'Attic'
+												)
+							? '<i>In Attic</i>  '
+							: ''
 						) . descexpand(@_, $node, $dir, $releaseid);
 						}
 					)
@@ -581,7 +696,7 @@ sub printdir {
 
 	$templ = gettemplate
 				( 'htmldir'
-				, ""
+				, ''
 				, "<ul>\n\$files{\n<li>\$iconlink \$namelink\n}</ul>\n"
 				);
 
@@ -596,32 +711,41 @@ sub printdir {
 }
 
 
-=head2 C<printfile ($raw)>
+=head2 C<next_annot ($currev, $r, $bg)>
 
-Procedure C<printfile> is the main driver node display.
+Function C<next_annot> returns an HTML C<E<lt>SPANE<gt>> block
+containing revision and author information for the next file line.
 
 =over
 
-=item 1 C<$dir>
+=item 1 C<$currev>
 
-a I<"boolean"> requesting I<raw mode> if non zero
+a I<string> containing the requested version for the file
 
-=back
+=item 1 C<$r>
 
-It checks first for a directory described by global variable
-C<$pathname> to be handled by C<printdir>.
+a I<reference> to a I<string> containing the revision of the previous line
 
-In I<raw mode>, source file is output "as is", without any
-editing or highlighting.
+=item 1 C<$bg>
 
-Various information related to the source file are retrieved
-(last indexation time, VCS annotations, ...). They are checked
-and/or prepared for mixed output with source lines.
-
-If possible, links with other development tools are created
-and placed in the resulting HTML page.
+a I<reference> to a flag toggling between 0 and 1
 
 =back
+
+I<References allow to keep values between calls.>
+
+It returns an empty string if the repository manager has no annotation
+(either by design, I<e.g.> plain files, or disabled by configuration
+parameters).
+
+The returned block is a blank string if the line is part of the
+same change set as the previous line (to have a cleaner screen).
+
+Revision information is checked for space overflow and eventually
+truncated as per repository rule.
+
+Finally, a CSS class is computed (latest revision or alternating
+styles).
 
 =cut
 
@@ -632,7 +756,7 @@ sub next_annot {
 	# layout in order to prefix every source line with its
 	# associated annotation.
 	my $rev = $files->getnextannotation($pathname, $releaseid);
-	return if !defined($rev);
+	return '' if !defined($rev);
 	my $auth = $files->getauthor($pathname, $releaseid, $rev);
 
 	if ($rev eq $$r) {
@@ -642,7 +766,7 @@ sub next_annot {
 		} else {
 			$rev = "<span class='annot$$bg'>$rev</span>";
 		}
-	return $rev;
+		return $rev;
 	}
 
 	$$r = $rev;
@@ -691,7 +815,37 @@ sub next_annot {
 		$$bg = 1 - $$bg;
 		$rev = "<span class='annot$$bg'>$rev</span>";
 	}
+	return $rev;
 }
+
+
+=head2 C<printfile ($raw)>
+
+Procedure C<printfile> is the main driver for node display.
+
+=over
+
+=item 1 C<$dir>
+
+a I<"boolean"> requesting I<raw mode> if non zero
+
+=back
+
+It checks first for a directory described by global variable
+C<$pathname> to be handled by C<printdir>.
+
+In I<raw mode>, source file is output "as is", without any
+editing or highlighting.
+
+Various information related to the source file are retrieved
+(last indexation time, VCS annotations, ...). They are checked
+and/or prepared for mixed output with source lines.
+
+If possible, links with other development tools are created
+and placed in the resulting HTML page.
+
+
+=cut
 
 sub printfile {
 	my $raw = shift;
@@ -706,14 +860,13 @@ sub printfile {
 		if ($fileh) {
 			if ($raw) {
 				print($fileh->getlines );
-			}
 
-			#	    elsif ($node =~ /README$/) {
+			#	} elsif ($node =~ /README$/) {
 			#		print("<pre>",
 			#		      markupstring($fileh, $node, $index), # FIXME
 			#		      "</pre>");
-			#	    }
-			else {
+			#	}
+			} else {
 				# Check for a discrepancy between file and database states
 				if	(!$index->filetimestamp
 								( $pathname
@@ -725,15 +878,15 @@ sub printfile {
 						"<p class=\"error\">\n<i>Warning, cross-references for $pathname need to be fixed.</i>\n</p>\n"
 					);
 				}
-				if ($config->cvswebprefix) {
-					my $revtarget = "";
-					$revtarget = "#rev$releaseid" if lc($releaseid) ne "head";
-					print "<a href='"
-					  . $config->cvswebprefix
+				if (exists($config->{'cvswebprefix'})) {
+					my $revtarget = '';
+					$revtarget = "#rev$releaseid" if lc($releaseid) ne 'head';
+					print '<a class="cvsweb" href="'
+					  . $config->{'cvswebprefix'}
 					  . $pathname
-					  . $config->cvswebpostfix
+					  . $config->{'cvswebpostfix'}
 					  . $revtarget
-					  . "'>View CVS Log</a>";
+					  . '">View CVS Log</a>';
 				}
 
 				# Markup and output the source file
@@ -750,17 +903,16 @@ sub printfile {
 				markupfile($fileh, $outfun);
 				&$outfun("</pre>\n");
 			}
-		}
-		else {
+		} else {
 			print(
 				"<p class=\"error\">\n<i>The file $pathname does not exist.</i>\n</p>\n"
 			);
-			if	(  $files->isa("LXR::Files::CVS")
+			if	(  $files->isa('LXR::Files::CVS')
 				&& !$HTTP->{'param'}{'_showattic'}
 				) {
 				print("<p class=\"error\">\n");
-				print("<i>This file might exist in other versions,");
-				print	( " try 'Show attic files' or select a different",
+				print('<i>This file might exist in other versions,');
+				print	( ' try \'Show attic files\' or select a different',
 						, $config->{'variables'}{'v'}{'name'}
 						, ".</i>\n"
 						);
@@ -770,9 +922,17 @@ sub printfile {
 	}
 }
 
+
+=head2 Script entry point
+
+Selects the correct header and footer and launches C<printfile>
+for the real job.
+
+=cut
+
 httpinit;
 
-if ($config->filter && $pathname !~ $config->filter) {
+if (exists($config->{'filter'}) && $pathname !~ $config->filter) {
 	makeheader('source');
 	print("<p class=\"error\">\n<i>Filename $pathname is discarded by the present <code>'filter'</code> rule.</i>\n</p>\n");
 	makefooter('source');

@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: VTescape.pm,v 1.1 2012/09/22 08:50:33 ajlittoz Exp $
+# $Id: VTescape.pm,v 1.3 2013/11/07 16:32:40 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 #
 ###############################################
 
-# $Id: VTescape.pm,v 1.1 2012/09/22 08:50:33 ajlittoz Exp $
+# $Id: VTescape.pm,v 1.3 2013/11/07 16:32:40 ajlittoz Exp $
 
 package VTescape;
 
@@ -35,7 +35,9 @@ our @EXPORT = qw(
 	$VTred  $VTyellow $VTgreen $VTcyan $VTblue $VTmagenta
 	$VTblack          $VTwhite
 	VTCUU VTCUD VTCUF VTCUB VTCNL VTCPL VTCHA VTCUP
-	VTED  VTEL  VTSU  VTSD  VTHVP
+	VTDCH VTDL  VTDSR VTECH VTED  VTEL  VTHVP VTICH
+	VTIL  VTRCP VTRM  VTSCP VTSD  VTSM  VTSSR VTSU
+	VTprRM  VTprRSM VTprSM  VTprSVM
 );
 
 # Some ANSI escape sequences to highlight error messages in output
@@ -55,46 +57,68 @@ our $VTmagenta= "${VTbold}${CSI}35m";
 our $VTblack  = "${VTbold}${CSI}30m";
 our $VTwhite  = "${VTbold}${CSI}37m";
 
+# ICH = Insert blank CHaracters
+sub VTICH {
+	my $n = shift;
+	return $CSI
+		. ($n>1 ? $n : '')
+		. '@';
+}
+
 # CUU = CUrsor Up
 sub VTCUU {
 	my $n = shift;
-	return $CSI . $n . 'A';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'A';
 }
 
 # CUD = CUrsor Down
 sub VTCUD {
 	my $n = shift;
-	return $CSI . $n . 'B';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'B';
 }
 
 # CUF = CUrsor Forward
 sub VTCUF {
 	my $n = shift;
-	return $CSI . $n . 'C';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'C';
 }
 
 # CUB = CUrsor Backward
 sub VTCUB {
 	my $n = shift;
-	return $CSI . $n . 'D';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'D';
 }
 
 # CNL = Cursor beginning of Next Line
 sub VTCNL {
 	my $n = shift;
-	return $CSI . $n . 'E';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'E';
 }
 
 # CPL = Cursor beginning of Previous Line
 sub VTCPL {
 	my $n = shift;
-	return $CSI . $n . 'F';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'F';
 }
 
 # CHA = Cursor Horizontal Absolute
 sub VTCHA {
 	my $n = shift;
-	return $CSI . $n . 'G';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'G';
 }
 
 # CUP = CUrsor Position
@@ -107,32 +131,151 @@ sub VTCUP {
 sub VTED {
 	my $n = shift;
 	$n = 0 if $n > 2;
-	return $CSI . $n . 'J';
+	return $CSI
+		. ($n>0 ? $n : '')
+		. 'J';
 }
 
 # EL = Erase Line (0->EOL, BOL->1, 2:line)
 sub VTEL {
 	my $n = shift;
 	$n = 0 if $n > 2;
-	return $CSI . $n . 'K';
+	return $CSI
+		. ($n ? $n : '')
+		. 'K';
+}
+
+# IL = Insert Lines
+sub VTIL {
+	my $n = shift;
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'L';
+}
+
+# DL = Delete Lines
+sub VTDL {
+	my $n = shift;
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'M';
+}
+
+# DCH = Delete CHaracters
+sub VTDCH {
+	my $n = shift;
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'P';
 }
 
 # SU = Scroll Up
 sub VTSU {
 	my $n = shift;
-	return $CSI . $n . 'S';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'S';
 }
 
 # SD = Scroll Down
 sub VTSD {
 	my $n = shift;
-	return $CSI . $n . 'T';
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'T';
+}
+
+# ECH = Erase CHaracters
+sub VTECH {
+	my $n = shift;
+	return $CSI
+		. ($n>1 ? $n : '')
+		. 'X';
 }
 
 # HVP = Horizontal and Vertical Position (= CUP)
 sub VTHVP {
 	my ($row, $col) = @_;
 	return $CSI . $row . ';' . $col . 'f';
+}
+
+# SM = Set Mode
+sub VTSM {
+	return '' if 0 >= scalar(@_);
+	return $CSI . join(';', @_) . 'h';
+}
+
+# prSM = private Set Mode
+sub VTprSM {
+	return '' if 0 >= scalar(@_);
+	return $CSI . '?' . join(';', @_) . 'h';
+}
+
+# SM = Reset Mode
+sub VTRM {
+	return '' if 0 >= scalar(@_);
+	return $CSI . join(';', @_) . 'l';
+}
+
+# prRM = private Reset Mode
+sub VTprRM {
+	return '' if 0 >= scalar(@_);
+	return $CSI . '?' . join(';', @_) . 'l';
+}
+
+# DSR = Device Status Report
+#	Returns: (row, column) of cursor current position
+#
+# CAUTION! may be very Linux specific, portability not tested
+# NOTE: to be used as a function outside any print statement
+sub VTDSR {
+	# Put terminal in transparent mode (otherwise a manual
+	# <return> is necessary to report back the string.
+	# Suppress echo, so that status report is not displayed
+	system('stty -icanon min 1 time 0 -echo');
+	# Cause transmission on last character of status report
+	my $oldinpsep = $/;
+	$/ = 'R';
+	# Better be that STDOUT and STDERR point to the same device!!!
+	print STDERR $CSI, '6n';
+	my $status = <STDIN>;
+	# Revert everything
+	$/ = $oldinpsep;
+	system ('stty icanon echo');
+	$status =~ m/\[(\d+);(\d+)R/;
+	return ($1, $2);
+}
+
+# SSR (non-standardized name) = Set Scrolling Region
+# CAUTION! $top <= $bottom not checked!
+sub VTSSR {
+	my ($top, $bottom) = @_;
+	return $CSI
+		. $top . ';' . $bottom
+		. 'r';
+}
+
+
+# SCP = Save Cursor Position
+sub VTSCP {
+	return $CSI . 's';
+}
+
+# prRSM = private ReStore Mode
+sub VTprRSM {
+	return '' if 0 >= scalar(@_);
+	return $CSI . '?' . join(';', @_) . 'r';
+}
+
+# prSVM = private SaVe Mode
+sub VTprSVM {
+	return '' if 0 >= scalar(@_);
+	return $CSI . '?' . join(';', @_) . 's';
+}
+
+# RCP = Restore Cursor Position
+sub VTRCP {
+	return $CSI . 'u';
 }
 
 # SGR = Select Graphic Rendition, see $VTxxx

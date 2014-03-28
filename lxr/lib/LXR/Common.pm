@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Common.pm,v 1.103 2013/01/11 17:35:51 ajlittoz Exp $
+# $Id: Common.pm,v 1.111 2014/03/09 15:26:25 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,11 +22,11 @@
 
 This module contains HTTP initialisation and various HTML tag generation.
 
-I<Note:>
+B<Note:>
 
 =over
 
-I<It initially contained nearly all support routines,
+=item I<It initially contained nearly all support routines
 but for the "object" collections (files, index, lang), and was
 then correctly the "common" module.
 Its size grew beyond maintanability and readability and forced a
@@ -40,7 +40,7 @@ content.>
 
 package LXR::Common;
 
-$CVSID = '$Id: Common.pm,v 1.103 2013/01/11 17:35:51 ajlittoz Exp $ ';
+$CVSID = '$Id: Common.pm,v 1.111 2014/03/09 15:26:25 ajlittoz Exp $ ';
 
 use strict;
 
@@ -50,21 +50,13 @@ our @ISA = qw(Exporter);
 
 our @EXPORT = qw(
 	$files $index $config
-	$HTTP
+	$HTTP  $HTMLheadOK
 	$pathname $releaseid $identifier
-	&warning &fatal
-	&fflush
 	&urlargs &nonvarargs &fileref &diffref &idref &incref
 	&httpinit &httpclean
 );
-# our @EXPORT_OK = qw(
-#   &abortall 
-#   );
-
-# our %EXPORT_TAGS = ('html' => [@EXPORT_OK]);
 
 require Local;
-require LXR::SimpleParse;
 require LXR::Config;
 require LXR::Files;
 require LXR::Index;
@@ -78,11 +70,17 @@ our $pathname;
 our $releaseid;
 our $identifier;
 our $HTTP;
+our $HTMLheadOK;
 
-my $wwwdebug = 0;
+# Debugging flag - MUST be set to zero before public release
+my $wwwdebug = 1;
 
 # Initial value of temp file counter (see sub tmpcounter below)
 my $tmpcounter = 23;
+
+# Flag telling if HTTP headers have sent, thus allowing to emit
+# HTML code freely
+my $HTTP_inited;
 
 
 #######################################
@@ -91,18 +89,12 @@ my $tmpcounter = 23;
 #
 # HTML display is effective only when $wwwdebug is non zero
 
-# TODO:	update these functions so that they can be used
-#		even before sub httpinit has been called to provide
-#		a safe and reliable debugging display.
-# Hint:	create a flag telling if HTTP headers have already been
-#		sent; if not, ouput a minimal set of headers to allow
-#		for HTML environment.
-
 
 =head2 C<warning ($msg)>
 
-Function C<warning> issues a warning message and
-returns to the caller.
+Function C<warning> (hook for C<warn> statement)
+issues a warning message into the error log
+and optionally on screen.
 
 =over
 
@@ -113,28 +105,69 @@ a I<string> containing the message
 =back
 
 The message is prefixed with Perl context information.
-It is printed both on STDERR and in the HTML stream.
+It is printed on STDERR and if enabled on STDOUT as an HTML fragment.
 
 To prevent HTML mayhem, HTML tag delimiters are replaced by their
 entity name equivalent.
+
+I<This function is called after successful initialisation.
+There is no need to check for HTTP header state,
+since early errors are fatal and handled by the next function.
+However, the C<E<lt>HTMLE<gt>> tag and C<E<lt>BODYE<gt>> element
+may not yet have been emitted if this is an error on the page header
+template.>
+
+B<Note:>
+
+=over
+
+=item
+
+I<Since it proved a valuable debuging aid, the function has been modified
+so that it can be used very early in LXR initialisation.
+Variable C<$HTMLheadOK> tells if the "standard" header part of the
+page has already been sent to screen.
+If not, some general purpose header is emitted to support HTML layout
+of the warning message.>
+
+I<Of course, when the standard header part is later emitted,
+some of its components will be discarded (or not properly set) by the browser
+because they occur at an inappropriate location (not HTML-compliant).
+This happens only in exceptional circumstances, usually requiring
+fix by the LXR administrator.>
+
+=back
 
 =cut
 
 sub warning {
 	my $msg = shift;
-	my $c = join(", line ", (caller)[ 0, 2 ]);
-	print(STDERR "[", scalar(localtime), "] warning: $c: $msg\n");
-	$msg =~ s/</&lt;/g;
-	$msg =~ s/>/&gt;/g;
-	return ("<h4 class=\"warning\"><i>** Warning: $msg</i></h4>\n")
-		if $wwwdebug;
-	return '';
+	my $c = join(', line ', (caller)[ 0, 2 ]);
+	print(STDERR '[', scalar(localtime), "] warning: $c: $msg\n");
+	if ($wwwdebug) {
+		if (!$HTMLheadOK) {
+			print '<html><head><title>No LXR Page Header Warning!</title>', "\n";
+			print '<base href="', $HTTP->{'host_access'}, $HTTP->{'script_path'}, "/\">\n";
+		# Next line in the hope situation is not too bad
+			print '<link rel="stylesheet" type="text/css" href="templates/lxr.css">', "\n";
+			print '</head>', "\n";
+			print '<body>', "\n";
+			$HTMLheadOK = 1;
+		};
+		$msg =~ s/</&lt;/g;
+		$msg =~ s/>/&gt;/g;
+		$msg =~ s/\n/\n<br>/g;
+		print	'<h4 class="warning"><p class="headline">** Warning **</p>'
+				. $msg
+				. "</h4>\n";
+	}
 }
 
 
 =head2 C<fatal ($msg)>
 
-Function C<fatal> issues an error message and quits.
+Function C<fatal> (hook for C<die> statement)
+issues an error message and quits.
 
 =over
 
@@ -149,89 +182,57 @@ and tentative LXR configuration data is dumped (on STDERR).
 
 The message is printed both on STDERR and in the HTML stream.
 
-B<Notes:>
+If variable C<$HTTP_inited> is not set,
+HTTP standard headers have not yet been emitted.
+In this case, minimal headers and HTML initial elements
+(start of stream, C<E<lt>HEADE<gt>> element and start of body)
+are printed before the message
+and the HTML page is properly closed.
+
+B<Note>:
 
 =over
 
-The message should be protected against HTML abuse by replacing
-the HTML tag delimiters by their entity name equivalent.
+=item
 
-Since LXR is exited immediately, the HTML stream is not properly
-closed. This may cause problem in some browsers.
+I<The message may be emitted after the final closing
+C<&lt;/HTMLE<gt>> tag if some regular HTML precedes the call
+to this subroutine.
+This is not HTML-compliant.
+Some browsers may complain.>
 
 =back
 
 =cut
 
 sub fatal {
-	my $c = join(", line ", (caller)[ 0, 2 ]);
-	print(STDERR "[", scalar(localtime), "] fatal: $c: $_[0]\n");
-	print(STDERR '[@INC ', join(" ", @INC), ' $0 ', $0, "\n");
-	print(STDERR '$config', join(" ", %$config), "\n") if ref($config) eq "HASH";
-	print("<h4 class=\"fatal\"><i>** Fatal: $_[0]</i></h4>\n")
-		if $wwwdebug;
+	my $msg = shift;
+	my $c = join(', line ', (caller)[ 0, 2 ]);
+	print(STDERR '[', scalar(localtime), "] fatal: $c: $msg\n");
+	print(STDERR '[@INC ', join(' ', @INC), ' $0 ', $0, "\n");
+	print(STDERR '$config', join(' ', %$config), "\n")
+		if ref($config) eq 'HASH';
+	# If HTTP is not yet initialised, emit a minimal set of headers
+	if ($wwwdebug) {
+		if (!$HTTP_inited) {
+			httpminimal();
+			print '<html><head><title>LXR Fatal Error!</title>', "\n";
+			print '<base href="', $HTTP->{'host_access'}, $HTTP->{'script_path'}, "/\">\n";
+		# Next line in the hope situation is not too bad
+			print '<link rel="stylesheet" type="text/css" href="templates/lxr.css">', "\n";
+			print '</head>', "\n";
+			print '<body>', "\n";
+		};
+		$msg =~ s/</&lt;/g;
+		$msg =~ s/>/&gt;/g;
+		$msg =~ s/\n/\n<br>/g;
+		print	'<h4 class="fatal"><p class="headline">** Fatal **</p>'
+				. $msg
+				. "</h4>\n";
+		# Properly close the HTML stream
+		print '</body></html>', "\n";
+	}
 	exit(1);
-}
-
-
-=head2 C<abortall ($msg)>
-
-Function C<abortall> issues an error message and quits.
-
-=over
-
-=item 1 C<$msg>
-
-a I<string> containing the message
-
-=back
-
-Perl context information is given (on STDERR).
-
-A minimal error page is sent to the user (if $wwwdebug is non zero).
-
-B<Notes:>
-
-=over
-
-The message should be protected against HTML abuse by replacing
-the HTML tag delimiters by their entity name equivalent.
-
-=back
-
-=cut
-
-sub abortall {
-	my $c = join(", line ", (caller)[ 0, 2 ]);
-	print(STDERR "[", scalar(localtime), "] abortall: $c: $_[0]\n");
-	print	( "Content-Type: text/html; charset=iso-8859-1\n\n"
-			, "<html>\n<head>\n<title>Abort</title>\n</head>\n"
-			, "<body><h1>Abort!</h1>\n"
-			, "<b><i>** Aborting: $_[0]</i></b>\n"
-			, "</body>\n</html>\n"
-			)
-		if $wwwdebug;
-	exit(1);
-}
-
-
-=head2 C<fflush ()>
-
-Function C<fflush> sets STDOUT in autoflush mode.
-
-B<Note:>
-
-=over
-
-This sub is no longer needed and is a candidate for removal.
-
-=back
-
-=cut
-
-sub fflush {
-	$| = 1;
-	print('');
 }
 
 
@@ -266,11 +267,10 @@ A non "variable" key is identified by its "sigil", an underscore
 sub nonvarargs {
 	my @args;
 
-	foreach my $param (keys %{$HTTP->{'param'}}) {
-		next unless $param =~ m!^_!;
-		my $val = $HTTP->{'param'}{$param};
+	while ((my $param, my $val) = each %{$HTTP->{'param'}}) {
+		next unless substr($param, 0, 1) eq '_';
 		if (length($val)) {
-			push(@args, "$param=$HTTP->{'param'}{$param}");
+			push(@args, "$param=$val");
 		}
 	}
 
@@ -308,7 +308,7 @@ sub urlargs {
 	my $val;
 
 	foreach (@args) {
-		$args{$1} = $2 if /(\S+)=(\S*)/;
+		$args{$1} = $2 if m/(\S+)=(\S*)/;
 	}
 	@args = ();
 
@@ -318,8 +318,10 @@ sub urlargs {
 		delete($args{$_});
 	}
 
-	foreach (keys(%args)) {
-		push(@args, "$_=$args{$_}");
+	while ((my $param, $val) = each(%args)) {
+		$param = http_encode($param);
+		$val   = http_encode($val);
+		push(@args, "$param=$val");
 	}
 
 	return ($#args < 0 ? '' : '?' . join('&', @args));
@@ -328,7 +330,7 @@ sub urlargs {
 
 =head2 C<fileref ($desc, $css, $path, $line, @args)>
 
-Function C<fileref> returns an C<< E<lt>AE<gt> >> link to a specific line
+Function C<fileref> returns an C<E<lt>AE<gt>> link to a specific line
 of a source file.
 
 =over
@@ -356,7 +358,7 @@ an I<array> containing "key=value" elements
 
 =back
 
-Notes:
+B<Notes:>
 
 =over
 
@@ -367,7 +369,7 @@ characters.
 =item 1 Since line anchor ids in LXR are at least 4 characters in length,
 the line number is eventually extended with zeros on the left.
 
-= item 1 The @args argument is used to pass state and makes use of sub
+=item 1 The @args argument is used to pass state and makes use of sub
 C<urlargs>.
 
 =back
@@ -377,21 +379,29 @@ C<urlargs>.
 sub fileref {
 	my ($desc, $css, $path, $line, @args) = @_;
 
-	# jwz: URL-quote any special characters.
-	$path =~ s|([^-a-zA-Z0-9.\@/_\r\n])|sprintf("%%%02X", ord($1))|ge;
+	# Protect against malicious attacks
+	$path = http_encode($path);
+	$desc =~ s/&/&amp;/g;
+	$desc =~ s/</&lt;/g;
+	$desc =~ s/>/&gt;/g;
 
-	if ($line > 0 && length($line) < 4) {
-		$line = ('0' x (4 - length($line))) . $line;
-	}
+	$line = ('0' x (4 - length($line))) . $line;
 
-	return	( "<a class='$css' href=\"$config->{virtroot}/source$path"
+	return	( "<a class='$css' href=\""
+				. $config->{'virtroot'}
+				. 'source'
+				. ( exists($config->{'treename'})
+				  ? '/'.$config->{'treename'}
+				  : ''
+				  )
+				. $path
 			. &urlargs	( ($HTTP->{'param'}{'_showattic'}
-						  ? "_showattic=1"
-						  : ""
+						  ? '_showattic=1'
+						  : ''
 						  )
 						, @args
 						)
-			. ($line > 0 ? "#$line" : "")
+			. ($line > 0 ? "#$line" : '')
 			. "\"\>$desc</a>"
 			);
 }
@@ -399,7 +409,7 @@ sub fileref {
 
 =head2 C<diffref ($desc, $css, $path, @args)>
 
-Function C<diffref> returns an C<< E<lt>AE<gt> >> link for the first
+Function C<diffref> returns an C<E<lt>AE<gt>> link for the first
 step of difference display selection.
 
 =over
@@ -435,8 +445,19 @@ arguments between calls.
 sub diffref {
 	my ($desc, $css, $path, @args) = @_;
 
-	$path =~ s|([^-a-zA-Z0-9.\@/_\r\n])|sprintf("%%%02X", ord($1))|ge;
-	return	( "<a class='$css' href=\"$config->{virtroot}/diff$path"
+	# Protect against malicious attacks
+	$path = http_encode($path);
+	$desc =~ s/&/&amp;/g;
+	$desc =~ s/</&lt;/g;
+	$desc =~ s/>/&gt;/g;
+	return	( "<a class='$css' href=\""
+				. $config->{'virtroot'}
+				. 'diff'
+				. ( exists($config->{'treename'})
+				  ? '/'.$config->{'treename'}
+				  : ''
+				  )
+				. $path
 			. &urlargs	( &nonvarargs()
 						, @args
 						)
@@ -447,7 +468,7 @@ sub diffref {
 
 =head2 C<idref ($desc, $css, $id, @args)>
 
-Function C<idref> returns an C<< E<lt>AE<gt> >> link to the cross
+Function C<idref> returns an C<E<lt>AE<gt>> link to the cross
 reference list of an identifier.
 
 =over
@@ -479,72 +500,31 @@ arguments between calls.
 
 sub idref {
 	my ($desc, $css, $id, @args) = @_;
-	return ("<a class='$css' href=\"$config->{virtroot}/ident"
-		  . &urlargs	( ($id ? "_i=$id" : "")
+
+	# Protect against malicious attacks
+	$id = http_encode($id);
+	$desc =~ s/&/&amp;/g;
+	$desc =~ s/</&lt;/g;
+	$desc =~ s/>/&gt;/g;
+	return	( "<a class='$css' href=\""
+				. $config->{'virtroot'}
+				. 'ident'
+				. ( exists($config->{'treename'})
+				  ? '/'.$config->{'treename'}
+				  : ''
+				  )
+			. &urlargs	( ($id ? "_i=$id" : '')
 						, &nonvarargs()
 						, @args
 						)
-		  . "\"\>$desc</a>");
-}
-
-
-=head2 C<incfindfile ($filewanted, $file, @paths)>
-
-Function C<incfindfile> returns the "real" path corresponding to argument
-C<$file>.
-
-=over
-
-=item 1 C<$filewanted>
-
-a I<flag> indicating if a directory (0) or file (1) is desired
-
-=item 1 C<$file>
-
-a I<string> containing a file name
-
-=item 1 C<@paths>
-
-an I<array> containing a list of directories to search
-
-=back
-
-The list of directories from configuration parameter C<'incprefix'> is
-appended to C<@paths>. Every directory from this array is then preprended
-to the file name . The resulting string is transformed by the mapping
-rules of configuration parameter C<'maps'> (sub C<mappath>).
-
-If there is a match in the file database (file or directory according
-to the first argument), the "physical" path is returned.
-Otherwise, an C<undef> is return to signal an unknown file.
-
-I<This is an internal sub only.>
-
-=cut
-
-sub incfindfile {
-	my ($filewanted, $file, @paths) = @_;
-	my $path;
-
-	push(@paths, $config->incprefix);
-
-	foreach my $dir (@paths) {
-		$dir =~ s/\/+$//;
-		$path = $config->mappath($dir . "/" . $file);
-		if ($filewanted){
-			return $path if $files->isfile($path, $releaseid);
-		} else {
-			return $path if $files->isdir($path, $releaseid);
-		}
-	}
-
-	return undef;
+			. "\"\>$desc</a>"
+			);
 }
 
 
 =head2 C<incref ($name, $css, $file, @paths)>
 
-Function C<incref> returns an C<< E<lt>AE<gt> >> link to an C<include>d
+Function C<incref> returns an C<E<lt>AE<gt>> link to an C<include>d
 file or C<undef> if the file is unknown.
 
 =over
@@ -578,64 +558,11 @@ sub incref {
 	my ($name, $css, $file, @paths) = @_;
 	my $path;
 
-	$path = incfindfile(1, $file, @paths);
+	$path = &LXR::Lang::_incfindfile(1, $file, @paths);
 	return undef unless $path;
 	return &fileref	( $name
 					, $css
 					, $path
-					);
-}
-
-
-=head2 C<incdirref ($name, $css, $file, @paths)>
-
-Function C<incdirref> returns an C<< E<lt>AE<gt> >> link to a directory
-of an C<include>d file or the directory name if it is unknown.
-
-=over
-
-=item 1 C<$name>
-
-a I<string> for the user-visible part of the link,
-usually the directory name
-
-=item 1 C<$css>
-
-a I<string> containing the CSS class for the link
-
-=item 1 C<$file>
-
-a I<string> containing the HTML path to the directory
-
-=item 1 C<@paths>
-
-an I<array> containing a list of base directories to search
-
-=back
-
-I<<This function is supposed to be called AFTER sub C<incref> on every
-subpath of the include'd file, removing successively the tail directory.
-It thus allows to compose a path where each directory is separately
-clickable.>>
-
-If the include'd directory does not exist (as determined by sub C<incfindfile>),
-the function returns the directory name. This acts as a "no-op" in the
-HTML sequence representing the full path of the include'd file.
-
-If the directory exists, the function returns the E<lt>AE<gt> link
-as computed by sub C<fileref> for the directory.
-
-=cut
-
-sub incdirref {
-	my ($name, $css, $file, @paths) = @_;
-	my $path;
-
-	$path = incfindfile(0, $file, @paths);
-	return $name unless $path;
-	return &fileref	( $name
-					, $css
-					, $path.'/'
 					);
 }
 
@@ -673,6 +600,27 @@ sub http_wash {
 }
 
 
+=head2 C<http_encode ($name)>
+
+Function C<http_encode> returns its argument URL-quoted.
+
+=over
+
+=item 1 C<$name>
+
+a I<string> to URL-quote
+
+=back
+
+=cut
+
+sub http_encode {
+	my $t = shift;
+	return undef if !defined $t;
+	$t =~ s|([^-a-zA-Z0-9.@/_~\r\n])|sprintf('%%%02X', ord($1))|ge;
+	return $t
+}
+
 =head2 C<fixpaths ($node)>
 
 Function C<fixpaths> fixes its node argument to prevent unexpected
@@ -688,7 +636,7 @@ a I<string> for the path to fix
 
 This is a security function. If the node argument contains any
 C</../> part, it is removed with the preceding part.
-Also all repeating C</> are replaced by a single slash.
+Also C</./> and all repeating C</> are replaced by a single slash.
 
 The OS will then be presented only "canonical" paths without access
 computation, minimizing the risk of unwanted access.
@@ -696,6 +644,8 @@ computation, minimizing the risk of unwanted access.
 B<Note:>
 
 =over
+
+=item
 
 Caution! Any use of this sub before full LXR context initialisation
 (i.e. before return from sum C<httpinit>) is doomed to fail
@@ -711,12 +661,27 @@ sub fixpaths {
 	my $node = '/' . shift;
 
 	while ($node =~ s|/[^/]+/\.\./|/|g) { }
-	$node =~ s|/\.\./|/|g;
+	$node =~ s|/\.\.?/|/|g;
 
 	$node .= '/' if $files->isdir($node, $releaseid);
 	$node =~ s|//+|/|g;
 
 	return $node;
+}
+
+
+=head2 C<httpminimal ()>
+
+Function C<printhttp> ouputs minimal HTTP headers.
+
+=cut
+
+sub httpminimal {
+	print 'Content-Type: text/html; charset=utf-8', "\n";
+	#Since this a transient error, don't keep it in cache
+	print 'Expires: Thu, 01 Jan 1970 00:00:00 GMT', "\n";
+	print "\n";
+	$HTTP_inited = 1;
 }
 
 
@@ -740,7 +705,7 @@ sub printhttp {
 	# Made it stat all currently loaded modules.  -- agg.
 
 	my $time = $files->getfiletime($pathname, $releaseid);
-	my $time2 = (stat($config->confpath))[9];
+	my $time2 = (stat($config->{'confpath'}))[9];
 	$time = $time2 if !defined $time || $time2 > $time;
 
 	# Remove this to see if we get a speed increase by not stating all
@@ -763,9 +728,9 @@ sub printhttp {
 
 	if ($time > 0) {
 		my ($sec, $min, $hour, $mday, $mon, $year, $wday) = gmtime($time);
-		my @days = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun");
+		my @days = ('Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun');
 		my @months =
-		  ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec");
+		  ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec');
 		$year += 1900;
 		$wday = $days[$wday];
 		$mon  = $months[$mon];
@@ -778,22 +743,26 @@ sub printhttp {
 	if ($HTTP->{'param'}{'_raw'}) {
 
 		#FIXME - need more types here
-		my %type = (
-			'gif'  => 'image/gif',
-			'html' => 'text/html'
-		);
+		my %type =
+			( 'gif'  => 'image/gif'
+			, 'html' => 'text/html'
+			, 'shtml'=> 'text/html'
+			);
 
-		if ($pathname =~ /\.([^.]+)$/ && $type{$1}) {
-			print("Content-Type: ", $type{$1}, "\n");
+		if	(	$pathname =~ m/\.([^.]+)$/
+			&&	exists($type{$1})
+			) {
+			print('Content-Type: ', $type{$1}, "\n");
 		} else {
 			print("Content-Type: text/plain\n");
 		}
 	} else {
-		print("Content-Type: text/html; charset=", $config->{'encoding'}, "\n");
+		print('Content-Type: text/html; charset=', $config->{'encoding'}, "\n");
 	}
 
 	# Close the HTTP header block.
 	print("\n");
+	$HTTP_inited = 1;
 }
 
 
@@ -816,7 +785,7 @@ invocation to the other. The URL (query) arguments are spread into
 
 =item 1 exclamation mark (C<!>): override C<'variables'> value
 
-=item 1 tilde (C<~>): differrence C<'variables'>
+=item 1 tilde (C<~>): difference C<'variables'>
 
 =item 1 underscore (C<_>): LXR operational parameter
 
@@ -829,45 +798,86 @@ C<httpinit> deals only with the first 2 namespaces.
 sub httpinit {
 	$SIG{__WARN__} = \&warning;
 	$SIG{__DIE__}  = \&fatal;
+	$HTTP_inited = undef;
+	my $olddebug = $wwwdebug;
+	$wwwdebug = 1;	# Display something for early errors
+					# instead of leaving user with a blank screen
 
 	$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin:/usr/sbin';
 
 	# Parse and split URL
 	$HTTP->{'path_info'} = http_wash($ENV{'PATH_INFO'});
-
 	$HTTP->{'path_info'} = clean_path($HTTP->{'path_info'});
-	$HTTP->{'path_info'} = '/' if $HTTP->{'path_info'} eq "";
-	$HTTP->{'this_url'} = 'http://' . $ENV{'SERVER_NAME'};
-	$HTTP->{'this_url'} .= ':' . $ENV{'SERVER_PORT'}
-	  if $ENV{'SERVER_PORT'} != 80;
-	$HTTP->{'this_url'} .= $ENV{'SCRIPT_NAME'};
-	my $script_path = $HTTP->{'this_url'};
+	$HTTP->{'path_info'} = '/' if $HTTP->{'path_info'} eq '';
+	($HTTP->{'path_root'})
+		= $HTTP->{'path_info'} =~ m!^/([^/]+)!;
+
+	$HTTP->{'host_access'}  = 'http://' . $ENV{'SERVER_NAME'};
+	$HTTP->{'host_access'} .= ':' . $ENV{'SERVER_PORT'}
+		if $ENV{'SERVER_PORT'} != 80;
+
+	my $script_path = $ENV{'SCRIPT_NAME'};
+# die "server $ENV{'SERVER_SOFTWARE'} - script $ENV{'SCRIPT_NAME'} - path $ENV{'PATH_INFO'}\n";
+	# Now, remove script name, to keep only the path (no trailing slash)
 	$script_path =~ s!/[^/]*$!!;
 	$HTTP->{'script_path'} = $script_path;
-	$HTTP->{'this_url'} .= $ENV{'PATH_INFO'};
-	$HTTP->{'this_url'} .= '?' . $ENV{'QUERY_STRING'}
-	  if $ENV{'QUERY_STRING'};
+
+	$HTTP->{'this_url'}	= $HTTP->{'host_access'}
+						. ( 0 <= index($ENV{'SERVER_SOFTWARE'}, 'thttpd')
+						  ?	  $ENV{'SCRIPT_NAME'}
+							. $ENV{'PATH_INFO'}
+							. ($ENV{'QUERY_STRING'}
+							  ? '?'.$ENV{'QUERY_STRING'}
+							  : ''
+							  )
+						  : $ENV{'REQUEST_URI'}
+						  );
 
 	# We don't clean all the parameters here, as some scripts need extended characters
 	# e.g. regexp searching
-	$HTTP->{'param'} = { map { http_wash($_) } $ENV{'QUERY_STRING'} =~ /([^;&=]+)(?:=([^;&]+)|)/g }
-	  if defined $ENV{'QUERY_STRING'};
+	$HTTP->{'param'} =	{ map { s/\+/ /g; http_wash($_) }
+							$ENV{'QUERY_STRING'}
+								=~ m/([^;&=]+)(?:=([^;&]+)|)/g
+						}
+		if defined $ENV{'QUERY_STRING'};
 
-	# But do clean up these
 	$HTTP->{'param'}{'v'}	||= $HTTP->{'param'}{'_version'};
 	$HTTP->{'param'}{'a'}	||= $HTTP->{'param'}{'_arch'};
 	$HTTP->{'param'}{'_i'}	||= $HTTP->{'param'}{'_identifier'};
-
 	$identifier = clean_identifier($HTTP->{'param'}{'_i'});
+
 	# remove the param versions to prevent unclean versions being used
+	delete $HTTP->{'param'}{'_version'};
+	delete $HTTP->{'param'}{'_arch'};
 	delete $HTTP->{'param'}{'_i'};
 	delete $HTTP->{'param'}{'_identifier'};
 
-	$config     = LXR::Config->new($script_path);
+	$config = LXR::Config->new	( $HTTP->{'host_access'}
+								, $script_path
+								, $HTTP->{'path_root'}
+								);
 	unless (defined $config) {
-		$config = LXR::Config->emergency($script_path);
+		$config = LXR::Config->emergency
+						( $HTTP->{'host_access'}
+						, $script_path
+						, $HTTP->{'path_root'}
+						);
+		httpminimal;
 		LXR::Template::makeerrorpage('htmlfatal');
-		die "Can't find config for " . $HTTP->{'this_url'};
+	# There is a race condition under thttpd between STDOUT and STDERR
+	# causing debug information (sent to STDOUT) to be printed before
+	# HTTP-headers. Consequently, HTML is not interpreted by the
+	# browser but displayed as raw data.
+		if (0 <= index($ENV{'SERVER_SIGNATURE'}, 'thttpd')) {
+			$wwwdebug = 0;	# Avoid double information on display
+			die 'Can\'t find config for ' . $HTTP->{'this_url'};
+		}
+		exit(1);
+	}
+
+	# Remove tree name from path_info
+	if (exists($config->{'treename'})) {
+		$HTTP->{'path_info'} =~ s:^/[^/]+::;
 	}
 
 	# Override the 'variables' value if necessary
@@ -881,14 +891,18 @@ sub httpinit {
 		delete $HTTP->{'param'}{$param};
 	}
 
-	$files = LXR::Files->new($config->sourceroot, $config->sourceparams);
-	die "Can't create Files for " . $config->sourceroot if !defined($files);
-	$index = LXR::Index->new($config->dbname);
-	die "Can't create Index for " . $config->dbname if !defined($index);
+	$files = LXR::Files->new($config);
+	die 'Can\'t create Files for ' . $config->{'sourceroot'}
+		if !defined($files);
+	$LXR::Index::database_id++;		# Maybe changing database
+	$index = LXR::Index->new($config);
+	die 'Can\'t create Index for ' . $config->{'dbname'}
+		if !defined($index);
 
 	# Set variables now
 	foreach ($config->allvariables) {
-		$config->variable($_, $HTTP->{'param'}{$_}) if $HTTP->{'param'}{$_};
+		$config->variable($_, $HTTP->{'param'}{$_})
+			if exists($HTTP->{'param'}{$_});
 		delete $HTTP->{'param'}{$_};
 	}
 
@@ -907,9 +921,10 @@ sub httpinit {
 	$config->variable('v', $releaseid);  # put back into config obj
 	$pathname   = fixpaths($HTTP->{'path_info'});
 	$pathname   =~ m/(.*)/;
-	$pathname   = $1;		# untaint for future use
+	$pathname   = $1;	# untaint for future use
 
 	printhttp;
+	$wwwdebug = $olddebug;	# Safe now
 }
 
 
@@ -929,6 +944,8 @@ a I<string> containing the release (version) to check
 B<Note:>
 
 =over
+
+=item
 
 This filtering breaks with CVS if a file is not targeted
 i.e. directory listing or identifier query.
@@ -951,10 +968,10 @@ version (all links would then point to default version).
 sub clean_release {
 	my $releaseid = shift;
 
-	if	(	!$files->isa("LXR::Files::CVS")
-		||	$pathname !~ m!/$!
+	if	(	!$files->isa('LXR::Files::CVS')
+		||	substr($pathname, -1) ne '/'
 		) {
-		my @rels= $config->varrange('v');
+		my @rels = $config->varrange('v');
 		my %test;
 		@test{@rels} = undef;
 
@@ -977,14 +994,16 @@ characters.
 
 a I<string> representing the identifier
 
+=back
+
 B<Caveat:>
 
 =over
 
+=item
+
 When adding new languages, check that the definition of "unusual" in
 this sub does not conflict with the lexical form of identifiers.
-
-=back
 
 =back
 
@@ -1023,13 +1042,14 @@ B<Note:>
 
 =over
 
-This erasure is not correct for C</../>.
-Moreover, this function is called before C<fixpaths> which then
-cannot do its correct job with C</../>.
+=item
+
+Is this really necessary since it restricts the user choice of
+filenames, even if the set covers the common needs?
+All is needed to protect against malicious attacks is to "quote"
+HTML reserved characters.
 
 =back
-
-B<To do:> see if we realy need two (apparently) similar subs
 
 =cut
 
@@ -1042,9 +1062,9 @@ sub clean_path {
 	    # Match good chars from start of string,
 		# then replace entire string with only good chars
 		$path =~ s!(^[\w\s_+\-,\.%\^/\!]+).*!$1!;
-		# Clean out /../
-		while ($path =~ m!/\.\.?/!) {
-			$path =~ s!/\.\.?/!/!g;
+		# Clean out /./
+		while ($path =~ m!/\./!) {
+			$path =~ s!/\./!/!g;
 		}
 	}
 
@@ -1056,7 +1076,7 @@ sub clean_path {
 
 Function C<httpclean> does the final clean up.
 
-To be called when all processing is done, but is it really necessary?
+To be called when all processing is done.
 
 =cut
 

@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Java.pm,v 1.11 2013/04/12 15:01:09 ajlittoz Exp $
+# $Id: Java.pm,v 1.12 2013/09/24 07:59:19 ajlittoz Exp $
 #
 # Enhances the support for the Java language over that provided by
 # Generic.pm
@@ -23,7 +23,7 @@
 
 package LXR::Lang::Java;
 
-my $CVSID = '$Id: Java.pm,v 1.11 2013/04/12 15:01:09 ajlittoz Exp $ ';
+my $CVSID = '$Id: Java.pm,v 1.12 2013/09/24 07:59:19 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -57,7 +57,7 @@ sub processinclude {
 		$path    = $file;
 		$path =~ s@\.@/@g;		# Replace Java delimiters
 		$link = $self->_linkincludedirs
-					( &LXR::Common::incdirref
+					( &LXR::Lang::incdirref
 							($file, "include", $path, $dir)
 					, $file
 					, '.'
@@ -83,7 +83,7 @@ sub processinclude {
 		$class   = $3;
 		$path =~ s@\.@/@g;		# Replace Java delimiters
 		$link = $self->_linkincludedirs
-					( &LXR::Common::incdirref
+					( &LXR::Lang::incdirref
 							($file, "include", $path, $dir)
 					, $file
 					, '.'

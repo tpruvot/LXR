@@ -3,6 +3,82 @@ which could impact your existing trees.
 
 If they result in an incompatibility, you must reindex your tree.
 
+        =======================
+        LXR 2.0  -->  LXR 2.0.1
+        =======================
+
+Bug fix release, no feature added, no change in manuals.
+
+Git interface
+-------------
+Fix for a spurious bug (depends on distro) preventing from listing a file
+Fix for 'range' function in lxr.conf
+
+Ruby parser
+-----------
+Fix for an endless loop
+
+showconfig
+----------
+Fix for a syntax error
+
+Configuration wizard
+--------------------
+Fix truncation of host/alias names
+
+        =====================
+        LXR 1.2  -->  LXR 2.0
+        =====================
+
+This release contains major changes, notably in web server configuration
+and database structure.
+It is therefore highly recommended to reinstall from scratch. For sites
+displaying many trees, when it is not feasible to reconfigure everything,
+some workaround may be attempted (see below).
+
+Installation wizard
+-------------------
+Offers new web server installation options (LXR access, alternate servers)
+More extensive user entry validation
+Safer to use and more reliable than manual configuration
+
+Database interface
+------------------
+Heavily modified and optimised for indexing speed (genxref)
+A good surprise is SQLite performance (particularly on low-end computers)
+
+Language parsers
+----------------
+Numerous fixes for parsing accuracy
+
+Web servers
+-----------
+Choice extended beyond Apache and lighttpd with Nginx, Cherokee and thttpd,
+all supported through the configuration wizard
+
+Better error management
+-----------------------
+Provided the Perl run-time environment could be initialised by the server,
+errors and warning are displayed on screen instead of being sent only into
+log files.
+
+Source code reorganised
+-----------------------
+Many functions have moved from one file to another where they logically
+belong. This is transparent to the end user unless some custom patches
+have been applied to the standard release.
+
+Trying to keep previous LXR server:
+======| In cases where it is not deemed feasible to reinstall from scratch,
+      | lxr.conf can be tentatively reused with this new release (but without
+      | 100% guarantee) after converting database structure and reindexing
+      | trees.
+      | 1/ Databases schema is rebuilt with script recreatedb.pl
+      | 2/ Run its ouput script initdb.sh
+      |    ==> CAUTION! The existing databases are erased by this script!
+      | 3/ Reindex the trees with genxref
+      | For more detailed instructions, read the User's Manual
+
         =====================
         LXR 1.1  -->  LXR 1.2
         =====================
@@ -41,8 +117,8 @@ you can upgrade without reconfiguring not reindexing.
 3/ Reload lxr.conf and other saved customised files
 4/ Restart your web server
 
-User'Manual
------------
+User's Manual
+-------------
 Updated to reflect new 1.1 features; separately downloadable on SourceFourge.
 Please, read it; a lot of time has been invested in its writing.
 
@@ -95,8 +171,8 @@ Note: this preliminary implementation runs horribly sloooooooow on directory
         LXR 0.11  -->  LXR 1.0
         ======================
 
-User'Manual
------------
+User's Manual
+-------------
 Simultaneously available; separately downloadable on SourceFourge.
 Please, read it; a lot of time has been invested in its writing.
 

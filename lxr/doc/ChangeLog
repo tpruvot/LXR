@@ -1,3 +1,732 @@
+2014-03-10 16:59  ajlittoz
+
+	* doc/CHANGES: doc/CHANGES: update documentation before 2.0.1
+	  release
+
+2014-03-10 16:58  ajlittoz
+
+	* templates/lxr.css: templates/lxr.css: highlight line number
+	  background when it is the target of the URL
+
+	  This is done to ease going back to the line after scrolling in
+	  long files.
+
+2014-03-10 16:43  ajlittoz
+
+	* templates/lxr.conf: templates/lxr.conf: add comment in revision
+	  history for Git function fix
+
+2014-03-10 16:40  ajlittoz
+
+	* templates/Apache/: apache-lxrserver.conf, htaccess-generic:
+	  templates/Apache/apache-lxrserver.conf, -/htaccess-generic:
+	  improve 2.4/2.6 access control separation
+
+2014-03-10 10:26  ajlittoz
+
+	* templates/lxr.conf: templates/lxr.conf: fix for bug #248 (faulty
+	  'range' function fot GIT)
+
+	  The cooked function contains two "queries" (on tags, then heads)
+	  to collect a comprehensive set of versions into array @files.
+	  These queries are supposed to be cumulative, therefore @files
+	  should be global to the function instead of being redeclared in
+	  the query.  Declaration moved at head of function.
+
+2014-03-10 10:09  ajlittoz
+
+	* scripts/ContextMgr.pm: scripts/ContextMgr.pm: fix for bug #251
+	  (host/alias names truncated to their first characters)
+
+	  Host/alias names are extracted from URL with too strict a regular
+	  expression (using "greedy" qualifier). Fixed by removing ?
+	  qualifier after + repetition.  Also, in contextSave(), replaced '
+	  string delimiters with " to allow interpolation of escape
+	  constructs.
+
+2014-03-09 16:04  ajlittoz
+
+	* lib/LXR/Lang/Ruby.pm: Lang/Ruby.pm: fix for bug #249 (freeze on
+	  Ruby require sentence)
+
+	  Endless loop caused by faulty operator used on pattern matching
+	  (=~ instead of !~)
+
+2014-03-09 16:00  ajlittoz
+
+	* lib/LXR/Lang.pm: Lang.pm: fix for bug #250
+
+	  Depending on the Linux distribution, displaying a file from a Git
+	  repository may error out when annotations are requested. Caused
+	  by a missing library dependency on IO::Handle? *** This error
+	  could not be reproduced by the lead maintainer (under Fedora);
+	  the contributed fix is blindly applied *** *** If error persists,
+	  please report ***
+
+2014-03-09 15:26  ajlittoz
+
+	* lib/LXR/: Common.pm, Template.pm, Lang/Generic.pm: Common.pm,
+	  Template.pm, Lang/Generic.pm: minor adjustments to inline POD
+	  documentation
+
+2014-03-09 15:20  ajlittoz
+
+	* showconfig: showconfig: bad syntax for reference
+
+	  Line 86 in dumphash uses %h-> instead of $h-> where h is itself a
+	  reference.
+
+2013-12-04 15:05  ajlittoz
+
+	* doc/: INSTALL-0.10.txt, INSTALL-0.11.txt, INSTALL-0.9.9.txt,
+	  INSTALL-1.0.txt: doc/INSTALL-*.txt: remove installation notices
+	  for older releases (sent to the Attic)
+
+2013-12-04 14:35  tag release-2-0-0
+
+2013-12-04 14:35  ajlittoz
+
+	* lib/LXR/Common.pm: Common.pm: minor adjustment to a comment
+
+2013-12-03 15:13  ajlittoz
+
+	* templates/Apache/: htaccess-apache1, htaccess-apache2,
+	  htaccess-cgi: templates/Apache/ht-access-*: remove obsolete files
+
+2013-12-03 14:33  ajlittoz
+
+	* doc/: CHANGES, CREDITS.txt, HACKING, INSTALL, INSTALL-0.11.txt,
+	  INSTALL-1.0.txt: doc/*: amend documentation before 2.0 release
+
+2013-12-03 13:38  ajlittoz
+
+	* lib/LXR/Files/BK.pm, lib/LXR/Files/GIT.pm,
+	  lib/LXR/Files/Mercurial.pm, lib/LXR/Files/Subversion.pm,
+	  templates/global.conf.part: Files/*.pm,
+	  templates/global.conf.part: new 'xxxpath' parameters (similar to
+	  'cvspath')
+
+	  These parameters allow to use privately installed source code
+	  management utilities if not system provided (changes to BK
+	  [valid?], git, mercurial and subversion modules).
+
+2013-12-03 09:59  ajlittoz
+
+	* lib/LXR/Common.pm: Common.pm: sync comment for sub warning with
+	  new debugging possibility
+
+2013-12-02 17:00  ajlittoz
+
+	* lib/LXR/Template.pm, templates/lxr.css,
+	  templates/html/html-head-btn-smaller.html,
+	  templates/html/html-head-btn.html,
+	  templates/html/html-head-smaller.html,
+	  templates/html/html-head.html: Templates.pm, lxr.css,
+	  html-head-*.html: make sure the Attic link is hidden when view is
+	  not on a directory and tree is not stored in CVS
+
+2013-12-02 10:54  ajlittoz
+
+	* templates/: lxr.css, html/html-head-btn-smaller.html,
+	  html/html-head-btn.html, html/html-head-smaller.html,
+	  html/html-head.html: lxr.css, html-head-*.html: new CSS style
+	  attic
+
+	  Give a button appearance to the "Attic" link
+
+2013-11-29 16:01  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: avoid testing for free-text search
+	  engines with VCSes
+
+	  In multiple-trees context, lxr.conf may describe plain files and
+	  VCS-stored trees simultaneously.. One free-text search engine is
+	  present but there is no auxiliary directory (for engine internal
+	  data) associated with the VCS-tree. This leads to an error in
+	  Config.pm _initialize sub.  The text for free-text engine (and
+	  its environment) is skipped for any VCS-stored tree.
+
+2013-11-29 15:44  ajlittoz
+
+	* source, templates/lxr.css: source, lxr.css: add cvsweb CSS/HTML
+	  class
+
+	  This class is used to tag an <A> link to a CVS log so that it can
+	  be given the look of a button.
+
+2013-11-26 08:49  ajlittoz
+
+	* templates/global.conf.part: templates/global.conf.part:
+	  'htmlfatal' was not an OS-absolute file path
+
+	  Add %LXRroot%/ at head of path
+
+2013-11-20 14:58  ajlittoz
+
+	* lib/LXR/Index.pm: Index.pm: fix faulty argument passing in unique
+	  counters management functions
+
+2013-11-20 14:57  ajlittoz
+
+	* lib/LXR/Index/Mysql.pm: Index/Mysql.pm: needs a specific
+	  purgeall() function
+
+2013-11-17 17:51  ajlittoz
+
+	* templates/lxr.css: templates/lxr.css: styles for the new feature
+	  for category prefix
+
+2013-11-17 16:26  ajlittoz
+
+	* templates/filetype.conf: templates/filetype.conf: tune file
+	  extensions
+
+2013-11-17 16:24  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: Lang/generic.conf: upgrade language
+	  descriptions to generic parser new algorithm
+
+	  Mostly, use new definitions for start and enf of line anchors;
+	  add a few reserved words
+
+2013-11-17 15:57  ajlittoz
+
+	* genxref, scripts/Tagger.pm: genxref, scripts/Tagger.pm: optimise
+	  indexing step for speed (notably decreasing number of COMMITs);
+	  keep both components in sync
+
+2013-11-17 15:50  ajlittoz
+
+	* scripts/recreatedb.pl: scripts/recreatedb.pl: fix various bugs
+
+	  Fix erroneous extension of output script Insert missing symbols
+	  into global dictionary Output in a fresh file (not adding at end)
+	  Make possible a customised DB engine per tree
+
+2013-11-17 15:43  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf:
+	  templates/lighttpd/lighttpd-lxrserver.conf: improve LCL
+	  readability
+
+2013-11-17 15:33  ajlittoz
+
+	* templates/initdb/: initdb-m-template.sql, initdb-p-template.sql,
+	  initdb-s-template.sql, unique-user-sequences.sql:
+	  templates/initdb/initdb-*-template.sql,
+	  unique-user-sequences.sql: implement manually managed unique
+	  record ids in tables
+
+	  New template unique-server-sequences.sql contain storage
+	  description for the counters.
+
+2013-11-17 15:17  ajlittoz
+
+	* templates/initdb/initdb-p-template.sql:
+	  templates/html/initdb-p-template.sql: fix for PostgreSQL releases
+	  prior to 9.0
+
+	  In these older releases, plpgsql language manager is not loaded
+	  by default. Insert commands in script output to fix the issue.
+
+2013-11-17 11:12  ajlittoz
+
+	* templates/initdb/: initdb-o-template.sql, initdb-p-template.sql,
+	  initdb-s-template.sql: templates/initdb/initdb-o-template.sql,
+	  initdb-p-template.sql, initdb-s-template.sql: manage "relation"
+	  reference count directly from SQL trigger instead of from Perl
+	  programming
+
+2013-11-17 09:28  ajlittoz
+
+	* templates/initdb/initdb-m-template.sql:
+	  templates/initdb/initdb-m-template.sql: manage "relation"
+	  reference count directly from SQL trigger instead of from Perl
+	  programming; remove an unnecessary index
+
+2013-11-17 09:21  ajlittoz
+
+	* templates/html/: html-fatal.html, html-tail.html:
+	  templates/html/html-fatal.html, html-tail.html: use full
+	  SourceForge URLs in links instead of abbreviated form
+
+2013-11-17 09:15  ajlittoz
+
+	* templates/Apache/: apache-lxrserver.conf, htaccess-generic:
+	  templates/Apache/*: improve LCL readability
+
+2013-11-17 09:13  ajlittoz
+
+	* templates/: datastorage.conf.part, lxr.conf, lxrkernel.conf,
+	  tree-server1.conf.part: templates/lxr.conf, lxrkernel.conf &
+	  others: fix syntax errors in LCL
+
+2013-11-17 09:08  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: fix typo in a comment
+
+2013-11-17 09:05  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Generic.pm: speed improvement and new
+	  feature
+
+	  Speed improvement during indexing: cache frequently used flags in
+	  memory, dereference various hash accesses, avoid overflooding
+	  memory
+
+	  New feature: category names are identified on their prefix only,
+	  allowing user to define variants (with different CSS decoration)
+
+2013-11-17 08:57  ajlittoz
+
+	* lib/LXR/: Index.pm, Index/Mysql.pm, Index/Postgres.pm,
+	  Index/SQLite.pm: Index.pm, Index/*: common unique id management
+
+	  Provide a common manually-managed unique record numbering for all
+	  DB engines as it proved faster than the built-in mechanisms
+	  because of a reduced number of COMMITs.  Each DB interface can be
+	  individually reverted to built-in if preferred.
+
+2013-11-12 19:45  ajlittoz
+
+	* diff: diff: fix for inconsistency between code and user's manual
+
+	  Manual says reference version is displayed in right pane and
+	  version compared to in left pane. Modified code to behave like
+	  manual says. At the same time, changed (obscure) names of
+	  variables to something more meaningful as algorithm is otherwise
+	  quite difficult to follow.
+
+2013-11-09 19:37  ajlittoz
+
+	* lib/LXR/Common.pm: Common.pm: HTTP headers forgotten
+
+	  When sub fatal was modified to be able to print to screen before
+	  full HTTP initialisation, sending minimal HTTP headers was
+	  forgotten.
+
+2013-11-09 10:07  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Generic.pm: type description
+	  initialisation in several databases
+
+	  Previous fix was faulty: it replaced text with the DB index. The
+	  second database would get id from first instead of text and
+	  replace again with its own ids. The ids are now stored in a new
+	  sub-hash.
+
+2013-11-08 18:18  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Index.pm, Lang/Generic.pm, Common.pm,
+	  genxref: make sure the human-readable type description is
+	  initialised in every database
+
+	  (Important for genxref, does not really matter for browsing)
+	  Parser tables are cached after first instantiation while they are
+	  written if needed into DB. Under --allurls genxref connects to
+	  new DB and, though parser initialisation is called again,  the
+	  loaded cache prevents from writing the types in the new DB. A
+	  running DB counter is created. Whenever, its value is different
+	  from the cached one, writing types table is forced.  (Note:
+	  something went wrong with last CVS commit, forcing to resubmit
+	  for Generic.pm)
+
+2013-11-08 18:14  ajlittoz
+
+	* genxref, lib/LXR/Common.pm, lib/LXR/Index.pm,
+	  lib/LXR/Lang/Generic.pm: Index.pm, Lang/Generic.pm, Common.pm,
+	  genxref: make sure the human-readable type description is
+	  initialised in every database
+
+	  (Important for genxref, does not really matter for browsing)
+	  Parser tables are cached after first instantiation while they are
+	  written if needed into DB. Under --allurls genxref connects to
+	  new DB and, though parser initialisation is called again,  the
+	  loaded cache prevents from writing the types in the new DB. A
+	  running DB counter is created. Whenever, its value is different
+	  from the cached one, writing types table is forced.
+
+2013-11-08 14:22  ajlittoz
+
+	* diff, ident, search, showconfig, lib/LXR/Common.pm,
+	  lib/LXR/Config.pm, lib/LXR/Template.pm, lib/LXR/Files/CVS.pm,
+	  lib/LXR/Files/GIT.pm, lib/LXR/Files/Mercurial.pm,
+	  lib/LXR/Files/Subversion.pm, lib/LXR/Lang/Generic.pm: Common.pm,
+	  consequently diff, indent, search, showconfig, Config.pm,
+	  Template.pm, CVS.pm, GIT.pm, Mercurial.pm, Subversion.pm,
+	  Generic.pm
+
+	  Uniformised error handling through warn and die after making sure
+	  HTTP headers are alway sent before printing anything. Since
+	  something is (nearly) always printed on screen, there is no
+	  longer need, except in exceptional circumstances to check error
+	  log files.
+
+2013-11-08 13:26  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm: Generic.pm: fix incorrect
+	  language-insensitive keyword detection
+
+2013-11-08 12:32  ajlittoz
+
+	* source: source: cosmetic change to source text
+
+2013-11-08 09:15  ajlittoz
+
+	* lib/LXR/Lang.pm: Lang.pm: category family feature
+
+	  Categories are processed based on their name prefix. They are
+	  tagged with a CSS class equal to their full name.
+
+2013-11-08 09:06  ajlittoz
+
+	* lib/LXR/Lang/Make.pm: Make.pm: minor code improvement
+
+2013-11-08 09:04  ajlittoz
+
+	* lib/LXR/Lang/: Cobol.pm, HTML.pm, Pascal.pm: Cobol.pm, HTML.pm,
+	  Pascal.pm: fix incorrect language-insensitive keyword detection
+
+2013-11-08 08:59  ajlittoz
+
+	* lib/LXR/Lang/C.pm: C.pm: fix for bug #247 (newline suppression)
+
+	  Returning unused portion of #include fragment was forgotten
+
+2013-11-08 08:38  ajlittoz
+
+	* lib/LXR/Markup.pm: Markup.pm: adapt to SimpleParse.pm and
+	  category family feature
+
+	  To minimise number of calls to nextfrag, SimplaParser parser no
+	  longer returns independent empty lines block; they are now a
+	  prefix to other fragments. They must then be detached in order
+	  not to be classified in the following category.  Fragments fall
+	  into category families based on the prefix (comment, string,
+	  extra) returned by nextfrag. The only difference is CSS
+	  decoration.
+
+2013-11-08 08:27  ajlittoz
+
+	* lib/LXR/SimpleParse.pm: SimpleParse.pm: fix parsing inaccuracies
+	  and try to optimise for speed (though not perfect to keep parsing
+	  correctness)
+
+2013-11-07 19:39  ajlittoz
+
+	* lib/LXR/: Index.pm, Index/Mysql.pm, Index/Oracle.pm,
+	  Index/Postgres.pm, Index/SQLite.pm: Index.pm & Index/*: nex Index
+	  initialisation and synchronisation of specific drivers;
+	  optimisation for speed (fewer transactions and commits)
+
+2013-11-07 17:58  ajlittoz
+
+	* lib/LXR/: Common.pm, Files.pm, Files/BK.pm, Files/CVS.pm,
+	  Files/GIT.pm, Files/Mercurial.pm, Files/Plain.pm,
+	  Files/Subversion.pm: Commin.pm, Files.pm & Files/*: new
+	  initialisation interface to Files family and config object cached
+	  internally
+
+2013-11-07 17:45  ajlittoz
+
+	* templates/: datastorage.conf.part, lxr.conf, lxrkernel.conf,
+	  tree-server1.conf.part, tree-server2.conf.part: Various
+	  templates/*.conf[.part]: add validation filter in user answers
+
+2013-11-07 17:38  ajlittoz
+
+	* scripts/: ContextMgr.pm, configure-lxr.pl: scripts/ContextMgr.pm
+	  & configure-lxr.pl: add answer validation filters (see
+	  QuestionAnswer.pm)
+
+2013-11-07 16:44  ajlittoz
+
+	* scripts/LCLInterpreter.pm: scripts/LCLInterpreter.pm: new
+	  features
+
+	  Rearchitecturing: interpreter isolated in its own sub (main loop
+	  now only dispatches) parse_statement can now handle multi-line
+	  statements New commands and upgrades to some others to benefit
+	  from new possibilities in QuestionAnswer.pm Interpretation
+	  globally more consistent and reliable
+
+2013-11-07 16:35  ajlittoz
+
+	* scripts/QuestionAnswer.pm: scripts/QuestionAnswer.pm: add
+	  validation filter to answers returned after open question
+
+2013-11-07 16:32  ajlittoz
+
+	* scripts/VTescape.pm: scripts/VTescape.pm: implement new ANSI
+	  escape functions to easily drive a VT terminal
+
+2013-09-27 09:53  ajlittoz
+
+	* lib/LXR/Files/CVS.pm: CVS.pm: fix for bug #246
+
+	  Check for rcsdiff version should be done against rcsdiff insted
+	  of diff
+
+2013-09-24 15:35  ajlittoz
+
+	* lib/LXR/Lang/Generic.pm, scripts/Tagger.pm: Lang/Generic.pm,
+	  scripts/Tagger.pm: remove log printing from parsers
+
+	  Indexing log printing transfered into Tagger.pm where it
+	  logically belongs (also in preparation for future modifications
+	  to genxref processing)
+
+2013-09-24 15:24  ajlittoz
+
+	* scripts/VTescape.pm: scripts/VTescape.pm: more ANSI escape
+	  functions
+
+2013-09-24 15:21  ajlittoz
+
+	* genxref: genxref: upgrade to tree designation variants and new
+	  features
+
+	  Take into account the new tree designation variants New test on
+	  ctags (against Ubuntu shortcoming) Use a cleanly separated global
+	  configuration section New 'magicmime' configuration parameter
+	  Generate a .glimpse_exclude file for glimpseindex to try and scan
+	  the same files as LXR Various Perl syntax optimisations
+
+2013-09-24 10:10  ajlittoz
+
+	* lib/LXR/Lang/generic.conf: generic.conf: HTML, JAVA, Make,
+	  Pascal, PHP, Python, Ruby include keyword recognition improvement
+
+	  Also, various Perl syntax optimisations
+
+2013-09-24 10:00  ajlittoz
+
+	* templates/Nginx/: nginx-fastcgi.conf.part, nginx-lxrserver.conf:
+	  templates/Nginx: new configuration templates for nginx web server
+
+2013-09-24 09:56  ajlittoz
+
+	* templates/lighttpd/lighttpd-lxrserver.conf:
+	  templates/lighttpd/lighttpd-lxrserver.conf: update configuration
+	  template to new tree designation variants and new features in LCL
+
+2013-09-24 09:52  ajlittoz
+
+	* templates/html/html-fatal.html: templates/html/fatal.html: remove
+	  <meta> element since encoding is defined in an HTTP header
+
+2013-09-24 09:39  ajlittoz
+
+	* templates/thttpd-lxrserver.conf: templates/thttpd-lxrserver.conf:
+	  new configuration template for thttpd web server
+
+2013-09-24 09:05  ajlittoz
+
+	* templates/: classic.css, lxr.css: templates/classic.css &
+	  lxr.css: new mode-dis CSS style for disabled mode (button)
+
+2013-09-24 08:54  ajlittoz
+
+	* source, lib/Local.pm: source, Local.pm: sub descexpand moved from
+	  Local.pm to source
+
+	  This general sub belongs better in source Name fileexpand in
+	  Local.pm changed to filedesc to mirror dirdesc sub name for
+	  directories New sub iconlink in source to cope with security
+	  feature in fileref which forbids HTML code in link text.  Also,
+	  better comments and various Perl syntax optimisations
+
+2013-09-24 08:43  ajlittoz
+
+	* ident, search: ident, search: provide more substitution markers
+	  for templates
+
+	  Also, better comments and various Perl syntax optimisations
+
+2013-09-24 08:39  ajlittoz
+
+	* showconfig: showconfig: new features
+
+	  Edit arrays in hash Correct "Force all" display (tree-specific
+	  and global values no longer mixed up) New _confall=2 for
+	  developers (really complete dump) Variants in tree designation
+	  taken into account Better comments Various Perl syntax
+	  optimisations
+
+2013-09-24 08:14  ajlittoz
+
+	* diff: diff: fix for bug #239, better handling of left pane
+	  overflow
+
+	  Bug #239: links in left pane were computed using the cirrent
+	  value of 'variables' instead of the set used to select the
+	  version to compare to.
+
+	  Also, better comments and various Perl syntax optimisations
+
+2013-09-24 07:59  ajlittoz
+
+	* lib/LXR/Lang/: Java.pm, Python.pm: Lang/java.pm, Lang/Python.pm:
+	  update include processing after change in Common.pm & Lang.pm
+
+2013-09-24 07:52  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: new variants in tree
+	  designation, better HTTP security
+
+	  Also, better comments and various Perl source optimisations
+
+2013-09-24 07:36  ajlittoz
+
+	* lib/LXR/: Common.pm, Lang.pm: Common.pm, Lang.pm: move include
+	  file management code from Common.pm to Lang.pm; new variants for
+	  tree designation in initialisation code
+
+	  Better comments, various Perl syntax optimisations
+
+	  Also in Common.pm: allow for HTML error messages even before HTTP
+	  initialisation with careful check of HTTP state, remove unused
+	  code
+
+2013-09-23 15:20  ajlittoz
+
+	* lib/LXR/Files/GIT.pm: Git.pm: separate filename from options
+
+	  Add -- (end of options) on all Git commands before the filename,
+	  so that an initial hyphen does not cause interpretation as an
+	  option.
+
+2013-09-21 12:54  ajlittoz
+
+	* lib/LXR/: Files.pm, Index.pm, Lang.pm, Markup.pm, SimpleParse.pm,
+	  Files/BK.pm, Files/CVS.pm, Files/GIT.pm, Files/Mercurial.pm,
+	  Files/Plain.pm, Files/Subversion.pm, Index/Mysql.pm,
+	  Index/Oracle.pm, Index/Postgres.pm, Index/SQLite.pm, Lang/C.pm,
+	  Lang/Cobol.pm, Lang/Generic.pm, Lang/HTML.pm, Lang/Make.pm,
+	  Lang/Pascal.pm, Lang/Perl.pm, Lang/Python.pm, Lang/Ruby.pm:
+	  Files.pm, Index.pm, Lang.pm, Markup.pm, SimpleParse.pm, Files/*,
+	  Index/*, Lang/*: better comments, source code improvement &
+	  optilmisation
+
+2013-09-21 12:18  ajlittoz
+
+	* lib/LXR/Config.pm: Config.pm: new tree selection variant
+
+	  Implement 'routing' management with the new variant where tree
+	  name is first segment in URL after script name Various syntax
+	  optimisations Better comments
+
+2013-09-04 15:22  ajlittoz
+
+	* templates/html/: html-config.html, html-fatal.html,
+	  html-head-btn-smaller.html, html-head-btn.html,
+	  html-head-smaller.html, html-head.html, html-ident.html,
+	  html-search-glimpse.html, html-search-swish.html:
+	  templates/html/*: various minor fixes
+
+2013-09-03 08:56  ajlittoz
+
+	* templates/Apache/: apache-lxrserver.conf, htaccess-generic:
+	  templates/Apache/apache-lxrserver.conf, htaccess-generic: Apache
+	  support maintenance
+
+	  Upgrade to new LCL version, adaptation to variants of tree
+	  designation in URL
+
+2013-09-03 08:45  ajlittoz
+
+	* templates/: datastorage.conf.part, global.conf.part, lxr.conf,
+	  lxrkernel.conf, tree-ignore.conf.part, tree-server1.conf.part,
+	  tree-server2.conf.part: templates/lxr.conf, lxrkernel.conf,
+	  datastorage.conf.part, global.conf.part, tree-ignore.conf.part,
+	  tree-server1.conf.part, tree-server2.conf.part
+
+	  Upgrade to new LCL version, create new @ADD'ed files so that
+	  there is a better commonality between lxr.conf and lxrkernel.conf
+
+2013-09-02 17:21  ajlittoz
+
+	* templates/filetype.conf: filetype.conf: typo in Fortran
+	  extensions definition
+
+2013-09-02 17:07  ajlittoz
+
+	* scripts/recreatedb.pl: scripts/recreatedb.pl: synchronise with
+	  configuration wizard
+
+2013-09-02 17:06  ajlittoz
+
+	* scripts/QuestionAnswer.pm: scripts/QuestionAnswer.pm: various
+	  source minor mprovements
+
+2013-09-02 16:46  ajlittoz
+
+	* scripts/LCLInterpreter.pm: scripts/LCLInterpreter.pm: new
+	  statements
+
+	  New @ARRAY/@ENDA block Better comments Read-only variables now
+	  protected against change Fix for bug #235: LCL statements now
+	  correctly interpreted in the order they are written Various
+	  source improvements
+
+2013-09-02 16:37  ajlittoz
+
+	* scripts/ContextMgr.pm: scripts/ContextMgr.pm: clearer
+	  implementation of URL structuring
+
+	  Add new 'argument' choice Context file format upgraded Various
+	  source improvements (more efficient statements, string variant,
+	  here-doc, ...)
+
+2013-09-02 16:29  ajlittoz
+
+	* scripts/configure-lxr.pl: configure-lxr.pl: new features
+
+	  Add template override directory management, nginx and thttpd
+	  configuration file generation, Apache configuration file update
+	  on tree addition.  Various source editing (layout, more efficient
+	  statements, use of here-docs instead of print, ...)
+
+2013-08-31 19:30  ajlittoz
+
+	* templates/global.conf.part: templates/global.conf.part: fix for
+	  bug #241 - HTML templates not found under Ubuntu
+
+	  Use OS-absolute path in lxr.conf since Ubuntu does not seem to
+	  set corrrectly the working directory when launching CGI scripts
+
+2013-06-05 17:01  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: looked-for identifier not
+	  showing up in ident page title
+
+	  Fix for bug #238 introduced a regression: directly accessing
+	  parameter 'sourcerootname' removed variable substitution; this
+	  patch restores the feature.
+
+2013-06-03 11:19  ajlittoz
+
+	* lib/LXR/Template.pm: Template.pm: looked-for identifier not
+	  showing up in ident page title
+
+	  Fix for bug #238: when generating <TITLE> element, sub
+	  titleexpand uses parameter $HTTP->{'param'}{'_i'} which comes
+	  from QUERY_STRING. But this parameter has been deleted during
+	  httpinit to prevent XSS attacks. A sanitized version of this
+	  variable is available through global variable $identifier.
+	  Replaced $HTTP->... by $identifier.
+
+2013-05-26 15:03  ajlittoz
+
+	* lib/LXR/Lang/Pascal.pm: Lang/Pascal.pm: typo during modification
+
+	  With parser reorganisation for 1.2.0, an extraneous if block was
+	  replaced by a sequence of statements. Unhappily, expression in if
+	  was incorrectly converted, leaving an ending parenthesis instead
+	  of a semicolon.
+
+2013-04-21 07:45  tag release-1-2-0
+
 2013-04-21 07:45  ajlittoz
 
 	* doc/: CHANGES, INSTALL: doc/CHANGES & INSTALL: updates before
@@ -332,6 +1061,11 @@
 
 	* lib/LXR/Files/CVS.pm: CVS.pm: avoid double / in paths
 
+2012-11-24 13:28  ajlittoz
+
+	* templates/README: templates/README: remove this file which should
+	  never have been added to repository (demo file for SF site)
+
 2012-11-21 17:16  ajlittoz
 
 	* doc/CHANGES: doc/CHANGES: update to new features
@@ -393,7 +1127,7 @@
 
 2012-11-15 08:58  ajlittoz
 
-	* doc/: CHANGES, INSTALL-0.11: doc/*: update release documentation
+	* doc/CHANGES: doc/*: update release documentation
 
 2012-11-15 08:51  ajlittoz
 
@@ -1186,12 +1920,6 @@
 	  too frequent to forget it) *** This requires a modified
 	  makerelease.pl which is not yet checked in ***
 
-2012-03-29 13:36  ajlittoz
-
-	* doc/INSTALL-0.11: doc/INSTALL-0.11
-
-	  Correct a confusion between Perl and ctags minimal versions
-
 2012-03-27 16:48  ajlittoz
 
 	* diff, lib/LXR/Common.pm, lib/LXR/Template.pm,
@@ -1280,8 +2008,8 @@
 
 2012-03-18 13:04  ajlittoz
 
-	* doc/: CHANGES, INSTALL-0.11: CHANGES, INSTALL-0.11: documentation
-	  files needed for release 0.11
+	* doc/CHANGES: CHANGES, INSTALL-0.11: documentation files needed
+	  for release 0.11
 
 2012-03-15 08:14  ajlittoz
 
@@ -2655,10 +3383,10 @@
 
 2009-04-08 20:49  adrianissott
 
-	* search, .cvsignore, diff, find, genxref, ident, source,
-	  tests/TestRunner.pl: Fix for bug 2745292 (LXR CGI Scripts Fail on
-	  Windows) - changed all occurrences of "#!/usr/bin/perl 傍" to be
-	  "#!perl 傍" and rely on the path to find the perl executable.
+	* search, diff, find, genxref, ident, source, tests/TestRunner.pl:
+	  Fix for bug 2745292 (LXR CGI Scripts Fail on Windows) - changed
+	  all occurrences of "#!/usr/bin/perl 傍" to be "#!perl 傍" and
+	  rely on the path to find the perl executable.
 
 2009-03-27 11:46  mbox
 
@@ -2871,8 +3599,8 @@
 
 2005-11-02 23:39  mbox
 
-	* .cvsignore, INSTALL, diff, fixhashbang, genjavaclasses, genxref,
-	  source, lib/LXR/Common.pm, lib/LXR/Files.pm, lib/LXR/Files/BK.pm,
+	* INSTALL, diff, fixhashbang, genjavaclasses, genxref, source,
+	  lib/LXR/Common.pm, lib/LXR/Files.pm, lib/LXR/Files/BK.pm,
 	  lib/LXR/Files/Plain.pm, templates/lxr.conf, tests/AllTests.pm,
 	  tests/BKTest.pm, tests/ConfigTest.pm, tests/PlainTest.pm,
 	  tests/lxr.conf: Merge of the BK support from bk-dev-branch.
@@ -3035,10 +3763,6 @@
 
 	* tests/BKTest.pm, lib/LXR/Files/BK.pm, INSTALL: genxref now works
 	  against the test BK repository.
-
-2005-02-13 19:54  mbox
-
-	* .cvsignore: [no log message]
 
 2005-02-13 19:35  mbox
 
@@ -3342,10 +4066,6 @@
 2004-07-14 15:00  brondsem
 
 	* genxref, swish-e.conf: configure swish-e a little better
-
-2004-07-14 14:50  brondsem
-
-	* .cvsignore: update template files list
 
 2004-07-14 14:49  brondsem
 
@@ -3968,7 +4688,7 @@
 
 2001-09-27 16:12  mbox
 
-	* .cvsignore, diff, find, ident, search, source, lib/LXR/Common.pm,
+	* diff, find, ident, search, source, lib/LXR/Common.pm,
 	  lib/LXR/Lang.pm, lib/LXR/Lang/Perl.pm, templates/html-dir.html,
 	  templates/html-head.html, templates/html-ident.html,
 	  templates/lxr.conf: Apply patch 458027 from Pavel Hlavnicka
@@ -4014,10 +4734,6 @@
 
 	* genxref: Replace use of direct access of range variable v with
 	  the correct varrange accessor
-
-2001-08-16 00:36  mbox
-
-	* .cvsignore: Ignore the template & conf files of the user
 
 2001-08-15 16:19  mbox
 

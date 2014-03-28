@@ -1,0 +1,160 @@
+#- -*- mode: perl -*-
+#- LXR master configuration file
+#-	Tree configuration section
+#-		Server configuration subsection part 1
+#-
+#-	$Id: tree-server1.conf.part,v 1.3 2013/11/17 09:13:21 ajlittoz Exp $
+#-
+#-
+#-	This file fragment is meant to be "included" to form the
+#-	complete configuration file.
+#-
+#-
+#-		###############################
+#-		# Tree configuration sections #
+#-		###############################
+#-
+#-		# Server configuration subsection #
+#-		#=================================#
+#@LOG Configuring LXR server parameters
+		#-
+		#- NOTE --------------------------------------------------- #
+		#- ---- 'baseurl' and 'baseurl_aliases' are deprecated ---- #
+		#- ---- in favor of 'host_names'.                      ---- #
+		#- ---- See "Global configuration section"             ---- #
+		#- ----                                                ---- #
+		#- ---- 'host_names' takes precedence if 'baseurl' is  ---- #
+		#- ---- also defined.                                  ---- #
+		#- ----                                                ---- #
+		#- ---- Support for 'baseurl' is maintained for        ---- #
+		#- ---- compatibility with existing LXRs.              ---- #
+		#- ----                                                ---- #
+		#- Configuration for http://192.168.1.1/lxr.
+		#- baseurl is used to select configuration block.
+#- 	  'baseurl' => 'http://192.168.1.1/lxr'    # Put your URL here
+#- 		     # baseurl_aliases allows other URLs to be used to reach the site
+#- 		     # comment this out if you do not want any aliases
+#- 	, 'baseurl_aliases' =>
+#- 			[ 'http://localhost/lxr'
+#- 			, 'http://mydomain/lxr'
+#- 			]
+#-	,
+		#- ----                                                ---- #
+		#- ----        End of deprecated parameters            ---- #
+		#- -------------------------------------------------------- #
+
+#@DEFINE	treeid=''
+#-
+#@IF	'H' eq "%_routing%"
+#@	LOG Configuring individual host name or IP (as http://...)
+#@	MSG Remember: they must be unique!
+#@	ASK,hostname --- Host name?\
+	#@		; ^(?i:https?:)?//,not an HTTP URL; -2\
+	#@		, //[\w-]+(?:\.[\w-]+)*(?::\d+)?/?$,invalid characters in URL
+#- The trailing comma below is not an error, it defines an empty string
+#	CANON,hostname	/$,
+	  'host_names' =>	[ '%hostname%'
+#@	KEEPON --- Alias name ? (hit return to stop):; -3\
+	#@		; ^(?i:https??:)?//,not an HTTP URL\
+	#@		, //[\w-]+(?:\.[\w-]+)*(?::\d+)?/?$,invalid characters in URL
+#@		ON	none
+			# Put here aliases for host name, such as
+			#			, '//%treeid%.localhost'
+			#			, 'http://%treeid%.mycomputer.outside.domain:12345'
+#@		ENDON
+#	@CANON		/$,
+						, '%A%'
+#@	ENDK
+						]
+	,
+#@ELSEIF	'P' eq "%_routing%"
+#@	ASK,treeid --- Prefix for host name?; -2\
+	#@			; ^[\w-]+(?:\.[\w-]+)*$,invalid characters in name
+	  'host_names' =>	[ '%scheme%//%treeid%.%hostname%'
+#@	ARRAY schemealiases,S hostaliases,A portaliases,P
+#@		ON	none
+			# Put here aliases for host name, such as
+			#			, '//%treeid%.localhost'
+			#			, 'http://%treeid%.mycomputer.outside.domain:12345'
+#@		ENDON
+						, '%S%//%treeid%.%A%:%P%'
+#@	ENDA
+						]
+	,
+#@ELSE
+
+#@ENDIF
+#-
+#@MSG The virtual root is the fixed URL part after the hostname.
+#- - Virtual root is slightly different depending on context         - -
+#- - because we want to handle everything with a single LXR instance - -
+#- - except for the "section" case (though it can through symbolic   - -
+#- - links).  - -
+#@IF	'N' eq "%_routing%"
+#- - Single tree context - -
+#@	IF	%_shared%
+#@		DEFINE virtroot="%virtrootbase%"
+#@		MSG You previously defined the virtual root as %virtroot%
+#@	ELSE
+#@		DEFINE virtroot=''
+#@		MSG No virtual root for dedicated server
+#@	ENDIF
+#-
+#- - Multiple trees context - -
+#- - a) Routing through section path
+#@ELSEIF	'S' eq "%_routing%"
+#@	MSG All section paths must be unique!
+#@	ASK,virtroot --- Full virtual root? (e.g. /section/project/title)\
+	#@				; -2; ^[^']+$,quotes not allowed
+#@	CANON,virtroot /+$,,^/*,/
+#- - b) Routing through extraction from section path
+#@ELSEIF	'E' eq "%_routing%"
+#@	IF	'b' eq "%_virtrootpolicy%"
+#@		MSG The tree needs to be uniquely identified as e.g. %virtrootbase%/the_tree
+#@		ASK,treeid --- Tree designation for URL? (e.g. the_tree); -2\
+		#@			; ^[\w-.$*]+$,invalid characters in name
+#@		DEFINE virtroot="%virtrootbase%/%treeid%"
+#@	ELSEIF	'c' eq "%_virtrootpolicy%"
+#@		REMIND The custom multiple trees management method must contain
+#@		REMIND at least the server section name %virtrootbase% and a unique
+#@		REMIND tree designation (in an order compatible with the URL magic
+#@		REMIND in the server configuration files). 
+#@		ASK,virtroot --- Full virtual root? (e.g. %virtrootbase%/something); -2\
+		#@				; ^[^']+$,quotes not allowed
+#@		CANON,virtroot /+$,,^/*,/
+#@	ELSE
+#@		ERROR Unknown multiple trees management choice!
+#@		ERROR If you did not tamper with context file,
+#@		ERROR report this as a bug.
+#@		DEFINE virtroot='*** ERROR ***'
+#@	ENDIF	%_virtrootpolicy%
+#- - c) Other cases: host name, host prefix, argument
+#@ELSE
+#@	IF	%_shared%
+#@		IF %_commonvirtroot%
+#@			DEFINE virtroot="%virtrootbase%"
+#@			MSG You previously defined the virtual root as %virtroot%
+#@		ELSE
+#@			ASK,virtroot --- Virtual root? (i.e. URL part after host); -1\
+			#@				; ^[^']+$,quotes not allowed\
+			#@				; %virtrootbase%
+#@			CANON,virtroot /+$,,^/*,/
+#@		ENDIF
+#@	ELSE
+#@		DEFINE virtroot=''
+#@		MSG No virtual root for dedicated server
+#@	ENDIF
+#@ENDIF
+#- - End of virtroot differences - -
+#-
+#@IF	!%_commonvirtroot%
+	  'virtroot'     => '%virtroot%'
+	,
+#@ELSE
+
+#@ENDIF
+#- The following @DEFINE allows automatic transfer of correct 'virtroot'
+#- into lighttpd-lxrserver.conf.
+#@IF	'' eq "%virtroot%"
+#@	DEFINE	virtroot='/'
+#@ENDIF

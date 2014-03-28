@@ -42,6 +42,8 @@ our @ISA = qw(Exporter);
 our @EXPORT = qw(
 	gettemplate
 	expandtemplate
+	varbtnaction
+	urlexpand
 	makeheader
 	makefooter
 	makeerrorpage
@@ -71,9 +73,10 @@ a I<string> containing the template name
 =item 1 C<$prefix>
 
 a I<string> containing the head of the alternate template
+
 =item 1 C<$suffix>
 
-a I<string> containing the tail of the alternate prefix
+a I<string> containing the tail of the alternate template
 
 =back
 
@@ -81,12 +84,10 @@ B<Caveat:>
 
 =over
 
-A warning message may be inserted between $prefix and $suffix.
-Care must be taken to ensure that this message is placed in the
-E<lt>bodyE<gt> part of the HTML page.
+=item
 
-I<This> caveat I<is particularly aimed at this sub use in makeheader
-where the page has not been started yet.>
+A warning message may be issued with a C<warn> statement
+and get caught elsewhere.
 
 =back
 
@@ -102,18 +103,15 @@ my ($who, $prefix, $suffix) = @_;
 			$template = <TEMPL>;
 			close(TEMPL);
 		} else {
-			$template .= warning
-							( "Template file '$who' => '"
-							. $config->{$who}
-							. "' does not exist"
-							);
+			warn( "Template file '$who' => '"
+				. $config->{$who}
+				. "' does not exist\n"
+				);
 			$template .= $suffix;
 		}
 	} else {
-		$template .= warning
-						( "Template '$who' is not defined"
-						);
-			$template .= $suffix;
+		warn( "Template '$who' is not defined\n");
+		$template .= $suffix;
 	}
 	return $template
 }
@@ -153,7 +151,7 @@ returned by the corresponding C<sub> in C<%expfunc>.
 This is a function.
 The fragment between the braces (hereafter called the argument)
 is passed as an argument to the corresponding C<sub> in C<%expfunc>.
-The returned value is substituted to the whole construct.
+The returned value is substituted for the whole construct.
 
 B<Notes:>
 
@@ -166,7 +164,7 @@ variable/function name.
 the opening brace C<{>.
 
 =item 1 The C<name> can contain uppercase and lowercase letters,
-digits and undercores.
+digits and underscores.
 
 =back
 
@@ -182,7 +180,7 @@ No escape mechanism is presently implemented.
 Note, however, that if you are generating HTML you can use &#125;
 or &#x7D;.
 
-B<Note:>
+B<Notes:>
 
 =over
 
@@ -229,13 +227,10 @@ B<Note:>
 
 =item 
 
-I<< This algorithm is implemented through Perl pattern-matching
+I<This algorithm is implemented through Perl pattern-matching
 which is not the most efficient. A better solution would be
 a left-to-right parser, avoiding thus backtracking and the
 C<{> C<}> to/from C<\x01> C<\x02> fiddling. >
-
-=comment (POD bug?) The end delimiter is voluntarily > instead
- of >> to prevent display of a stray >.
 
 =back
 
@@ -250,14 +245,14 @@ Consequently, comments have two forms:
 
 =item 1 Normal verbose comments
 
-The opening delimiter (C<< E<lt>!-- >>) MUST be followed by a spacer,
+The opening delimiter (C<&lt;!-- >) MUST be followed by a spacer,
 i.e. a space, tab or newline.
-The closing delimiter (C<< --E<gt> >>) should also be preceded by a spacer
+The closing delimiter (C<--E<gt>>) should also be preceded by a spacer.
 These comments will be removed.
 
 =item 1 Sticky comments
 
-The start delimiter (C<< E<lt>!-- >>) is immediately followed by a
+The start delimiter (C<&lt;!-->) is immediately followed by a
 significant character.
 These comments (most notably SSI commands) will be left in the expanded template.
 
@@ -290,6 +285,8 @@ sub expandtemplate {
 
 	# Repeatedly find the variables or function calls
 	# and apply replacement rule
+	# optional argument----+------+
+	#                      v      v
 	$templ =~ s/(\$(\w+)(\{([^\}]*)\}|))/{
 		if (defined($expfun = $expfunc{$2})) {
 			if ($3 eq '') {
@@ -318,9 +315,7 @@ sub expandtemplate {
 Function C<targetexpand> is a "$variable" substitution function.
 It returns a string representative of the displayed tree.
 The "name" of the tree is extracted from the URL (script-name
-component) with the help of the configuration parameter 'treeextract'.
-
-No attempt is made to protect the returned string 
+component) according to the routing technique.
 
 =over
 
@@ -332,10 +327,8 @@ a I<string> containing the template
 
 =item
 
-I<< Presently, the template is equal to C<undef>, which is the
+I<Presently, the template is equal to C<undef>, which is the
 template value for a variable substitution request. >
-
-=comment (POD bug?) See previous =comment about >/>>.
 
 =back
 
@@ -350,8 +343,19 @@ B<Note:>
 
 =over 4
 
-This sub is not fool-proof. It implicitly relies on a
-personal convention for multiple trees by the maintainer.
+=item
+
+Tree information may be found in different parts of the URL.
+Configuration parameter C<'routing'> is a reminder for the tree location.
+If it does not exist, configuration file was created by an earlier
+version and, as a compatibility measure, C<'embedded'> routing mode
+is assumed.
+If this is not the case, or the configuration file was manually crafted
+without C<'routing'> parameter, inconsistent display will likely result.
+
+In the C<'embedded'> case, tree name is extracted with the help of
+C<'treeextract'> configuration pattern which, by default, takes the
+segment preceding the script name in C<SCRIPT_NAME>.
 This convention can be defeated by anyone prefering something else.
 It is hoped that the C<'treeextract'> parameter mecanism is powerful
 enough to cope with any convention.
@@ -365,16 +369,39 @@ this sub? C<'targetextract'> ?
 
 sub targetexpand {
 	my ($templ, $who) = @_;
+	my $ret;
 
 	# Try to extract meaningful information from the URL
-	# Just in case the 'treeextract' pattern is not globally defined,
-	# apply a sensible default: tree name before the script-name
-	my $treeextract = '([^/]*)/[^/]*$';
-	if (exists ($config->{'treeextract'})) {
-		$treeextract = $config->{'treeextract'};
+	my $routing = $config->{'routing'}
+		// 'embedded';	# For compatibility with previous versions
+	if ('single' eq $routing) {
+		$ret = '(default tree)';
+	} elsif ('host' eq $routing) {
+		$ret = 'in host ' . $ENV{'SERVER_NAME'};
+	} elsif ('prefix' eq $routing) {
+		$ENV{'SERVER_NAME'} =~ m/^([^.]+)/;
+		$ret = $1;
+	} elsif ('section' eq $routing) {
+		$ret = 'in section' . $ENV{'SCRIPT_NAME'};
+	} elsif ('embedded' eq $routing) {
+		# Just in case the 'treeextract' pattern is not globally defined,
+		# apply a sensible default: tree name before the script-name
+		my $treeextract = '([^/]*)/[^/]*$';
+		if (exists ($config->{'treeextract'})) {
+			$treeextract = $config->{'treeextract'};
+		}
+		$ENV{'SCRIPT_NAME'} =~ m!$treeextract!;
+		$ret = $1;
+	} elsif ('argument' eq $routing) {
+		$ENV{'PATH_INFO'} =~ m!^/([^/?]+)!;
+		$ret = $1
+	} else {
+		$ret = "(unexpected '$routing'!)";
 	}
-	$ENV{'SCRIPT_NAME' } =~ m!$treeextract!;
-	my $ret = $1;
+	# Protect against possible XSS
+	$ret =~ s/&/&amp;/g;
+	$ret =~ s/</&lt;/g;
+	$ret =~ s/>/&gt;/g;
 	return $ret;
 }
 
@@ -395,10 +422,8 @@ a I<string> containing the template
 
 =item
 
-I<< Presently, the template is equal to C<undef>, which is the
+I<Presently, the template is equal to C<undef>, which is the
 template value for a variable substitution request. >
-
-=comment (POD bug?) See previous =comment about >/>>.
 
 =back
 
@@ -417,11 +442,12 @@ sub captionexpand {
 	my $ret = $config->{'caption'}
 	# If config parameter is not defined, try to produce
 	# a string by extracting a relevant part from the URL.
-		|| expandtemplate
-				(	"\$tree  by courtesy of the LXR Cross Referencer"
+		// expandtemplate
+				(	'$tree  by courtesy of the LXR Cross Referencer'
 				,	( 'tree'    => sub { targetexpand(@_, $who) }
 					)
 				);
+	$ret =~ s/&/&amp;/g;
 	$ret =~ s/</&lt;/g;
 	$ret =~ s/>/&gt;/g;
 	return $ret;
@@ -432,7 +458,7 @@ sub captionexpand {
 
 Function C<bannerexpand> is a "$variable" substitution function.
 It returns an HTML string displaying the path to the current
-file (C<$pathname>) with C<< E<lt>AE<gt> >> links in every portion of
+file (C<$pathname>) with C<E<lt>AE<gt>> links in every portion of
 the path to allow quick access to the intermediate directories.
 
 =over
@@ -445,10 +471,8 @@ a I<string> containing the template
 
 =item
 
-I<< Presently, the template is equal to C<undef>, which is the
+I<Presently, the template is equal to C<undef>, which is the
 template value for a variable substitution request. >
-
-=comment (POD bug?) See previous =comment about >/>>.
 
 =back
 
@@ -468,14 +492,14 @@ sub bannerexpand {
 	if ($who eq 'source' || $who eq 'sourcedir' || $who eq 'diff') {
 		my $fpath = '';
 	# Instead of an empty root, put there the name of the tree
-		my $furl  = fileref($config->sourcerootname . '/', "banner", '/');
+		my $furl  = fileref($config->sourcerootname . '/', 'banner', '/');
 
 	# Process each intermediate directory
 		foreach ($pathname =~ m!([^/]+/?)!g) {
 			$fpath .= $_;
 	# To have a nice string, insert a zero-width space after each /
 	# so that it's possible for the pathnames to wrap.
-			$furl .= '&#x200B;' . fileref($_, "banner", "/$fpath");
+			$furl .= '&#x200B;' . fileref($_, 'banner', "/$fpath");
 		}
 	# We captured above the intermediate directory with both start
 	# and end delimiters. To avoid display of duplicate delimiters
@@ -493,7 +517,7 @@ sub bannerexpand {
 =head2 C<titleexpand ($templ, $who)>
 
 Function C<titleexpand> is a "$variable" substitution function.
-It returns an HTML-safe string suitable for use in a C<< <title> >>
+It returns an HTML-safe string suitable for use in a C<E<lt>TITLEE<gt>>
 element.
 
 =over
@@ -506,10 +530,8 @@ a I<string> containing the template
 
 =item
 
-I<< Presently, the template is equal to C<undef>, which is the
+I<Presently, the template is equal to C<undef>, which is the
 template value for a variable substitution request. >
-
-=comment (POD bug?) See previous =comment about >/>>.
 
 =back
 
@@ -529,14 +551,14 @@ sub titleexpand {
 	if ($who eq 'source' || $who eq 'diff' || $who eq 'sourcedir') {
 		$ret = $config->sourcerootname . $pathname;
 	} elsif ($who eq 'ident') {
-		my $i = $HTTP->{'param'}{'_i'};
 		$ret = $config->sourcerootname . ' identifier search'
-				. ($i ? ": $i" : '');
+				. ($identifier ? ": $identifier" : '');
 	} elsif ($who eq 'search') {
 		my $s = $HTTP->{'param'}{'_string'};
 		$ret = $config->sourcerootname . ' general search'
 				. ($s ? ": $s" : '');
 	}
+	$ret =~ s/&/&amp;/g;
 	$ret =~ s/</&lt;/g;
 	$ret =~ s/>/&gt;/g;
 	return $ret;
@@ -547,7 +569,7 @@ sub titleexpand {
 
 Function C<thisurl> is a "$variable" substitution function.
 It returns an HTML-encoded string suitable for use as the
-target href of a C<< E<lt>link rel="stylesheet"E<gt> >> tag.
+target href of a C<E<lt>LINK rel="stylesheet"E<gt>> tag.
 
 =over
 
@@ -559,10 +581,10 @@ a I<string> containing the template (i.e. argument)
 
 =item
 
-I<< Presently, the template is equal to C<undef>, which is the
+I<Presently, the template is equal to C<undef>, which is the
 template value for a variable substitution request. >
 
-=comment (POD bug?) See previous =comment about >/>>.
+=back
 
 =back
 
@@ -601,7 +623,7 @@ it is here considered as the "mode"
 
 =head3 Algorithm
 
-It retrieves the configuration array 'alternate_stylesheet'
+It retrieves the configuration array C<'alternate_stylesheet'>
 if it exists.
 
 The argument template is then expanded through C<expandtemplate>
@@ -635,7 +657,7 @@ sub altstyleexpand {
 
 Function C<thisurl> is a "$variable" substitution function.
 It returns an HTML-encoded string suitable for use as the
-target href of a C<< E<lt>AE<gt> >> tag.
+target href of an C<E<lt>AE<gt>> tag.
 
 The string is the URL used to access the current page (complete
 with the ?query string).
@@ -654,14 +676,14 @@ sub thisurl {
 
 Function C<baseurl> is a "$variable" substitution function.
 It returns an HTML-encoded string suitable for use as the
-target href of a C<< E<lt>AE<gt> >> or C<< E<lt>baseE<gt> >> tag.
+target href of a C<E<lt>AE<gt>> or C<E<lt>BASEE<gt>> tag.
 
 The string is the base URL used to access the LXR server.
 
 =cut
 
 sub baseurl {
-	(my $url = $config->baseurl) =~ s!/*$!/!;
+	(my $url = $config->{'baseurl'}) =~ s!/*$!/!;
 
 	$url =~ s/([\?\&\;\=\'\"])/sprintf('%%%02x',(unpack('c',$1)))/ge;
 	return $url;
@@ -672,10 +694,23 @@ sub baseurl {
 
 Function C<dotdoturl> is a "$variable" substitution function.
 It returns an HTML-encoded string suitable for use as the
-target href of a C<< <a> >> or C<< <base> >> tag.
+target href of an C<E<lt>AE<gt>> or C<E<lt>BASEE<gt>> tag.
 
 The string is the ancestor of the base URL used to access the
 LXR server.
+
+B<Caveat:>
+
+=over
+
+=item
+
+I<Implementation is faulty:
+it does not check there is really an ancestor in the base URL
+(e.g. case when base URL is already at the root of document
+hierarchy).>
+
+=back
 
 =cut
 
@@ -683,7 +718,7 @@ LXR server.
 # This ../ can be unreachable, depending on the way
 # DocumentRoot is configured
 sub dotdoturl {
-	my $url = $config->baseurl;
+	my $url = $config->{'baseurl'};
 	$url =~ s!/$!!;
 	$url =~ s!/[^/]*$!/!;	# Remove last directory
 	$url =~ s/([\?\&\;\=\'\"])/sprintf('%%%02x',(unpack('c',$1)))/ge;
@@ -715,7 +750,7 @@ diff, ident or search) requesting this substitution
 It reads the configuration file into an array.
 
 The elements, except the first (index 0), are scanned to see
-if parameter 'shortcaption' is defined,
+if parameter C<'shortcaption'> is defined,
 which means this tree is shareable.
 
 If none is found, the template is not expanded.
@@ -731,7 +766,6 @@ C<'treelinks'> attribute.
 sub forestexpand {
 	my ($templ, $who) = @_;
 	my @configgroups = $config->readconfig();
-	my $trex;
 
 	# Scan the parameter groups for 'shortcaption'
 	# to see if there is at least one shareable tree.
@@ -741,15 +775,13 @@ sub forestexpand {
 	}
 	# No shareable tree or only one, return a void string to
 	# wipe out any fixed text (titles, captions, ...)
-	return '' if ($shareable<2);
+	return '' if $shareable < 2;
 	# Shareable trees exist, do the job
-	$trex .= expandtemplate
+	return expandtemplate
 				(	$templ
 				,	( 'trees' => sub { treesexpand(@_, $who, @configgroups) }
 					)
 				);
-
-	return ($trex);
 }
 
 
@@ -781,7 +813,7 @@ a I<array> containing a copy of the configuration file
 It uses the copy of the configuration file passed as an array argument.
 
 The elements, except the first (index 0), are scanned to see
-if parameter 'shortcaption' is defined,
+if parameter C<'shortcaption'> is defined,
 which means this tree is shareable.
 
 Depending on the result of I<Config.pm>'s C<treeurl>,
@@ -800,7 +832,9 @@ sub treesexpand {
 	my $treelink;
 	my $global = shift @confgroups;
 
-	$who =~ s/^sourcedir$/source/;
+	if ('sourcedir' eq $who) {
+		$who = 'source';
+	}
 	# Scan the configuration groups, skipping non-shareable trees
 	for my $group (@confgroups) {
 		next unless exists($group->{'shortcaption'});
@@ -812,7 +846,14 @@ sub treesexpand {
 		} else {
 # 	# This is an alternate tree, build a link
 			$treelink =
-				"<a class=\"treelink\" href=\"$url/$who\">$shortcap</a>";
+				'<a class="treelink" href="'
+				. $url
+				. $who
+				. ( exists($group->{'treename'})
+				  ? '/' . $group->{'treename'}
+				  : ''
+				  )
+				. "\">$shortcap</a>";
 		}
 		$tlex .= expandtemplate
 					( 	$templ
@@ -877,13 +918,18 @@ sub urlexpand {
 		foreach ($config->allvariables) {
 			push(@args, "~$_=".$config->variable($_));
 		}
-		diffref ("", "", $pathname, @args) =~ m!^.*?(\?.*?)"!;
+		diffref ('', '', $pathname, @args) =~ m!^.*?(\?.*?)"!;
 		$args = $1;
 	} elsif ($who eq 'ident') {
 	# Be kind to the user of ident: propagate the searched for
 	# identifier if defined to avoid retyping it after a version
 	# change for instance.
 		$args = &urlargs($identifier ? "_i=$identifier" : '');
+	} elsif ($who eq 'search') {
+	# Be kind to the user of search: propagate the searched for
+	# string and file if defined to avoid retyping it after a
+	# version change for instance.
+		$args = &urlargs('-' ne $templ ? &nonvarargs() : ());
 	} else {
 		$args = &urlargs();
 	}
@@ -891,6 +937,10 @@ sub urlexpand {
 	while ($args =~ m![?&;]((?:\~|\w)+)=(.*?)(?=[&;]|$)!g) {
 		my $var = $1;
 		my $val = $2;
+		# Avoid double HTTP-encoding (these values are transmitted
+		# through <input> elements).
+		$var =~ s/\%([\da-f][\da-f])/pack("C", hex($1))/gie;
+		$val =~ s/\%([\da-f][\da-f])/pack("C", hex($1))/gie;
 		$urlex .= expandtemplate
 					( $templ
 					,	( 'urlvar' => sub { $var }
@@ -947,18 +997,23 @@ sub modeexpand {
 	my $modeaction;
 	my $modeoff;
 
-	$modename = "Source navigation";
+	$modename = 'Source navigation';
 	if ($who eq 'source' || $who eq 'sourcedir')
 	{	$modelink = "<span class='modes-sel'>$modename</span>";
-		$modecss  = "modes-sel";
-		$modeaction= "";
-		$modeoff  = "disabled";
+		$modecss  = 'modes-sel';
+		$modeaction= '';
+		$modeoff  = 'disabled';
 	} else {
-		$modelink = fileref($modename, "modes", $pathname);
-		$modecss  = "modes";
+		$modelink = fileref($modename, 'modes', $pathname);
+		$modecss  = 'modes';
 		$modelink =~ m!href="(.*?)(\?|">)!;	# extract href target as action
-		$modeaction = "$config->{virtroot}/source";
-		$modeoff  = "";
+		$modeaction = $config->{'virtroot'}
+					. 'source'
+					. ( exists($config->{'treename'})
+					  ? '/'.$config->{'treename'}
+					  : ''
+					  );
+		$modeoff  = '';
 	}
 	push(@mlist,	{ 'name' => $modename
 					, 'link' => $modelink
@@ -968,12 +1023,12 @@ sub modeexpand {
 					}
 		);
 
-	$modename = "Diff markup";
+	$modename = 'Diff markup';
 	if ($who eq 'diff')
 	{	$modelink = "<span class='modes-sel'>$modename</span>";
-		$modecss  = "modes-sel";
-		$modeaction= "";
-		$modeoff  = "disabled";
+		$modecss  = 'modes-sel';
+		$modeaction= '';
+		$modeoff  = 'disabled';
 		push(@mlist,	{ 'name' => $modename
 						, 'link' => $modelink
 						, 'css'  => $modecss
@@ -982,11 +1037,11 @@ sub modeexpand {
 						}
 			);
 	} elsif ($who eq 'source' && substr($pathname, -1) ne '/') {
-		$modelink = diffref($modename, "modes", $pathname);
-		$modecss  = "modes";
+		$modelink = diffref($modename, 'modes', $pathname);
+		$modecss  = 'modes';
 		$modelink =~ m!href="(.*?)(\?|">)!;	# extract href target as action
 		$modeaction = $1;
-		$modeoff  = "";
+		$modeoff  = '';
 		push(@mlist,	{ 'name' => $modename
 						, 'link' => $modelink
 						, 'css'  => $modecss
@@ -996,17 +1051,22 @@ sub modeexpand {
 			);
 	}
 
-	$modename = "Identifier search";
+	$modename = 'Identifier search';
 	if ($who eq 'ident')
 	{	$modelink = "<span class='modes-sel'>$modename</span>";
-		$modecss  = "modes-sel";
-		$modeaction= "";
-		$modeoff  = "disabled";
+		$modecss  = 'modes-sel';
+		$modeaction= '';
+		$modeoff  = 'disabled';
 	} else {
-		$modelink = idref($modename, "modes", "");
-		$modecss  = "modes";
-		$modeaction = "$config->{virtroot}/ident";
-		$modeoff  = "";
+		$modelink = idref($modename, 'modes', '');
+		$modecss  = 'modes';
+		$modeaction = $config->{'virtroot'}
+					. 'ident'
+					. ( exists($config->{'treename'})
+					  ? '/'.$config->{'treename'}
+					  : ''
+					  );
+		$modeoff  = '';
 	}
 	push(@mlist,	{ 'name' => $modename
 					, 'link' => $modelink
@@ -1016,31 +1076,41 @@ sub modeexpand {
 					}
 		);
 
-	$modename = "General search";
+	$modename = 'General search';
 	if ($who eq 'search') {
 		$modelink = "<span class='modes-sel'>$modename</span>";
-		$modecss  = "modes-sel";
-		$modeaction= "";
-		$modeoff  = "disabled";
+		$modecss  = 'modes-sel';
+		$modeaction= '';
+		$modeoff  = 'disabled';
 	} elsif
-		(	!$files->isa("LXR::Files::Plain")
+		(	!$files->isa('LXR::Files::Plain')
 		||	$config->{'glimpsebin'}
 			&& $config->{'glimpsebin'} =~ m!^(.*/)?true$!
 		||	$config->{'swishbin'}
 			&& $config->{'swishbin'} =~ m!^(.*/)?true$!
 		) {
 		$modelink = "<span class='modes-dis'>$modename</span>";
-		$modecss  = "modes-dis";
-		$modeaction= "";
-		$modeoff  = "disabled";
+		$modecss  = 'modes-dis';
+		$modeaction= '';
+		$modeoff  = 'disabled';
 	} else {
-		$modelink = "<a class=\"modes\" "
-					. "href=\"$config->{virtroot}/search"
+		$modelink = "<a class=\"modes\" href=\""
+					. $config->{'virtroot'}
+					. 'search'
+					. ( exists($config->{'treename'})
+					  ? '/'.$config->{'treename'}
+					  : ''
+					  )
 					. urlargs
-					. "\">general search</a>";
-		$modecss  = "modes";
-		$modeaction = "$config->{virtroot}/search";
-		$modeoff  = "";
+					. '">general search</a>';
+		$modecss  = 'modes';
+		$modeaction = $config->{'virtroot'}
+					. 'search'
+					. ( exists($config->{'treename'})
+					  ? '/'.$config->{'treename'}
+					  : ''
+					  );
+		$modeoff  = '';
 	}
 	push(@mlist,	{ 'name' => $modename
 					, 'link' => $modelink
@@ -1107,28 +1177,6 @@ the HTML fragment.
 
 The result is the concatenation of the repeated expansion.
 
-B<Note:>
-
-=over
-
-If the current target directory or file was selected by an
-'include' link, the path must be recomputed with the new
-variable value.
-Theoretically, we should restart the whole process from the fragments
-in the include directive, which is no longer known at this stage.
-Though _file and _dir arguments have been added in the URL to allow
-accurate computation in all circumstances,
-we don't use them in this version.
-Instead, we assume that 'maps' transformation is not that twisted
-as to need a recomputation from start.
-That is, we assume that reapplying the 'maps' transformation a second
-time with a different variable value will undo the first application
-and give the correct result.
-
-This is not guaranteed to work always.
-
-=back
-
 =cut
 
 sub varlinks {
@@ -1156,21 +1204,26 @@ sub varlinks {
 		} else {
 			if ($who eq 'source' || $who eq 'sourcedir') {
 				$vallink = &fileref	( $val
-									, "varlink"
+									, 'varlink'
 									, $config->mappath($pathname, "$var=$val")
 									, 0
 									, "$var=$val"
 									);
 
 			} elsif ($who eq 'diff') {
-				$vallink = &diffref($val, "varlink", $pathname, "$var=$val", @dargs);
+				$vallink = &diffref($val, 'varlink', $pathname, "$var=$val", @dargs);
 			} elsif ($who eq 'ident') {
-				$vallink = &idref($val, "varlink", $identifier, "$var=$val");
+				$vallink = &idref($val, 'varlink', $identifier, "$var=$val");
 			} elsif ($who eq 'search') {
-				$vallink =
-				    "<a class=\"varlink\" href=\"$config->{virtroot}/search"
-				  . &urlargs("$var=$val", "_string=" . $HTTP->{'param'}{'_string'})
-				  . "\">$val</a>";
+				$vallink = "<a class=\"varlink\" href=\""
+					. $config->{'virtroot'}
+					. 'search'
+					. ( exists($config->{'treename'})
+					  ? '/'.$config->{'treename'}
+					  : ''
+					  )
+					. &urlargs("$var=$val", '_string=' . $HTTP->{'param'}{'_string'})
+					. "\">$val</a>";
 			}
 		}
 
@@ -1188,7 +1241,7 @@ sub varlinks {
 
 Function C<varmenuexpand> is a "$function" substitution function.
 It returns an HTML string which is the concatenation of
-C<< E<lt>optionE<gt> >> tags, each one corresponding to the values
+C<E<lt>OPTIONE<gt>> tags, each one corresponding to the values
 defined in variable $var's 'range'.
 
 =over
@@ -1207,7 +1260,7 @@ To handle CVS case where directories are not managed version-wise,
 the value any variable has on entry is kept, even if this value
 is not listed in its C<'range'> attribute.
 Thus, the current I<version>, for instance, is not lost through
-a disrectory display.
+a directory display.
 
 =cut
 
@@ -1221,12 +1274,12 @@ sub varmenuexpand {
 	my $oldval = $config->variable($var);
 	foreach $val ($config->varrange($var)) {
 		if ($val eq $oldval) {
-			$class = "var-sel";
-			$sel = "selected";
-			$oldval = undef;	# Current value let
+			$class = 'var-sel';
+			$sel = 'selected';
+			$oldval = undef;	# Current value found
 		} else {
-			$class = "varlink";
-			$sel = "";
+			$class = 'varlink';
+			$sel = '';
 		}
 
 		$menuex .= expandtemplate
@@ -1242,8 +1295,8 @@ sub varmenuexpand {
 	if (defined($oldval)) {
 		$menuex .= expandtemplate
 					( $templ
-					,	( 'itemclass' => sub { "var-sel" }
-						, 'itemsel'   => sub { "selected" }
+					,	( 'itemclass' => sub { 'var-sel' }
+						, 'itemsel'   => sub { 'selected' }
 						, 'varvalue'  => sub { $oldval }
 						)
 					);
@@ -1256,7 +1309,7 @@ sub varmenuexpand {
 
 Function C<varbtnaction> is a "$variable" substitution function.
 It returns a string suitable for use in the C< action > attribute
-of a C<< E<lt>formE<gt> >> tag.
+of a C<E<lt>FORME<gt>> tag.
 
 =over
 
@@ -1270,12 +1323,6 @@ a I<string> containing the script name
 
 =back
 
-It passes a skeletal reference to sub C<varlink2action> to do the job.
-The reference depends on the script.
-
-Though not mentioned in the code, it relies on C<varlink2action>'s
-side-effect to set the value of C<$varparam>.
-
 =cut
 
 sub varbtnaction {
@@ -1283,15 +1330,29 @@ sub varbtnaction {
 	my $action;
 
 	if ($who eq 'source' || $who eq 'sourcedir') {
-		$action = &fileref("", "", $pathname);
+		$action = &fileref('', '', $pathname);
 	} elsif ($who eq 'diff') {
-		$action = &diffref("", "", $pathname);
+		$action = &diffref('', '', $pathname);
 	} elsif ($who eq 'ident') {
-		$action = &idref("", "", $identifier);
+		$action = &idref('', '', $identifier);
 	} elsif ($who eq 'search') {
-		$action =	"href=\"$config->{virtroot}/search"
-						. &urlargs(&nonvarargs())
-						. "\">";
+		$action = 'href="'
+				. $config->{'virtroot'}
+				. 'search'
+				. ( exists($config->{'treename'})
+				  ? '/'.$config->{'treename'}
+				  : ''
+				  )
+				. '">';
+	} elsif ($who eq 'showconfig') {
+		$action = 'href="'
+				. $config->{'virtroot'}
+				. 'showconfig'
+				. ( exists($config->{'treename'})
+				  ? '/'.$config->{'treename'}
+				  : ''
+				  )
+				. '">';
 	}
 	$action =~ m!href="(.*?)(\?|">)!;	# extract href target as action
 	return $1;
@@ -1341,7 +1402,7 @@ sub varexpand {
 	my $var;
 
 	foreach $var ($config->allvariables) {
-		if	(!exists($config->{'variables'}{$var}{'when'})
+		if	(  !exists($config->{'variables'}{$var}{'when'})
 			|| eval($config->varexpand($config->{'variables'}{$var}{'when'}))
 			) {
 		$varex .= expandtemplate
@@ -1351,7 +1412,6 @@ sub varexpand {
 						, 'varvalue' => sub { $config->variable($var) }
 						, 'varlinks' => sub { varlinks(@_, $who, $var) }
 						, 'varmenu'  => sub { varmenuexpand(@_, $who, $var) }
-						, 'varbtnaction'=> \&varbtnaction
 						)
 					);
 		}
@@ -1362,7 +1422,7 @@ sub varexpand {
 
 =head2 C<devinfo ($templ)>
 
-Function C<dotdoturl> is a "$variable" substitution function.
+Function C<devinfo> is a "$variable" substitution function.
 It returns a string giving information about the LXR modules.
 
 This is a developer debugging substitution. It is not meaningful
@@ -1378,10 +1438,8 @@ a I<string> containing the template
 
 =item
 
-I<< Presently, the template is equal to C<undef>, which is the
+I<Presently, the template is equal to C<undef>, which is the
 template value for a variable substitution request. >
-
-=comment (POD bug?) See previous =comment about >/>>.
 
 =back
 
@@ -1421,7 +1479,7 @@ sub devinfo {
 =head2 C<atticlink ($templ)>
 
 Function C<atticlink> is a "$variable" substitution function.
-It returns an HTML-string containing an C<< E<lt>AE<gt> >> link to
+It returns an HTML-string containing an C<E<lt>AE<gt>> link to
 display/hide CVS files in the "attic" directory.
 
 =over
@@ -1434,35 +1492,52 @@ a I<string> containing the template
 
 =item
 
-I<< Presently, the template is equal to C<undef>, which is the
+I<Presently, the template is equal to C<undef>, which is the
 template value for a variable substitution request. >
 
-=comment (POD bug?) See previous =comment about >/>>.
-
 =back
+
+=item 1 C<$who>
+
+a I<string> containing the script name
 
 =back
 
 =cut
 
 sub atticlink {
+	my ($templ, $who) = @_;
 
 # This is meaningful only if files lie in a CVS repository
 # and the current page is related to some file activity
 # (i.e. displaying a directory or a source file)
-	return "&nbsp;" if !$files->isa("LXR::Files::CVS");
-	return "&nbsp;" if $ENV{'SCRIPT_NAME'} !~ m|/source$|;
+	return '&nbsp;' if !$files->isa('LXR::Files::CVS');
+	return '&nbsp;' if $who ne 'sourcedir';
 # Now build the opposite of the current state
 	if ($HTTP->{'param'}->{'_showattic'}) {
-		return ("<a class='modes' href=\"$config->{virtroot}/source"
-			  . $pathname
-			  . &urlargs("_showattic=0")
-			  . "\">Hide attic files</a>");
+		return	( '<div class="cvsattic"><a class="modes" href="'
+				. $config->{'virtroot'}
+				. 'source'
+				. ( exists($config->{'treename'})
+				  ? '/'.$config->{'treename'}
+				  : ''
+				  )
+				. $pathname
+				. &urlargs("_showattic=0")
+				. '">Hide attic files</a></div>'
+				);
 	} else {
-		return ("<a class='modes' href=\"$config->{virtroot}/source"
-			  . $pathname
-			  . &urlargs("_showattic=1")
-			  . "\">Show attic files</a>");
+		return	( '<div class="cvsattic"><a class="modes" href="'
+				. $config->{'virtroot'}
+				. 'source'
+				. ( exists($config->{'treename'})
+				  ? '/'.$config->{'treename'}
+				  : ''
+				  )
+				. $pathname
+				. &urlargs('_showattic=1')
+				. '">Show attic files</a></div>'
+				);
 	}
 }
 
@@ -1492,26 +1567,27 @@ sub makeheader {
 	my $tmplname;
 	my $template;
 
-	$tmplname = $who . "head";
-	unless	($who ne "sourcedir" || exists $config->{'sourcedirhead'}) {
-		$tmplname = "sourcehead";
+	$tmplname = $who . 'head';
+	unless	($who ne 'sourcedir' || exists $config->{'sourcedirhead'}) {
+		$tmplname = 'sourcehead';
 	}
 	unless (exists $config->{$tmplname}) {
-		$tmplname = "htmlhead";
+		$tmplname = 'htmlhead';
 	}
 
 	$template = gettemplate
 					( $tmplname
-					, "<html><body>\n<hr>\n"
-					, "<hr>\n<p>Trying to display \$pathname</p>\n"
+					, "<hr>\n"
+					, "<p class='error'>Trying to display \$pathname</p>\n"
 					);
+	$HTMLheadOK = 1;
 
 	print(
 		expandtemplate
 		(	$template
 		,	( # --for <head> section--
 				'title'      => sub { titleexpand(@_, $who) }
-			,	'baseurl'    => sub { baseurl(@_) }
+			,	'baseurl'    => \&baseurl
 			,	'encoding'   => sub { $config->{'encoding'} }
 			,	'stylesheet' => \&stylesheet
 			,	'alternatestyle' => sub { altstyleexpand(@_, $who) }
@@ -1519,10 +1595,16 @@ sub makeheader {
 			,	'caption'    => sub { captionexpand(@_, $who) }
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
-			,	'atticlink'  => \&atticlink
-			,	'LXRversion' => sub { "1.2.0" }
+			,	'path_escaped'=>sub { my $ret=$pathname
+									; $ret =~ s/&/&amp;/g
+									; $ret =~ s/</&lt;/g
+									; $ret =~ s/>/&gt;/g
+									; return $ret
+									}
+			,	'LXRversion' => sub { "%LXRRELEASENUMBER%" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
+			,	'atticlink'  => sub { atticlink(@_, $who) }
 			  # --other trees--
 			,	'forest'     => sub { forestexpand(@_, $who) }
 			  # --variables buttons & links--
@@ -1565,12 +1647,12 @@ sub makefooter {
 	my $tmplname;
 	my $template;
 
-	$tmplname = $who . "tail";
-	unless ($who ne "sourcedir" || exists $config->{'sourcedirtail'}) {
-		$tmplname = "sourcetail";
+	$tmplname = $who . 'tail';
+	unless ($who ne 'sourcedir' || exists $config->{'sourcedirtail'}) {
+		$tmplname = 'sourcetail';
 	}
 	unless (exists $config->{$tmplname}) {
-		$tmplname = "htmltail";
+		$tmplname = 'htmltail';
 	}
 
 	$template = gettemplate
@@ -1586,7 +1668,13 @@ sub makefooter {
 				'caption'    => sub { captionexpand(@_, $who) }
 			,	'banner'     => sub { bannerexpand(@_, $who) }
 			,	'pathname'   => sub { $pathname }
-			,	'LXRversion' => sub { "1.2.0" }
+			,	'path_escaped'=>sub { my $ret=$pathname
+									; $ret =~ s/&/&amp;/g
+									; $ret =~ s/</&lt;/g
+									; $ret =~ s/>/&gt;/g
+									; return $ret
+									}
+			,	'LXRversion' => sub { "%LXRRELEASENUMBER%" }
 			  # --modes buttons & links--
 			,	'modes'      => sub { modeexpand(@_, $who) }
 			  # --variables buttons & links--
@@ -1627,6 +1715,10 @@ e.g. header or footer, since they can be defined merely in the
 tree section without being defined in the global section.
 Consequently, there is no call to makeheader or makefooter.
 
+HTTP headers may or may not have been already emitted.
+Caller is responsible for checking that and eventually
+emit minimal HTTP headers for error page display.
+
 =cut
 
 sub makeerrorpage {
@@ -1644,15 +1736,16 @@ sub makeerrorpage {
 					);
 
 # Emit a simple HTTP header
-	print("Content-Type: text/html; charset=iso-8859-1\n");
-	print("\n");
+# 	print("Content-Type: text/html; charset=iso-8859-1\n");
+# 	print("\n");
 
 	print(
 		expandtemplate
 		(	$template
-		,	( 'target' =>  sub { targetexpand(@_, $who) }
+		,	( 'target'     =>  sub { targetexpand(@_, $who) }
 			, 'stylesheet' => \&stylesheet
-			, 'LXRversion' => sub { "1.2.0" }
+			, 'baseurl'    => \&baseurl
+			, 'LXRversion' => sub { "%LXRRELEASENUMBER%" }
 			)
 		)
 	);

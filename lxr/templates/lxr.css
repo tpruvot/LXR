@@ -1,5 +1,5 @@
 /*
- *	$Id: lxr.css,v 1.15 2013/01/24 15:09:53 ajlittoz Exp $
+ *	$Id: lxr.css,v 1.21 2014/03/10 16:58:21 ajlittoz Exp $
  */
 
 /* Some definitions are grouped together to allow modification
@@ -24,6 +24,7 @@
 , .dirrow2
 , .modes		/* mode switches */
 , .modes-sel
+, .modes-dis
 , BUTTON
 , .varlink		/* 'variables' switches */
 , .var-sel
@@ -31,6 +32,8 @@
 , .tree-sel
 , .lxrdesc
 , SELECT
+, .cvsweb
+, .cvsattic
 , TD.identline
 , TD.searchline
 { font-family: "Gill Sans", Helvetica, Arial, sans
@@ -78,6 +81,35 @@
 ; margin: 0
 }
 
+  .fatal
+{ color: red
+; margin: 2.5cm
+; margin-top: 4cm
+; padding: 1cm
+; border-width: thick
+; border-style: solid
+; border-color: red
+; background-color: #FFFFDD
+}
+
+  .warning
+{ color: maroon
+; margin: 0.5cm
+; padding: 0.5cm
+; border-width: medium
+; border-style: solid
+; border-color: orange
+; background-color: #FFEEEE
+}
+
+  .fatal .headline
+, .warning .headline
+{ text-align: center
+; text-transform: uppercase
+; padding-bottom: 0.3cm
+; margin: 0
+}
+
 /***********************/
 /* headers and footers */
 /***********************/
@@ -122,6 +154,15 @@
 { font-size: 14pt
 ; color: #339966
 ; text-align: center
+}
+
+/* Attic view switch */
+  .cvsattic
+	/* definition similar to cvsweb */
+{ border-width: medium
+; border-style: outset
+; border-color: #aaaaaa
+; background-color: #eeeeee
 }
 
   .footer P
@@ -388,6 +429,16 @@
 /*************/
 /* file view */
 /*************/
+/* link to cvslog */
+  A.cvsweb
+{ border-width: medium
+; border-style: outset
+; border-color: #aaaaaa
+; background-color: #eeeeee
+; padding: 0 0.54cm 0 0.54cm
+; color: blue
+}
+
 /* most recent addition to file */
   .annot-cur
 { background-color: #ffcc88
@@ -408,6 +459,9 @@
 /* link - the line number */
   A.fline
 { text-decoration: none
+}
+  a.fline:target
+{ background-color: yellow
 }
 
 /* link to other site (http, ftp and mailto) */
@@ -431,18 +485,33 @@
 
 /* Syntactic highlighting*/
 /* comments */
-  .comment
+  [class|=comment]
 { color: #808080
 ; font-style: italic
 }
+/* plain ol'doc (in Perl) */
+  .comment-d
+{
+  font-style: normal
+}
 /* strings */
-  .string
+  [class|=string]
 { color: #BB0000
+}
+/* OS command (in Perl) */
+  .string-x
+{
+  color: #BB5500
 }
 /* reserved words */
   .reserved
 { color: green
 ; font-weight: bold
+}
+/* extras */
+  [class|=extra]
+{ color: purple
+; font-style: italic
 }
 
 /*************************/

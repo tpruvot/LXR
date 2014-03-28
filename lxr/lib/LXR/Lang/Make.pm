@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Make.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $
+# $Id: Make.pm,v 1.4 2013/11/08 09:06:26 ajlittoz Exp $
 #
 # Implements generic support for any language that ectags can parse.
 # This may not be ideal support, but it should at least work until
@@ -32,7 +32,7 @@ It is driven by specifications read from file I<generic.conf>.
 
 package LXR::Lang::Make;
 
-$CVSID = '$Id: Make.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $ ';
+$CVSID = '$Id: Make.pm,v 1.4 2013/11/08 09:06:26 ajlittoz Exp $ ';
 
 use strict;
 require LXR::Lang::Generic;
@@ -57,7 +57,7 @@ an optional I<string> containing a preferred directory for the include'd file
 
 =back
 
-Make C<uses> may request several files.
+Make C<include> may request several files.
 It is thus necessary to iterate on the list.
 
 =cut
@@ -66,7 +66,6 @@ sub processinclude {
 	my ($self, $frag, $dir) = @_;
 
 	my $source = $$frag;
-	my $dirname;	# uses directive name and spacing
 	my $file;		# language include file
 	my $path;		# OS include file
 	my $target = '[s-]?include\s+';	# directive pattern
@@ -75,13 +74,14 @@ sub processinclude {
 	while (1) {
 		if ($source !~ s/^		# reminder: no initial space in the grammar
 						(${target})	# reserved keyword for include construct
-						([\S]+)	# file name
+						(\S+)	# file name
 						//sx) {
 			# Guard against syntax error or variant
 			# Advance past keyword, so that parsing may continue without loop.
-			$source =~ s/^([\w]+)//;	# Erase keyword
-			$dirname = $1;
-			$$frag =	"<span class='reserved'>$dirname</span>";
+			$source =~ s/^(\S+)//;	# Erase keyword
+			if (length($1) > 0) {
+				$$frag .= "<span class='reserved'>$1</span>";
+			}
 			&LXR::SimpleParse::requeuefrag($source);
 			return;
 		}
@@ -90,14 +90,9 @@ sub processinclude {
 		# Following are only for whitespace separators.
 		$target = '\s+';
 
-		$dirname = $1;
 		$file    = $2;
-
 		$path    = $file;
-		$$frag .= 	( $self->isreserved($dirname)
-					? "<span class='reserved'>$dirname</span>"
-					: $dirname
-					);	
+		$$frag .= 	"<span class='reserved'>$1</span>";
 
 		# Check start of comment
 		if ('#' eq substr($file, 0, 1)) {
@@ -108,7 +103,7 @@ sub processinclude {
 		# Create the hyperlink
 		$$frag .= $self->_linkincludedirs
 					( &LXR::Common::incref
-						($file, "include", $path, $dir)
+						($file, 'include', $path, $dir)
 					, $file
 					, '/'
 					, $path

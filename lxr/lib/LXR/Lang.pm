@@ -1,7 +1,7 @@
 # -*- tab-width: 4; cperl-indent-level: 4 -*-
 ###############################################
 #
-# $Id: Lang.pm,v 1.50 2013/04/19 12:42:14 ajlittoz Exp $
+# $Id: Lang.pm,v 1.54 2014/03/09 16:00:52 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,14 +25,21 @@ This module contains the API to language processing.
 It is responsible for creating the parser and handling the specific
 categories editing.
 
+A language parser is an I<object> with associated methods.
+I<Lang.pm> creates the base object, to be augmented/overriden by
+specific parsers in directory I<Lang>.
+The methods described below are generally only dummy declarations
+to capture missing specific implementations.
+
 =cut
 
 package LXR::Lang;
 
-$CVSID = '$Id: Lang.pm,v 1.50 2013/04/19 12:42:14 ajlittoz Exp $ ';
+$CVSID = '$Id: Lang.pm,v 1.54 2014/03/09 16:00:52 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
+use IO::Handle;
 
 
 =head2 C<new ($pathname, $releaseid, @itag)>
@@ -49,13 +56,38 @@ a I<string> containing the name of the file to parse
 
 a I<string> containing the release (version) of the file to parse
 
+B<Note:>
+
+=over
+
+=item
+
+I<Considering all call locations,
+this argument is not really necessary and we could as well
+use the global variable.>
+
+=back
+
 =item 1 C<@itag>
 
-an I<array> of 3 elements used to generate an C<<E<lt>AE<gt> >> link
+an I<array> of 3 elements used to generate an C<E<lt>AE<gt>> link
 for the identifiers found in the file (just insert the identifier name
 between the array elements)
 
 =back
+
+Creation of a specific parser is attempted first based on the file name
+and information from configuration parameter C<'filetype'>.
+If the file type is unknown,
+the first line of the file is read to tentatively extract a I<shebang>
+processed through configuration parameter C<'interpreters'>.
+In case there is no I<shebang>,
+an emacs-style C<mode:> is looked for.
+
+If all fail, C<undef> is returned.
+
+The LXR language name and argument C<@itag> are recorded in
+the created parser which is then returned.
 
 =cut
 
@@ -179,16 +211,16 @@ Internal function C<multilinetwist> marks the fragment with a CSS class.
 
 a I<string> to mark
 
-=item 1 C<$dir>
+=item 1 C<$css>
 
 a I<string> containing the CSS class
 
 =back
 
-The fragment is surrounded with C<<E<lt>spanE<gt> >> and C<<E<lt>/spanE<gt> >>
+The fragment is surrounded with C<E<lt>spanE<gt>> and C<E<lt>/spanE<gt>>
 tags. Special care is taken to repeat these tags at ends of line, so
 that the fragment can be correctly displayed on several lines without
-disturbing other highlighting (suv as line numbers or difference marks).
+disturbing other highlighting (such as line numbers or difference marks).
 
 =cut
 
@@ -196,7 +228,7 @@ sub multilinetwist {
 	my ($frag, $css) = @_;
 	$$frag = "<span class=\"$css\">$$frag</span>";
 	$$frag =~ s!\n!</span>\n<span class="$css">!g;
-	$$frag =~ s!<span class="comment"></span>$!! ; #remove excess marking
+	$$frag =~ s!<span class=".+?"></span>$!!; #remove excess marking
 }
 
 
@@ -217,9 +249,8 @@ Uses function C<multilinetwist>.
 =cut
 
 sub processcomment {
-	my ($self, $frag) = @_;
-
-	multilinetwist($frag, 'comment');
+	shift @_;
+	goto &multilinetwist;
 }
 
 
@@ -240,9 +271,34 @@ Uses function C<multilinetwist>.
 =cut
 
 sub processstring {
-	my ($self, $frag) = @_;
+	shift @_;
+	goto &multilinetwist;
+}
 
-	multilinetwist($frag, 'string');
+
+=head2 C<processextra ($frag, $kind)>
+
+Method C<processextra> marks the fragment as language specific.
+
+=over
+
+=item 1 C<$frag>
+
+a I<string> to mark
+
+=item 1 C<$kind>
+
+a I<string> containing the CSS class
+
+=back
+
+Uses function C<multilinetwist>.
+
+=cut
+
+sub processextra {
+	shift @_;
+	goto &multilinetwist;
 }
 
 #
@@ -319,7 +375,7 @@ sub _linkincludedirs {
 	my $tail;
 
 	if (!defined($link)) {
-		if ($path !~ m!/!) {
+		if (index($path, '/') < 0) {
 			$tail = $file;
 		} elsif (substr($path, -1) eq '/') {
 		# Path ends with /: it may be a directory or an HTTP request.
@@ -327,13 +383,13 @@ sub _linkincludedirs {
 			chop($path);
 			$tail = $sep;
 			$file = substr($file, 0, rindex($file, $sep));
-			$link = &LXR::Common::incdirref($file, "include", $path, $dir);
+			$link = incdirref($file, 'include', $path, $dir);
 		}
 	}
-	# If incref or incdiref did not return a link to the file,
+	# If incref or incdirref did not return a link to the file,
 	# explore however the path to see if directories are
 	# known along the way.
-	while	(	$path =~ m!/!
+	while	(	index($path, '/') >= 0
 			&&	substr($link, 0, 1) ne '<'
 			) {
 		# NOTE: the following rindex never returns -1, because
@@ -343,12 +399,12 @@ sub _linkincludedirs {
 		$tail = substr($file, $sp) . $tail;
 		$file = substr($file, 0, $sp);
 		$path =~ s!/[^/]+$!!;
-		$link = &LXR::Common::incdirref($file, "include", $path, $dir);
+		$link = incdirref($file, 'include', $path, $dir);
 	}
 	# A known directory (at least) has been found.
 	# Build links to higher path elements
 	if (substr($link, 0, 1) eq '<') {
-		while ($path =~ m!/!) {
+		while (index($path, '/') >= 0) {
 			# NOTE: see note above about rindex
 			$l = index  ($link, '>');
 			$r = rindex ($link, '<');
@@ -359,10 +415,121 @@ sub _linkincludedirs {
 			$sp = rindex ($file, $sep);
 			$file = substr($file, 0, $sp);
 			$path =~ s!/[^/]+$!!;
-			$link = &LXR::Common::incdirref($file, "include", $path, $dir);
+			$link = incdirref($file, 'include', $path, $dir);
 		}
 	}
 	return $link . $tail;
+}
+
+
+=head2 C<_incfindfile ($filewanted, $file, @paths)>
+
+Function C<_incfindfile> returns the "full" path corresponding to argument
+C<$file>.
+
+=over
+
+=item 1 C<$filewanted>
+
+a I<flag> indicating if a directory (0) or file (1) is desired
+
+=item 1 C<$file>
+
+a I<string> containing a file name to resolve
+
+=item 1 C<@paths>
+
+an I<array> containing a list of directories to search
+
+=back
+
+The list of directories from configuration parameter C<'incprefix'> is
+appended to C<@paths>. Every directory from this array is then preprended
+to the file name . The resulting string is transformed by the mapping
+rules of configuration parameter C<'maps'> (See I<Config.pm> sub C<mappath>).
+
+If there is a match in the file database (file or directory according
+to the first argument), the "physical" path is returned.
+Otherwise, an C<undef> is returned to signal an unknown file.
+
+I<This is a "private" or "internal" C<sub> for include path resolution only.>
+
+=cut
+
+sub _incfindfile {
+	my ($filewanted, $file, @paths) = @_;
+	my $path;
+
+	# The following line could be faster interpreted as
+	# 	push(@paths, @{$config->{'incprefix'}});
+	# but this would forbid variable expansion.
+	# Is this feature really needed for include path?
+	push(@paths, $config->incprefix);
+
+	foreach my $dir (@paths) {
+		$dir =~ s!/+$!!;	# Remove trailing slashes
+		$path = $config->mappath($dir . '/' . $file);
+		if ($filewanted){
+			return $path if $files->isfile($path, $releaseid);
+		} else {
+			return $path if $files->isdir($path, $releaseid);
+		}
+	}
+
+	return undef;
+}
+
+
+=head2 C<incdirref ($name, $css, $file, @paths)>
+
+Function C<incdirref> returns an C<E<lt>AE<gt>> link to a directory
+of an C<include>d file or the directory name if it is unknown.
+
+=over
+
+=item 1 C<$name>
+
+a I<string> for the user-visible part of the link,
+usually the directory name
+
+=item 1 C<$css>
+
+a I<string> containing the CSS class for the link
+
+=item 1 C<$file>
+
+a I<string> containing the HTML path to the directory
+
+=item 1 C<@paths>
+
+an I<array> containing a list of base directories to search
+
+=back
+
+I<This function is supposed to be called AFTER sub C<incref> on every
+subpath of the include'd file, removing successively the tail directory.
+It thus allows to compose a path where each directory is separately
+clickable.>
+
+If the include'd directory does not exist (as determined by sub C<incfindfile>),
+the function returns the directory name. This acts as a "no-op" in the
+HTML sequence representing the full path of the include'd file.
+
+If the directory exists, the function returns the C<E<lt>AE<gt>> link
+as computed by sub C<fileref> for the directory.
+
+=cut
+
+sub incdirref {
+	my ($name, $css, $file, @paths) = @_;
+	my $path;
+
+	$path = _incfindfile(0, $file, @paths);
+	return $name unless $path;
+	return &fileref	( $name
+					, $css
+					, $path.'/'
+					);
 }
 
 
@@ -403,8 +570,12 @@ B<Note:>
 
 =over
 
-I<This method is nowhere invoked. It corresponds to no category. It is
-thus candidate for removal.
+=item
+
+I<This method is nowhere invoked because keywords are processed in
+C<processcode> simultaneouly with identifiers.
+It corresponds to no category. It is
+thus candidate for removal.>
 
 =back
 
@@ -442,7 +613,7 @@ an I<integer> containing the internal DB id for the file/revision
 
 a I<reference> to the index (DB) object
 
-=itm 1 C<$config>
+=item 1 C<$config>
 
 a I<reference> to the configuration objet
 
@@ -482,7 +653,7 @@ an I<integer> containing the internal DB id for the file/revision
 
 a I<reference> to the index (DB) object
 
-=itm 1 C<$config>
+=item 1 C<$config>
 
 a I<reference> to the configuration objet
 
@@ -500,7 +671,7 @@ sub referencefile {
 =head2 C<language ()>
 
 Method C<language> is usually a shorthand notation for
-C<<$lang-E<gt>{'language'}>>.
+C<$lang-E<gt>{'language'}>.
 
 =cut
 

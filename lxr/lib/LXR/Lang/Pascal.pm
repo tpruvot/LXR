@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Pascal.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $
+# $Id: Pascal.pm,v 1.5 2013/11/08 09:04:27 ajlittoz Exp $
 #
 # Implements generic support for any language that ectags can parse.
 # This may not be ideal support, but it should at least work until
@@ -32,7 +32,7 @@ It is driven by specifications read from file I<generic.conf>.
 
 package LXR::Lang::Pascal;
 
-$CVSID = '$Id: Pascal.pm,v 1.2 2013/04/12 15:01:09 ajlittoz Exp $ ';
+$CVSID = '$Id: Pascal.pm,v 1.5 2013/11/08 09:04:27 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Lang;
@@ -110,6 +110,7 @@ sub processinclude {
 
 	my $source = $$frag;
 	my $dirname;	# uses directive name and spacing
+	my $dictname;
 	my $file;		# language include file
 	my $path;		# OS include file
 	my $link;		# link to include file
@@ -120,13 +121,13 @@ sub processinclude {
 	while (1) {
 		if ($source !~ s/^		# reminder: no initial space in the grammar
 						(${target})	# reserved keyword for include construct
-						([\w]+)	# Pascal module
+						(\w+)	# Pascal module
 						//sx) {
 			# Guard against syntax error or variant
 			# Advance past keyword, so that parsing may continue without loop.
-			$source =~ s/^([\w]+)//)	# Erase keyword
+			$source =~ s/^(\s*\S+)//;	# Erase keyword
 			$dirname = $1;
-			$$frag =	"<span class='reserved'>$dirname</span>";
+			$$frag = "<span class='reserved'>$dirname</span>";
 			&LXR::SimpleParse::requeuefrag($source);
 			return;
 		}
@@ -138,7 +139,8 @@ sub processinclude {
 		$dirname = $1;
 		$file    = $2;
 		$path    = $file;
-		$$frag .= 	( $self->isreserved($dirname)
+		($dictname = $dirname) =~ s/\s//g;
+		$$frag .= 	( $self->isreserved(uc($dictname))
 					? "<span class='reserved'>$dirname</span>"
 					: $dirname
 					);	
@@ -146,11 +148,15 @@ sub processinclude {
 		$path =~ s@$@.${extens}@;		# Add file extension
 
 		# Create the hyperlink
-		$link = &LXR::Common::incref($file, "include", $path, $dir);
+		$link = &LXR::Common::incref($file, 'include', $path, $dir);
 		if (!defined($link)) {
 			$link = $file;
 		}
 		$$frag .= $link;
+		if ($source =~ m/^\s*;$/) {	# End of directive?
+			$$frag .= $source;
+			return;
+		}
 	}
 }
 

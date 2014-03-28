@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: ContextMgr.pm,v 1.3 2013/01/22 16:59:52 ajlittoz Exp $
+# $Id: ContextMgr.pm,v 1.6 2014/03/10 10:09:28 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,9 +38,10 @@ our @ISA = qw(Exporter);
 
 our @EXPORT = qw(
 	$cardinality
-	$servertype  $scheme   $hostname
-	$port        $virtrootbase
-	$virtrootpolicy
+	$servertype  $scheme   $hostname  $port
+	@schemealiases  @hostaliases      @portaliases
+	$commonvirtroot $virtrootbase     $virtrootpolicy
+	$treematch
 	$dbengine    $dbenginechanged
 	$dbpolicy    $dbname   $dbuser
 	$dbpass      $dbprefix $nodbuser
@@ -55,12 +56,19 @@ our @EXPORT = qw(
 	# Single/multiple operation
 our $cardinality;
 
+	# Position of tree name
+our $treematch;
+
 	# Web server
 our $servertype;
 our $scheme;
 our $hostname;
 our $port;
+our @schemealiases;
+our @hostaliases;
+our @portaliases;
 our $virtrootbase;
+our $commonvirtroot;
 our $virtrootpolicy;
 
 	# Database
@@ -76,7 +84,7 @@ our $nodbprefix;
 
 # WARNING:	remember to increment this number when changing the
 #			set of state variables and/or their meaning.
-my $context_version = 2;
+my $context_version = 3;
 
 
 ##############################################################
@@ -149,16 +157,16 @@ sub contextReload {
 				print "Previous configuration was made for:\n";
 				print "- ";
 				if ('m' eq $cardinality) {
-					print "multiple trees";
+					print 'multiple trees';
 				} else {
-					print "single tree";
+					print 'single tree';
 				}
 				print "\n";
 				print "- ";
 				if ('t' eq $dbpolicy) {
-					print "per tree";
+					print 'per tree';
 				} else {
-					print "global";
+					print 'global';
 				}
 				print " database\n";
 				print "\n";
@@ -182,16 +190,38 @@ sub contextReload {
 			}
 		}
 
+		print "Tree selection mode was: ${VTbold}";
+		if ('N' eq $treematch) {
+			print 'implicit (single tree)';
+		} elsif ('H' eq $treematch) {
+			print 'hostname';
+		} elsif ('P' eq $treematch) {
+			print 'prefix in hostname';
+		} elsif ('S' eq $treematch) {
+			print 'section name';
+		} elsif ('E' eq $treematch) {
+			print 'embedded in section';
+		} elsif ('A' eq $treematch) {
+			print 'argument';
+		} else {
+			print "???${VTnorm}\n";
+			print "${VTred}ERROR:${VTnorm} saved context file damaged or tampered with!\n";
+			print "Unknown selection code '$treematch'\n";
+			print "Delete or rename file $ctxtfile to remove lock.\n";
+			exit 1;
+		}
+		print "${VTnorm}\n";
+
 		if ($dbpolicy eq 't') {
 			print "Your DB engine was: ${VTbold}";
-			if ("m" eq $dbengine) {
-				print "MySQL";
-			} elsif ("o" eq $dbengine) {
-				print "Oracle";
-			} elsif ("p" eq $dbengine) {
-				print "PostgreSQL";
-			} elsif ("s" eq $dbengine) {
-				print "SQLite";
+			if ('m' eq $dbengine) {
+				print 'MySQL';
+			} elsif ('o' eq $dbengine) {
+				print 'Oracle';
+			} elsif ('p' eq $dbengine) {
+				print 'PostgreSQL';
+			} elsif ('s' eq $dbengine) {
+				print 'SQLite';
 			} else {
 				print "???${VTnorm}\n";
 				print "${VTred}ERROR:${VTnorm} saved context file damaged or tampered with!\n";
@@ -207,6 +237,14 @@ sub contextReload {
 				}
 				$reloadstatus = 1;
 			};
+			print "${VTnorm}\n";
+		}
+
+		if	(	's' eq $cardinality
+			||	'N' eq $treematch
+			) {
+			print "${VTred}ERROR:${VTnorm} single tree context not compatible with add mode!\n";
+			exit 1;
 		}
 	} else {
 		print "${VTyellow}WARNING:${VTnorm} could not reload context file ${VTbold}$ctxtfile${VTnorm}!\n";
@@ -279,6 +317,19 @@ sub contextSave {
 		print DEST "\$scheme = '$scheme';\n";
 		print DEST "\$hostname = '$hostname';\n";
 		print DEST "\$port = '$port';\n";
+	# @hostaliases added in version 3
+		print DEST '@schemealiases = qw( ';
+		print DEST join ("\n                   , ", @schemealiases);
+		print DEST "\n                   );\n";
+		print DEST '@hostaliases = qw( ';
+		print DEST join ("\n                 , ", @hostaliases);
+		print DEST "\n                 );\n";
+		print DEST '@portaliases = qw( ';
+		print DEST join ("\n                 , ", @portaliases);
+		print DEST "\n                 );\n";
+		print DEST "\$treematch = '$treematch';\n";
+		print DEST "\$commonvirtroot = $commonvirtroot;\n";
+	# Set v2 continued
 		print DEST "\$virtrootbase = '$virtrootbase';\n";
 		print DEST "\$virtrootpolicy = '$virtrootpolicy';\n";
 		close(DEST)
@@ -358,14 +409,14 @@ sub contextDB {
 					$dbname = get_user_choice
 						( 'Name of global SQLite database file? (e.g. /home/myself/SQL-databases/lxr'
 						, -2
-						, []
+						, [ '^/', 'absolute file path required' ]
 						, []
 						);
 				} else {
 					$dbname = get_user_choice
 						( 'Name of global database?'
 						, -1
-						, []
+						, [ '^\w+$', 'invalid characters in name' ]
 						, [ 'lxr' ]
 						);
 				}
@@ -410,7 +461,7 @@ sub contextDB {
 			$dbuser = get_user_choice
 				( '--- DB user name?'
 				, -1
-				, []
+				, [ '^\w+$', 'invalid characters in name' ]
 				, [ 'lxr' ]
 				);
 			$dbpass = get_user_choice
@@ -435,7 +486,7 @@ sub contextDB {
 			$dbprefix = get_user_choice
 					( '--- Common table prefix?'
 					, -1
-					, []
+					, [ '^\w+$', 'invalid characters in prefix' ]
 					, [ 'lxr_' ]
 					);
 		}else {
@@ -455,23 +506,72 @@ sub contextServer {
 	my ($verbose) = @_;
 
 	if ($verbose > 1) {
-		print "LXR can be configured as the default server (the only service in your computer),\n";
-		print "a section of this default server or an independent server (with its own\n";
-		print "host name).\n";
-		print "Refer to the ${VTbold}User's Manual${VTnorm} for a description of the differences.\n";
+		print "Many different configurations are possible, they are related to the way\n";
+		print "LXR service is accessed, i.e. to the structure of the URL.\n";
+		print "Refer to the ${VTbold}User's Manual${VTnorm} for a description of the variants.\n";
 	}
 
+	if ($verbose > 1) {
+		print "\n";
+		print "LXR can be located at the server-root (so called ${VTbold}dedicated${VTnorm})\n";
+		print "or lower in the server hierarchy (${VTbold}shared${VTnorm} because there are\n";
+		print "usually other pages or sections).\n";
+	}
 	$servertype = get_user_choice
-			( 'Web server type?'
-			, 1
-			,	[ "1.default\n"
-				, "2.section in default\n"
-				, "3.indepedent\n"
-				, "4.section in indepedent\n"
+			( 'Server type?'
+			, 2
+			,	[ 'dedicated'
+				, 'shared'
 				]
-			, [ 'D', 'DS', 'I', 'IS' ]
+			, [ 'D', 'S' ]
 			);
+	if ('m' eq $cardinality) {
+		if ($verbose) {
+			print "\n";
+			print "Selecting which tree to display can be done in various ways:\n";
+			print "  1. from the host name (all names are different),\n";
+			print "  2. from a prefix to a common host name (similar to previous)\n";
+			print "  3. from the site section name (all different)\n";
+			print "  4. from interpretation of a section name part (similar to previous)\n";
+			print "  5. from the head of script arguments\n";
+			if ($verbose > 1) {
+				print "Method 5 is highly recommended because it has no impact on webserver\n";
+				print "  configuration.\n";
+				print "Method 3 is second choice but involves manually setting up many\n";
+				print "  symbolic links (one per source-tree).\n";
+				print "Method 1 & 2 do not involve symbolic links but need populating webserver\n";
+				print "  configuration with virtual hosts.\n";
+				print "  Note that method 2 does not work well on //localhost.\n";
+				print "Method 4 is deprecated because it has proved not easily portable\n";
+				print "  under alternate webservers (other than Apache).\n";
+			}
+			print "\n";
+		}
+		$treematch = get_user_choice
+			( 'Tree designation?'
+			, 1
+			,	[ "argument\n"
+				, "section name\n"
+				, "prefix in host\n"
+				, "hostname\n"
+				, "embedded in section"
+				]
+			, [ 'A', 'S', 'P', 'H', 'E' ]	# A arg, S section, P prefix, H host, E = embedded
+			);
+	} else {
+		$treematch = 'N';	# N none
+	}
+	if	(	'D' eq $servertype
+		&&	'S' eq $treematch
+		) {
+		print "${VTyellow}WARNING:${VTnorm} a dedicated server with tree selection through\n";
+		print "  section name is effectively a shared server!\n";
+		print "  Server type changed to ${VTyellow}shared${VTnorm}.\n";
+		$servertype = 'S';
+	}
+
 	if ($verbose) {
+		print "\n";
 		print "The computer hosting the server is described by an URL.\n";
 		print "The form is scheme://host_name:port\n";
 	}
@@ -481,62 +581,101 @@ sub contextServer {
 		print "  - host_name can be given as an IP address such as 123.45.67.89\n";
 		print "              or a domain name like localhost or lxr.url.example,\n";
 		print "  - port may be omitted if standard for the scheme.\n";
-		print "The following question asks for a primary URL. Later, you'll have\n";
-		print "the opportunity to give aliases to this primary URL.\n";
+	}
+
+	if ('H' eq $treematch) {
+		print "${VTyellow}Reminder:${VTnorm} Since you chose to give a different hostname\n";
+		print "          to every tree, you'll be asked for the hostname when describing\n";
+		print "          yours trees.\n";
+		print "\n";
+		goto END_HOST;
 	}
 	my $primaryhost;
+	if ('P' eq $treematch) {
+		print "${VTyellow}Prefix mode:${VTnorm} hostname will later be prefixed with a tree-unique\n";
+		print "             prefix defined in the tree descriptions.\n";
+		print "${VTred}Important!${VTnorm} Do not use numeric IP in prefix mode.\n";
+	}
 	while (!defined($primaryhost)) {
 		$primaryhost = get_user_choice
 			( '--- Host name or IP?'
-			, ('D' eq substr($servertype, 0, 1)) ? -1 : -2
-			, [ ]
-			, ('D' eq substr($servertype, 0, 1))
+			, ('H' ne $treematch) ? -1 : -2
+			,	[ '^(?i:https?:)?//', 'not an HTTP URL'
+				, '//[\w-]+(?:\.[\w-]+)*(?::\d+)?/?$', 'invalid characters in URL'
+				]
+			, ('H' ne $treematch)
 				? [ '//localhost' ]
 				: [ ]
 			);
-		$primaryhost =~ m!^(https?:)?(//[^:]+)(?::(\d+))?!;
-		$scheme = $1;
+		$primaryhost =~ m!^([^/]+)?//([^:]+)(?::(\d+))?/?!;
+		$scheme   = $1;
 		$hostname = $2;
-		$port = $3;
-		$scheme = undef if 'http:' eq $scheme;
-		$port = 80  if !defined($1) && !defined($3);
-		$port = 443 if 'https:' eq $1 && !defined($3);
-		if (!defined($hostname)) {
-			print "${VTred}ERROR:${VTnorm} invalid host name or scheme, try again ...\n";
-			$primaryhost = undef;
-			next;
-		}
-		if	(	'I' eq substr($servertype, 0, 1)
-			&&	(	'//localhost' eq $hostname
-				||	'//127.0.0.1' eq $hostname
-				)
-			) {
-			print "You are configuring for an independent web server and you named it ${hostname},\n";
-			print "which is the common name for the default server\n";
-			if	( 'y' eq get_user_choice
-						( 'Do you want to change its name?'
-						, 1
-						, [ 'yes', 'no' ]
-						, [ 'y', 'n' ]
-						)
-				) {
-				$primaryhost = undef;
-			}
-		}
+		$port     = $3;
+		$scheme = 'http:' if !defined($1);
+		$port   = 80  if 'http:' eq $scheme && !defined($3);
+		$port   = 443 if 'https:' eq $1 && !defined($3);
 	}
-
+	my $aliashost;
+	@schemealiases = ();
+	@hostaliases = ();
+	@portaliases = ();
+	while	('' ne	($aliashost = get_user_choice
+									( '--- Alias name or IP?'
+									, -3
+									, [ '^(?i:https?:)?//', 'not an HTTP URL'
+									, '//[\w-]+(?:\.[\w-]+)*(?::\d+)?/?$'
+											, 'invalid characters in URL' ]
+									, [ ]
+									)
+					)
+			) {;
+		$aliashost =~ m!^([^/]+)?//([^:]+)(?::(\d+))?/?!;
+		my $aliasscheme = $1;
+		my $aliasname   = $2;
+		my $aliasport   = $3;
+		$aliasscheme = 'http:' if !defined($1);
+		$aliasport   = 80  if 'http:' eq $aliasscheme && !defined($3);
+		$aliasport   = 443 if 'https:' eq $1 && !defined($3);
+		if	(	($aliasscheme ne $scheme)
+			||	($aliasport   != $port)
+			) {
+			print "${VTyellow}Reminder:${VTnorm} scheme: or :port are different on the primary host.\n";
+			print "This advanced setting needs manual revision of web-server configuration files.\n";
+			print "Otherwise, LXR will answer only on the primary URL\n";
+		}
+		push (@schemealiases, $aliasscheme);
+		push (@hostaliases,   $aliasname);
+		push (@portaliases,   $aliasport);
+	}
+END_HOST:
 
 	$virtrootbase = '';
-	if (1 < length($servertype)) {
+	$commonvirtroot = 0;
+	if	(	'S' eq $servertype
+		&&	'S' ne $treematch
+		) {
 		$virtrootbase = get_user_choice
 				( 'URL section name for LXR in your server?'
 				, -1
-				, [ ]
+				, [ '^[^\']+$', 'quotes not allowed' ]
 				, [ '/lxr' ]
 				);
+		$virtrootbase =~ s:/+$::;	# Ensure no ending slash
+		$virtrootbase =~ s:^/*:/:;	# Ensure a starting slash
+		if	(	'E' ne $treematch
+			&&	'N' ne $treematch
+			) {
+			$commonvirtroot =
+				'Y' eq get_user_choice
+					( 'Will it be shared by all trees?'
+					, 1
+					, [ 'yes', 'no' ]
+					, [ 'Y', 'N']
+					);
+		}
 	}
 
-	if ('m' eq $cardinality) {
+	if ('E' eq $treematch) {
 		if (1 < $verbose) {
 			print "The built-in method to manage several trees with a single instance of LXR is to include\n";
 			print "a designation of the tree in the URL at the end of the section name.\n";

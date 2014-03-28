@@ -1,8 +1,8 @@
 /*- -*- tab-width: 4 -*- -*/
 /*-
  *	SQL template for creating PostgreSQL tables
- *	(C) 2012 A. Littoz
- *	$Id: initdb-p-template.sql,v 1.3 2013/01/11 12:08:48 ajlittoz Exp $
+ *	(C) 2012-2013 A. Littoz
+ *	$Id: initdb-p-template.sql,v 1.6 2013/11/17 15:33:55 ajlittoz Exp $
  *
  *	This template is intended to be customised by Perl script
  *	initdb-config.pl which creates a ready to use shell script
@@ -52,19 +52,28 @@
 /*--*/
 /*--*/
 
+/*-	-------------------------------------------------------------
+ *-		Note about createlang below
+ *-	Prior to PostgreSQL release 9.0, the SQL driver is not loaded
+ *-	by default. It is therefore necessary to run command createlang.
+ *-	This is superfluous with releases >= 9.0 and results in an
+ *-	harmless warning which can be ignored
+ *-	-----------------------------------------------------------*/
 /*-		Create databases under LXR user
 		but it prevents from deleting user if databases exist
 -*//*- to activate place "- * /" at end of line (without spaces) -*/
 /*@IF	%_createglobals% && %_globaldb% */
 /*@XQT echo "*** PostgreSQL - Creating global database %DB_name%"*/
-/*@XQT dropdb   -U %DB_user% %DB_name%*/
-/*@XQT createdb -U %DB_user% %DB_name%*/
+/*@XQT dropdb     -U %DB_user% %DB_name%*/
+/*@XQT createdb   -U %DB_user% %DB_name%*/
+/*@XQT createlang -U %DB_user% -d %DB_name% plpgsql*/
 /*@ENDIF*/
 /*@IF	!%_globaldb% */
 /*@IF		%_dbuseroverride% */
 /*@XQT echo "*** PostgreSQL - Creating tree database %DB_name%"*/
-/*@XQT dropdb   -U %DB_tree_user% %DB_name%*/
-/*@XQT createdb -U %DB_tree_user% %DB_name%*/
+/*@XQT dropdb     -U %DB_tree_user% %DB_name%*/
+/*@XQT createdb   -U %DB_tree_user% %DB_name%*/
+/*@XQT createlang -U %DB_tree_user% -d %DB_name% plpgsql*/
 /*@ELSE*/
 /*-	When an overriding username is already known, %_dbuseroverride% is left
  *	equal to zero to prevent generating a duplicate user. We must however
@@ -72,11 +81,13 @@
  *	DB owner. -*/
 /*@XQT echo "*** PostgreSQL - Creating tree database %DB_name%"*/
 /*@IF			%DB_tree_user% */
-/*@XQT dropdb   -U %DB_tree_user% %DB_name%*/
-/*@XQT createdb -U %DB_tree_user% %DB_name%*/
+/*@XQT dropdb     -U %DB_tree_user% %DB_name%*/
+/*@XQT createdb   -U %DB_tree_user% %DB_name%*/
+/*@XQT createlang -U %DB_tree_user% -d %DB_name% plpgsql*/
 /*@ELSE*/
-/*@XQT dropdb   -U %DB_user% %DB_name%*/
-/*@XQT createdb -U %DB_user% %DB_name%*/
+/*@XQT dropdb     -U %DB_user% %DB_name%*/
+/*@XQT createdb   -U %DB_user% %DB_name%*/
+/*@XQT createlang -U %DB_user% -d %DB_name% plpgsql*/
 /*@ENDIF		%DB_tree_user% */
 /*@ENDIF	%_dbuseroverride% */
 /*@ENDIF !%_globaldb% */
@@ -88,13 +99,15 @@
 -*//*- to activate place "- * /" at end of line (without spaces)
 /*@IF	%_createglobals% && %_globaldb% */
 /*@XQT echo "*** PostgreSQL - Creating global database %DB_name%"*/
-/*@XQT dropdb   -U postgres %DB_name%*/
-/*@XQT createdb -U postgres %DB_name%*/
+/*@XQT dropdb     -U postgres %DB_name%*/
+/*@XQT createdb   -U postgres %DB_name%*/
+/*@XQT createlang -U postgres -d %DB_name% plpgsql*/
 /*@ENDIF*/
 /*@IF	!%_globaldb% */
 /*@XQT echo "*** PostgreSQL - Creating tree database %DB_name%"*/
-/*@XQT dropdb   -U postgres %DB_name%*/
-/*@XQT createdb -U postgres %DB_name%*/
+/*@XQT dropdb     -U postgres %DB_name%*/
+/*@XQT createdb   -U postgres %DB_name%*/
+/*@XQT createlang -U postgres -d %DB_name% plpgsql*/
 /*@ENDIF	!%_globaldb% */
 /*- end of disable/enable comment -*/
 /*--*/
@@ -127,9 +140,30 @@
 -*//*- to activate place "- * /" at end of line (without spaces)
 /*@XQT psql -q -U postgres %DB_name% <<END_OF_TABLES*/
 /*- end of disable/enable comment -*/
+/*-	NOTE:	a substantial performance gain resulted in
+  -			not using SERIAL autoincrementing fields, numbering
+  -			them with unique ids obtained from SEQUENCEs.
+  -			A further marginal gain was possible replacing the
+  -			sequences with user managed numbering.
+  -		The reasons was in the drastic decrease in COMMIT statements.
+  - CAUTION! Since sequence number update is committed to the DB with
+  -			low frequency, this optimisation is not compatible with
+  -			multiple DB writes, i.e. multi-threading or concurrent
+  -			table loading.
+  -*/
+/*@IF 0 */
+/*- Built-in unique record id management -*/
 drop sequence if exists %DB_tbl_prefix%filenum;
 drop sequence if exists %DB_tbl_prefix%symnum;
 drop sequence if exists %DB_tbl_prefix%typenum;
+create sequence %DB_tbl_prefix%filenum;
+create sequence %DB_tbl_prefix%symnum;
+create sequence %DB_tbl_prefix%typenum;
+/*@ELSE*/
+/*- The following is a replacement (initially developed for SQLite) -*/
+/*@ADD initdb/unique-user-sequences.sql*/
+/*@ENDIF*/
+
 drop table    if exists %DB_tbl_prefix%files cascade;
 drop table    if exists %DB_tbl_prefix%symbols cascade;
 drop table    if exists %DB_tbl_prefix%definitions cascade;
@@ -137,10 +171,6 @@ drop table    if exists %DB_tbl_prefix%releases cascade;
 drop table    if exists %DB_tbl_prefix%usages cascade;
 drop table    if exists %DB_tbl_prefix%status cascade;
 drop table    if exists %DB_tbl_prefix%langtypes cascade;
-
-create sequence %DB_tbl_prefix%filenum cache 500;
-create sequence %DB_tbl_prefix%symnum  cache 500;
-create sequence %DB_tbl_prefix%typenum cache 10;
 
 
 /* Base version of files */
@@ -220,7 +250,7 @@ create table %DB_tbl_prefix%releases
 	( fileid    int   not null
 	, releaseid bytea not null
 	, constraint %DB_tbl_prefix%pk_releases
-		primary key	(fileid,releaseid)
+		primary key	(fileid, releaseid)
 	, constraint %DB_tbl_prefix%fk_rls_fileid
 		foreign key (fileid)
 		references %DB_tbl_prefix%files(fileid)
@@ -321,12 +351,16 @@ create table %DB_tbl_prefix%symbols
 	, constraint %DB_tbl_prefix%uk_symbols
 		unique (symname)
 	);
+-- create index %DB_tbl_prefix%symlookup
+-- 	on %DB_tbl_prefix%symbols
+-- 	using btree (symname);
 
 /* The following function decrements the symbol reference count
+ * for a definition
  * (to be used in triggers).
  */
-drop function if exists %DB_tbl_prefix%decsym();
-create function %DB_tbl_prefix%decsym()
+drop function if exists %DB_tbl_prefix%decdecl();
+create function %DB_tbl_prefix%decdecl()
 	returns trigger
 	language PLpgSQL
 /*@IF	%_shell% */
@@ -339,7 +373,39 @@ create function %DB_tbl_prefix%decsym()
 				set	symcount = symcount - 1
 				where symid = old.symid
 				and symcount > 0;
-			return old;
+			if old.relid is not null
+			then update %DB_tbl_prefix%symbols
+				set	symcount = symcount - 1
+				where symid = old.relid
+				and symcount > 0;
+			end if;
+			return new;
+		end;
+/*@IF	%_shell% */
+	\$\$;
+/*@ELSE*/
+	$$;
+/*@ENDIF	%_shell% */
+
+/* The following function decrements the symbol reference count
+ * for a usage
+ * (to be used in triggers).
+ */
+drop function if exists %DB_tbl_prefix%decusage();
+create function %DB_tbl_prefix%decusage()
+	returns trigger
+	language PLpgSQL
+/*@IF	%_shell% */
+	as \$\$
+/*@ELSE*/
+	as $$
+/*@ENDIF	%_shell% */
+		begin
+			update %DB_tbl_prefix%symbols
+				set	symcount = symcount - 1
+				where symid = old.symid
+				and symcount > 0;
+			return new;
 		end;
 /*@IF	%_shell% */
 	\$\$;
@@ -383,12 +449,32 @@ create index %DB_tbl_prefix%i_definitions
 /* The following trigger maintains correct symbol reference count
  * after definition deletion.
  */
+-- drop function if exists %DB_tbl_prefix%proxy_rem_def();
+-- create function %DB_tbl_prefix%proxy_rem_def()
+-- 	returns trigger
+-- 	language PLpgSQL
+-- /*@IF	%_shell% */
+-- 	as \$\$
+-- /*@ELSE*/
+-- 	as $$
+-- /*@ENDIF	%_shell% */
+-- 		begin
+-- 			perform %DB_tbl_prefix%decsym(old.symid);
+-- 			if old.relid is not null
+-- 			then perform %DB_tbl_prefix%decsym(old.relid);
+-- 			end if;
+-- 		end;
+-- /*@IF	%_shell% */
+-- 	\$\$;
+-- /*@ELSE*/
+-- 	$$;
+-- /*@ENDIF	%_shell% */
 drop trigger if exists %DB_tbl_prefix%remove_definition
 	on %DB_tbl_prefix%definitions;
 create trigger %DB_tbl_prefix%remove_definition
 	after delete on %DB_tbl_prefix%definitions
 	for each row
-	execute procedure %DB_tbl_prefix%decsym();
+	execute procedure %DB_tbl_prefix%decdecl();
 
 /* Usages */
 create table %DB_tbl_prefix%usages
@@ -409,13 +495,33 @@ create index %DB_tbl_prefix%i_usages
 /* The following trigger maintains correct symbol reference count
  * after usage deletion.
  */
+-- drop function if exists %DB_tbl_prefix%proxy_rem_usg();
+-- create function %DB_tbl_prefix%proxy_rem_usg()
+-- 	returns trigger
+-- 	language PLpgSQL
+-- /*@IF	%_shell% */
+-- 	as \$\$
+-- /*@ELSE*/
+-- 	as $$
+-- /*@ENDIF	%_shell% */
+-- 		begin
+-- 			perform %DB_tbl_prefix%decsym(old.symid);
+-- 		end;
+-- /*@IF	%_shell% */
+-- 	\$\$;
+-- /*@ELSE*/
+-- 	$$;
+-- /*@ENDIF	%_shell% */
 drop trigger if exists %DB_tbl_prefix%remove_usage
 	on %DB_tbl_prefix%usages;
 create trigger %DB_tbl_prefix%remove_usage
 	after delete on %DB_tbl_prefix%usages
 	for each row
-	execute procedure %DB_tbl_prefix%decsym();
+	execute procedure %DB_tbl_prefix%decusage();
 
+/*
+ *
+ */
 grant select on %DB_tbl_prefix%files       to public;
 grant select on %DB_tbl_prefix%symbols     to public;
 grant select on %DB_tbl_prefix%definitions to public;

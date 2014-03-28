@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Perl.pm,v 1.13 2013/04/12 15:01:09 ajlittoz Exp $
+# $Id: Perl.pm,v 1.14 2013/09/21 12:54:53 ajlittoz Exp $
 #
 # Enhances the support for the Perl language over that provided by
 # Generic.pm
@@ -33,7 +33,7 @@ It only overrides C<processinclude> for efficiency.
 
 package LXR::Lang::Perl;
 
-$CVSID = '$Id: Perl.pm,v 1.13 2013/04/12 15:01:09 ajlittoz Exp $ ';
+$CVSID = '$Id: Perl.pm,v 1.14 2013/09/21 12:54:53 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -93,7 +93,7 @@ sub processinclude {
 		# Create the hyperlinks
 		$link = $self->_linkincludedirs
 					( &LXR::Common::incref
-						($file, "include", $path, $dir)
+						($file, 'include', $path, $dir)
 					, $file
 					, '::'
 					, $path
@@ -115,10 +115,9 @@ sub processinclude {
 		$path    = $file;
 
 		# Create the hyperlinks
-# 		$link = &LXR::Common::incref($file, "include", $path, $dir);
 		$link = $self->_linkincludedirs
 					( &LXR::Common::incref
-						($file, "include", $path, $dir)
+						($file, 'include', $path, $dir)
 					, $file
 					, '/'
 					, $path

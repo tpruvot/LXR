@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Index.pm,v 1.23 2012/12/01 15:03:19 ajlittoz Exp $
+# $Id: Index.pm,v 1.28 2013/11/20 14:58:18 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,15 +28,22 @@ If needed, the methods are overridden in the specific modules.
 
 package LXR::Index;
 
-$CVSID = '$Id: Index.pm,v 1.23 2012/12/01 15:03:19 ajlittoz Exp $ ';
+$CVSID = '$Id: Index.pm,v 1.28 2013/11/20 14:58:18 ajlittoz Exp $ ';
 
-use LXR::Common;
 use strict;
 
 #
 # Global variables
 #
 our (%files, %symcache, %cntcache);
+our $database_id = 0;	# DB counter incremented by genxref or httpinit
+	# This variable is incremented every time a new DB is opened
+	# so that objects 'or procedures) which cache their initialisation
+	# are able to detect DB has change and can synchronise to a fresh
+	# new DB.
+
+my ($filenum, $symnum, $typenum);	# Counters for unique record id
+my ($fileini, $symini, $typeini);	#	user management
 
 
 =head2 C<new ($dbname)>
@@ -59,10 +66,10 @@ B<Note:>
 
 =item
 
-I<<There used to be a second C<@args> argument which passed file
+I<There used to be a second C<@args> argument which passed file
 open-attributes (such as C<O_RDWR> or C<O_CREAT>) when the DB
-made of a set of files.
-This is no longer used.>
+was made of a set of files.
+This is no longer used with DB engines.>
 
 =back
 
@@ -75,7 +82,7 @@ method descriptions.
 
 =cut
 
-# NOTE;
+# NOTE:
 #	Some Perl statements below are commented out as '# opt'.
 #	This is meant to decrease the number of calls to DBI methods,
 #	in this case finish() since we know the previous fetch_array()
@@ -91,103 +98,117 @@ method descriptions.
 #	only once and do not contribute to the running time behaviour.
 
 sub new {
-	my ($self, $dbname) = @_;
+	my ($self, $config) = @_;
 	my $index;
     
 	%files    = ();
 	%symcache = ();    
 	%cntcache = ();
 
-	my $prefix;
-	if (defined($config->{'dbprefix'})) {
-		$prefix = $config->{'dbprefix'};
-	} else {
-		$prefix = "lxr_";
+	if (!defined($config->{'dbprefix'})) {
+		$config->{'dbprefix'} = 'lxr_';
 	}
 
-	if ($dbname =~ m/^DBI:/i) {
-		if ($dbname =~ m/^dbi:mysql:/i) {
+	if ($config->{'dbname'} =~ m/^DBI:(\w+):/i) {
+		my $dbname = uc($1);
+		if ('MYSQL' eq $dbname) {
 			require  LXR::Index::Mysql;
-			$index = LXR::Index::Mysql->new($dbname, $prefix);
-		} elsif ($dbname =~ m/^dbi:Pg:/i) {
+			$index = LXR::Index::Mysql->new($config);
+		} elsif ('PG' eq $dbname) {
 			require  LXR::Index::Postgres;
-			$index = LXR::Index::Postgres->new($dbname, $prefix);
-		} elsif ($dbname =~ m/^dbi:SQLite:/i) {
+			$index = LXR::Index::Postgres->new($config);
+		} elsif ('SQLITE' eq $dbname) {
 			require  LXR::Index::SQLite;
-			$index = LXR::Index::SQLite->new($dbname, $prefix);
-		} elsif ($dbname =~ m/^dbi:oracle:/i) {
+			$index = LXR::Index::SQLite->new($config);
+		} elsif ('ORACLE' eq $dbname) {
 			require  LXR::Index::Oracle;
-			$index = LXR::Index::Oracle->new($dbname, $prefix);
+			$index = LXR::Index::Oracle->new($config);
 		} else {
-			die "Can't find database, $dbname";
+			die 'Can\'t find database ' . $config->{'dbname'};
 		}
 	} else {
-		die "Can't find database, $dbname";
+		die 'Can\'t find database ' . $config->{'dbname'};
 	}
+	$index->{'config'} = $config;
 
 	# Common syntax transactions
 	# Care is taken not to replace specific syntax transactions which
 	# are usually related to auto-increment numbering where syntax
 	# differs from one DB engine to another.
+	my $prefix = $config->{'dbprefix'};
 
-	# 'files_insert' mandatory but involves auto-increment
+	if (!exists($index->{'files_insert'})) {
+		$index->{'files_insert'} =
+			$index->{dbh}->prepare
+				( "insert into ${prefix}files"
+				. ' (filename, revision, fileid)'
+				. ' values (?, ?, ?)'
+				);
+	}
 	if (!exists($index->{'files_select'})) {
 		$index->{'files_select'} =
 			$index->{dbh}->prepare
 				( "select fileid from ${prefix}files"
-				. " where filename = ? and revision = ?"
+				. ' where filename = ? and revision = ?'
 				);
 	}
 	if (!exists($index->{'allfiles_select'})) {
 		$index->{'allfiles_select'} =
 			$index->{dbh}->prepare
-				( "select f.fileid, f.filename, f.revision, t.relcount"
+				( 'select f.fileid, f.filename, f.revision, t.relcount'
 				. " from ${prefix}files f, ${prefix}status t"
 				.		", ${prefix}releases r"
-				. " where r.releaseid = ?"
-				. "  and  f.fileid = r.fileid"
-				. "  and  t.fileid = r.fileid"
-				. " order by f.filename, f.revision"
+				. ' where r.releaseid = ?'
+				. '  and  f.fileid = r.fileid'
+				. '  and  t.fileid = r.fileid'
+				. ' order by f.filename, f.revision'
 				);
 	}
 
-	# 'symbols_insert' mandatory but involves auto-increment
+	if (!exists($index->{'symbols_insert'})) {
+		$index->{'symbols_insert'} =
+			$index->{dbh}->prepare
+				( "insert into ${prefix}symbols"
+				. ' (symname, symid, symcount)'
+				. ' values (?, ?, 0)'
+				);
+	}
 	if (!exists($index->{'symbols_byname'})) {
 		$index->{'symbols_byname'} =
 			$index->{dbh}->prepare
 				( "select symid, symcount from ${prefix}symbols"
-				. " where symname = ?"
+				. ' where symname = ?'
 				);
 	}
 	if (!exists($index->{'symbols_byid'})) {
 		$index->{'symbols_byid'} =
 			$index->{dbh}->prepare
 				( "select symname from ${prefix}symbols"
-				. " where symid = ?"
+				. ' where symid = ?'
 				);
 	}
 	if (!exists($index->{'symbols_setref'})) {
 		$index->{'symbols_setref'} =
 			$index->{dbh}->prepare
 				( "update ${prefix}symbols"
-				. " set symcount = ?"
-				. " where symid = ?"
+				. ' set symcount = ?'
+				. ' where symid = ?'
 				);
 	}
 	if (!exists($index->{'related_symbols_select'})) {
 		$index->{'related_symbols_select'} =
 			$index->{dbh}->prepare
-				( "select s.symid, s.symcount, s.symname"
+				( 'select s.symid, s.symcount, s.symname'
 				. " from ${prefix}symbols s, ${prefix}definitions d"
-				. " where d.fileid = ?"
-				. "  and  s.symid = d.relid"
+				. ' where d.fileid = ?'
+				. '  and  s.symid = d.relid'
 				);
 	}
 	if (!exists($index->{'delete_symbols'})) {
 		$index->{'delete_symbols'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}symbols"
-				. " where symcount = 0"
+				. ' where symcount = 0'
 				);
 	}
 
@@ -195,32 +216,32 @@ sub new {
 		$index->{'definitions_insert'} =
 			$index->{dbh}->prepare
 				( "insert into ${prefix}definitions"
-				. " (symid, fileid, line, langid, typeid, relid)"
-				. " values (?, ?, ?, ?, ?, ?)"
+				. ' (symid, fileid, line, langid, typeid, relid)'
+				. ' values (?, ?, ?, ?, ?, ?)'
 				);
 	}
 	if (!exists($index->{'definitions_select'})) {
 		$index->{'definitions_select'} =
 			$index->{dbh}->prepare
-				( "select f.filename, d.line, l.declaration, d.relid"
+				( 'select f.filename, d.line, l.declaration, d.relid'
 				. " from ${prefix}symbols s, ${prefix}definitions d"
 				.		", ${prefix}files f, ${prefix}releases r"
 				.		", ${prefix}langtypes l"
-				. " where s.symname = ?"
-				. "  and  r.releaseid = ?"
-				. "  and  d.fileid = r.fileid"
-				. "  and  d.symid  = s.symid"
-				. "  and  d.langid = l.langid"
-				. "  and  d.typeid = l.typeid"
-				. "  and  f.fileid = r.fileid"
-				. " order by f.filename, d.line, l.declaration"
+				. ' where s.symname = ?'
+				. '  and  r.releaseid = ?'
+				. '  and  d.fileid = r.fileid'
+				. '  and  d.symid  = s.symid'
+				. '  and  d.langid = l.langid'
+				. '  and  d.typeid = l.typeid'
+				. '  and  f.fileid = r.fileid'
+				. ' order by f.filename, d.line, l.declaration'
 				);
 	}
 	if (!exists($index->{'delete_file_definitions'})) {
 		$index->{'delete_file_definitions'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}definitions"
-				. " where fileid  = ?"
+				. ' where fileid  = ?'
 				);
 	}
 	# 'delete_definitions' mandatory but syntax varies
@@ -228,13 +249,13 @@ sub new {
 		$index->{'delete_definitions'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}definitions"
-				. " where fileid in"
-				.	" (select r.fileid"
+				. ' where fileid in'
+				.	' (select r.fileid'
 				.	"  from ${prefix}releases r, ${prefix}status t"
-				.	"  where r.releaseid = ?"
-				.	"   and  t.fileid = r.fileid"
-				.	"   and  t.relcount = 1"
-				.	" )"
+				.	'  where r.releaseid = ?'
+				.	'   and  t.fileid = r.fileid'
+				.	'   and  t.relcount = 1'
+				.	' )'
 				);
 	}
 
@@ -242,31 +263,31 @@ sub new {
 		$index->{'releases_insert'} =
 			$index->{dbh}->prepare
 				( "insert into ${prefix}releases"
-				. " (fileid, releaseid)"
-				. " values (?, ?)"
+				. ' (fileid, releaseid)'
+				. ' values (?, ?)'
 				);
 	}
 	if (!exists($index->{'releases_select'})) {
 		$index->{'releases_select'} =
 			$index->{dbh}->prepare
 				( "select fileid from ${prefix}releases"
-				. " where fileid = ?"
-				. " and  releaseid = ?"
+				. ' where fileid = ?'
+				. ' and  releaseid = ?'
 				);
 	}
 	if (!exists($index->{'delete_one_release'})) {
 		$index->{'delete_one_release'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}releases"
-				. " where fileid = ?"
-				. "  and  releaseid = ?"
+				. ' where fileid = ?'
+				. '  and  releaseid = ?'
 				);
 	}
 	if (!exists($index->{'delete_releases'})) {
 		$index->{'delete_releases'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}releases"
-				. " where releaseid = ?"
+				. ' where releaseid = ?'
 				);
 	}
 
@@ -274,45 +295,45 @@ sub new {
 		$index->{'status_insert'} =
 			$index->{dbh}->prepare
 				( "insert into ${prefix}status"
-				. " (fileid, relcount, indextime, status)"
-				. " values (?, 0, 0, ?)"
+				. ' (fileid, relcount, indextime, status)'
+				. ' values (?, 0, 0, ?)'
 				);
 	}
 	if (!exists($index->{'status_select'})) {
 		$index->{'status_select'} =
 			$index->{dbh}->prepare
 				( "select status from ${prefix}status"
-				. " where fileid = ?"
+				. ' where fileid = ?'
 				);
 	}
 	if (!exists($index->{'status_update'})) {
 		$index->{'status_update'} =
 			$index->{dbh}->prepare
 				( "update ${prefix}status"
-				. " set status = ?"
-				. " where fileid = ?"
+				. ' set status = ?'
+				. ' where fileid = ?'
 				);
 	}
 	if (!exists($index->{'status_timestamp'})) {
 		$index->{'status_timestamp'} =
 			$index->{dbh}->prepare
 				( "select indextime from ${prefix}status"
-				. " where fileid = ?"
+				. ' where fileid = ?'
 				);
 	}
 	if (!exists($index->{'status_update_timestamp'})) {
 		$index->{'status_update_timestamp'} =
 			$index->{dbh}->prepare
 				( "update ${prefix}status"
-				. " set indextime = ?"
-				. " where fileid = ?"
+				. ' set indextime = ?'
+				. ' where fileid = ?'
 				);
 	}
 	if (!exists($index->{'delete_unused_status'})) {
 		$index->{'delete_unused_status'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}status"
-				. " where relcount = 0"
+				. ' where relcount = 0'
 				);
 	}
 
@@ -320,29 +341,29 @@ sub new {
 		$index->{'usages_insert'} =
 			$index->{dbh}->prepare
 				( "insert into ${prefix}usages"
-				. " (fileid, line, symid)"
-				. " values (?, ?, ?)"
+				. ' (fileid, line, symid)'
+				. ' values (?, ?, ?)'
 				);
 	}
 	if (!exists($index->{'usages_select'})) {
 		$index->{'usages_select'} =
 			$index->{dbh}->prepare
-				( "select f.filename, u.line"
+				( 'select f.filename, u.line'
 				. " from ${prefix}symbols s, ${prefix}files f"
 				.	", ${prefix}releases r, ${prefix}usages u"
-				. " where s.symname = ?"
-				. "  and  r.releaseid = ?"
-				. "  and  u.symid  = s.symid"
-				. "  and  f.fileid = r.fileid"
-				. "  and  u.fileid = r.fileid"
-				. " order by f.filename, u.line"
+				. ' where s.symname = ?'
+				. '  and  r.releaseid = ?'
+				. '  and  u.symid  = s.symid'
+				. '  and  f.fileid = r.fileid'
+				. '  and  u.fileid = r.fileid'
+				. ' order by f.filename, u.line'
 				);
 	}
 	if (!exists($index->{'delete_file_usages'})) {
 		$index->{'delete_file_usages'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}usages"
-				. " where fileid  = ?"
+				. ' where fileid  = ?'
 				);
 	}
 	# 'delete_definitions' mandatory but syntax varies
@@ -350,23 +371,30 @@ sub new {
 		$index->{'delete_usages'} =
 			$index->{dbh}->prepare
 				( "delete from ${prefix}usages"
-				. " where fileid in"
-				.	" (select r.fileid"
+				. ' where fileid in'
+				.	' (select r.fileid'
 				.	"  from ${prefix}releases r, ${prefix}status t"
-				.	"  where r.releaseid = ?"
-				.	"   and  t.fileid = r.fileid"
-				.	"   and  t.relcount = 1"
-				.	" )"
+				.	'  where r.releaseid = ?'
+				.	'   and  t.fileid = r.fileid'
+				.	'   and  t.relcount = 1'
+				.	' )'
 				);
 	}
 
-	# 'langtypes_insert' mandatory but involves auto-increment
+	if (!exists($index->{'langtypes_insert'})) {
+		$index->{'langtypes_insert'} =
+			$index->{dbh}->prepare
+				( "insert into ${prefix}langtypes"
+				. ' (typeid, langid, declaration)'
+				. ' values (?, ?, ?)'
+				);
+	}
 	if (!exists($index->{'langtypes_select'})) {
 		$index->{'langtypes_select'} =
 			$index->{dbh}->prepare
 				( "select typeid from ${prefix}langtypes"
-				. " where langid = ?"
-				. " and declaration = ?"
+				. ' where langid = ?'
+				. ' and declaration = ?'
 				);
 	}
 	if (!exists($index->{'langtypes_count'})) {
@@ -383,10 +411,66 @@ sub new {
 				. ", ${prefix}usages, ${prefix}langtypes"
 				. ", ${prefix}symbols, ${prefix}releases"
 				. ", ${prefix}status, ${prefix}files"
-				. " cascade"
+				. ' cascade'
 				);
 	}
 	return $index;
+}
+
+=head2 C<uniquecountersinit ($prefix)>
+
+C<uniquecountersinit> initialises the unique counters for
+file, symbol and type ids.
+
+I<This is a C<new> extension method for derived object usage.>
+
+=over
+
+=item 1 C<$prefix>
+
+a I<string> containing the database table prefix
+
+=back
+
+Several database engines have better performance using cached counters
+for fields with C<unique> attributes unstead of the built-in features.
+It comes from the fact that the used (incremented) value is not written
+back immediately to disk (fewer commits).
+
+This trick is valid because e write to the DB only at I<genxref> time
+and DB loading is B<single thread>.
+
+B<CAUTION!>
+
+=over
+
+B<Don't forget to write the final values to the DB before disconnecting.
+See C<uniquecounterssave>.>
+
+=back
+
+=cut
+
+sub uniquecountersinit {
+	my ($self, $prefix) = @_;
+
+	$self->{'filenum_lastval'} = 
+		$self->{dbh}->prepare("select fid from ${prefix}filenum");
+	$self->{'filenum_lastval'}->execute();
+	$fileini = $filenum = $self->{'filenum_lastval'}->fetchrow_array();
+	$self->{'filenum_lastval'} = undef;
+
+	$self->{'symnum_lastval'} = 
+		$self->{dbh}->prepare("select sid from ${prefix}symnum");
+	$self->{'symnum_lastval'}->execute();
+	$symini = $symnum = $self->{'symnum_lastval'}->fetchrow_array();
+	$self->{'symnum_lastval'}  = undef;
+
+	$self->{'typenum_lastval'} = 
+		$self->{dbh}->prepare("select tid from ${prefix}typenum");
+	$self->{'typenum_lastval'}->execute();
+	$typeini = $typenum = $self->{'typenum_lastval'}->fetchrow_array();
+	$self->{'typenum_lastval'} = undef;
 }
 
 
@@ -394,11 +478,12 @@ sub new {
 # Generic implementation of this interface
 #
 
-=head2 C<fileidifexists ($filename, $revision)>
-
 =head2 C<fileid ($filename, $revision)>
 
-C<fileid> returns a unique id for a file with a given revision.
+=head2 C<fileidifexists ($filename, $revision)>
+
+C<fileid> returns a unique id for a file with a given revision,
+creating it if it does not exist.
 
 C<fileidifexists> is similar, but returns C<undef> if the given
 revision is unknown, which can happen if the revision was created
@@ -414,8 +499,8 @@ a I<string> containing the path relative to C<'sourceroot'>
 
 the revision for the file
 
-CAUTION: this is not a release id!
-It is computed by method filerev in the Files classes.
+B<CAUTION:> this is not a release id!
+It is computed by method C<filerev> in the I<Files> classes.
 
 =back
 
@@ -426,39 +511,43 @@ B<Requires:>
 
 =over
 
-=item C<files_select>
+=item * C<files_select>
 
-=item C<files_insert>
+=item * C<files_insert>
+
+=item * C<status_insert>
+B<I<(>C<fileid> I<only)>>
 
 =back
 
 =cut
 
 sub fileidifexists {
-	my ($self, $filename, $revision) = @_;
+# Reminder:	my ($self, $filename, $revision) = @_;
+	my $self = shift @_;
 	my $fileid;
 
-	unless (defined($fileid = $files{"$filename\t$revision"})) {
-		$self->{'files_select'}->execute($filename, $revision);
+# 	unless (defined($fileid = $files{"$filename\t$revision"})) {
+		$self->{'files_select'}->execute(@_);
 		($fileid) = $self->{'files_select'}->fetchrow_array();
 # opt		$self->{'files_select'}->finish();
-		$files{"$filename\t$revision"} = $fileid;
-	}
+# 		$files{"$filename\t$revision"} = $fileid;
+# 	}
 	return $fileid
 }
 
 sub fileid {
-	my ($self, $filename, $revision) = @_;
+# Reminder:	my ($self, $filename, $revision) = @_;
+	my $self = shift @_;
 	my $fileid;
 
-	$fileid = $self->fileidifexists($filename, $revision);
+	$fileid = $self->fileidifexists(@_);
 	unless ($fileid) {
-		$self->{'files_insert'}->execute($filename, $revision);
-		$self->{'files_select'}->execute($filename, $revision);
-		($fileid) = $self->{'files_select'}->fetchrow_array();
+		$fileid = ++$filenum;
+		$self->{'files_insert'}->execute(@_, $fileid);
 		$self->{'status_insert'}->execute($fileid, 0);
-# opt	$self->{'files_select'}->finish();
-		$files{"$filename\t$revision"} = $fileid;
+# 			$self->commit;
+# 		$files{"$filename\t$revision"} = $fileid;
 	}
 	return $fileid;
 }
@@ -471,7 +560,7 @@ C<getallfilesinit> prepares things for C<nextfile>.
 
 =item 1 C<$releaseid>
 
-the release (or version) for which all recorded file should be returned
+the release (or version) for which all recorded files should be returned
 
 =back
 
@@ -482,7 +571,7 @@ B<Requires:>
 
 =over
 
-=item C<allfiles_select>
+=item * C<allfiles_select>
 
 =back
 
@@ -506,14 +595,14 @@ B<Requires:>
 
 =over
 
-=item Previous initialisation by C<getallfilesinit>
+=item * Previous initialisation by C<getallfilesinit>
 
 =back
 
 =cut
 
 sub nextfile {
-	my ($self) = @_;
+	my $self = shift @_;
 
 	return $self->{'allfiles_select'}->fetchrow_array();
 # opt		$self->{'files_select'}->finish();
@@ -540,9 +629,9 @@ B<Requires:>
 
 =over
 
-=item C<releases_select>
+=item * C<releases_select>
 
-=item C<releases_insert>
+=item * C<releases_insert>
 
 =back
 
@@ -561,13 +650,14 @@ still be referenced by any tag.
 =cut
 
 sub setfilerelease {
-	my ($self, $fileid, $releaseid) = @_;
+# 	my ($self, $fileid, $releaseid) = @_;
+	my $self = shift @_;
 
-	$self->{'releases_select'}->execute($fileid + 0, $releaseid);
+	$self->{'releases_select'}->execute(@_);
     my ($fid) = $self->{'releases_select'}->fetchrow_array();
 # opt	$self->{'releases_select'}->finish();
 	unless ($fid) {
-		$self->{'releases_insert'}->execute($fileid + 0, $releaseid);
+		$self->{'releases_insert'}->execute(@_);
 	}
 }
 
@@ -592,14 +682,17 @@ B<Requires:>
 
 =over
 
-=item C<delete_one_release>
+=item * C<delete_one_release>
+
+=back
 
 =cut
 
 sub removerelease {
-	my ($self, $fid, $releaseid) = @_;
+# 	my ($self, $fid, $releaseid) = @_;
+	my $self = shift @_;
 
-	$self->{'delete_one_release'}->execute($fid, $releaseid);
+	$self->{'delete_one_release'}->execute(@_);
 }
 
 =head2 C<fileindexed ($fileid)>
@@ -657,11 +750,11 @@ B<Requires:>
 
 =over
 
-=item C<status_select>
+=item * C<status_select>
 
-=item C<status_insert>
+=item * C<status_insert>
 
-=item C<status_update>
+=item * C<status_update>
 
 =back
 
@@ -696,23 +789,11 @@ an I<integer> representing a file in the DB
 
 =back
 
-B<Note:>
-
-=over
-
-=item
-
-I<A file must> always I<<be indexed before being parsed for
-reference. Calling C<setfilereferenced> implicitly sets
-C<fileindexed> as well.>
-
-=back
-
 B<Requires:>
 
 =over
 
-=item C<status_select>
+=item * C<status_select>
 
 =back
 
@@ -744,17 +825,28 @@ an I<integer> representing a file in the DB
 
 =back
 
+B<Note:>
+
+=over
+
+=item
+
+I<A file must> always I<be indexed before being parsed for
+references.>
+
+=back
+
 B<Requires:>
 
 =over
 
-=item C<status_select>
+=item * C<status_select>
 
-=item C<status_insert>
+=item * C<status_insert>
 
-=item C<status_update>
+=item * C<status_update>
 
-=item C<status_update_timestamp>
+=item * C<status_update_timestamp>
 
 =back
 
@@ -793,23 +885,18 @@ B<Requires:>
 
 =over
 
-=item C<status_select>
-
-=item C<status_insert>
-
-=item C<status_update>
-
-=item C<status_update_timestamp>
+=item * C<status_timestamp>
 
 =back
 
 =cut
 
 sub filetimestamp {
-	my ($self, $filename, $revision) = @_;
+# 	my ($self, $filename, $revision) = @_;
+	my $self = shift @_;
 	my ($fileid, $timestamp);
     
-	$fileid = $self->fileidifexists($filename, $revision);
+	$fileid = $self->fileidifexists(@_);
 	if (defined($fileid)) {
 		$self->{'status_timestamp'}->execute($fileid);
 		$timestamp = $self->{'status_timestamp'}->fetchrow_array();
@@ -839,17 +926,18 @@ B<Requires:>
 
 =over
 
-=item C<definitions_select>
+=item * C<definitions_select>
 
 =back
 
 =cut
 
 sub symdeclarations {
-	my ($self, $symname, $releaseid) = @_;
+# 	my ($self, $symname, $releaseid) = @_;
+	my $self = shift @_;
 	my (@ret, @row);
 
-	$self->{'definitions_select'}->execute($symname, $releaseid);
+	$self->{'definitions_select'}->execute(@_);
 	while (@row = $self->{'definitions_select'}->fetchrow_array) {
 		$row[3] &&= $self->symname($row[3]); # convert the relsym symid
 		push(@ret, [@row]);
@@ -895,7 +983,7 @@ B<Requires:>
 
 =over
 
-=item C<definitions_insert>
+=item * C<definitions_insert>
 
 =back
 
@@ -921,9 +1009,9 @@ sub setsymdeclaration {
 			$cntcache{$relsym} += 1;
 		}
 	}
-die "Symbol cache not initialised for sym $symname\n" if (!defined($symcache{$symname}));
-die "Symbol cache not initialised for rel $relsym\n"
-	if (defined($relsym) && !defined($symcache{$relsym}));
+# die "Symbol cache not initialised for sym $symname\n" if (!defined($symcache{$symname}));
+# die "Symbol cache not initialised for rel $relsym\n"
+# 	if (defined($relsym) && !defined($symcache{$relsym}));
 }
 
 =head2 C<symreferences ($symname, $releaseid)>
@@ -947,17 +1035,18 @@ B<Requires:>
 
 =over
 
-=item C<usages_select>
+=item * C<usages_select>
 
 =back
 
 =cut
 
 sub symreferences {
-	my ($self, $symname, $releaseid) = @_;
+# 	my ($self, $symname, $releaseid) = @_;
+	my $self = shift @_;
 	my (@ret, @row);
 
-	$self->{'usages_select'}->execute($symname, $releaseid);
+	$self->{'usages_select'}->execute(@_);
 	while (@row = $self->{'usages_select'}->fetchrow_array) {
 		push(@ret, [@row]);
 	}
@@ -991,9 +1080,9 @@ B<Requires:>
 
 =over
 
-=item C<symbols_byname>
+=item * C<symbols_byname>
 
-=item C<usages_insert>
+=item * C<usages_insert>
 
 =back
 
@@ -1033,13 +1122,14 @@ sub setsymreference {
 	} else {
 		$cntcache{$symname} += 1;
 	}
-die "Symbol cache not initialised for $symname\n" if (!defined($symcache{$symname}));
+# die "Symbol cache not initialised for $symname\n" if (!defined($symcache{$symname}));
 }
 
 =head2 C<issymbol ($symname, $releaseid)>
 
-C<issymbol> returns a unique id for a symbol in a given release
-if it exists in the DB, C<undef> otherwise.
+C<issymbol> returns I<true> (1) for an existing symbol in a given release
+according to the DB,
+I<false> (0) otherwise.
 
 =over
 
@@ -1057,7 +1147,7 @@ B<Requires:>
 
 =over
 
-=item C<symbols_byname>
+=item * C<symbols_byname>
 
 =back
 
@@ -1105,7 +1195,7 @@ sub issymbol {
 C<symid> returns a unique id for a symbol.
 
 If symbol is unknown, insert it into the DB with a zero reference count.
-The reference count is adjusted by the method which add definition
+The reference count is adjusted by the methods which add definition
 or usage.
 Decrementing the reference count is only done when purging the database.
 
@@ -1121,9 +1211,9 @@ B<Requires:>
 
 =over
 
-=item C<symbols_byname>
+=item * C<symbols_byname>
 
-=item C<symbols_insert>
+=item * C<symbols_insert>
 
 =back
 
@@ -1141,10 +1231,9 @@ sub symid {
 		$self->{'symbols_byname'}->execute($symname);
 		($symid, $symcount) = $self->{'symbols_byname'}->fetchrow_array();
 		unless ($symid) {
-			$self->{'symbols_insert'}->execute($symname);
-            # Get the id of the new symbol
-			$self->{'symbols_byname'}->execute($symname);
-			($symid, $symcount) = $self->{'symbols_byname'}->fetchrow_array();
+			$symid = ++$symnum;
+			$symcount = 0;
+			$self->{'symbols_insert'}->execute($symname, $symid);
 		}
 		$symcache{$symname} = $symid;
 		$cntcache{$symname} = -$symcount;
@@ -1169,17 +1258,18 @@ B<Requires:>
 
 =over
 
-=item C<symbols_byid>
+=item * C<symbols_byid>
 
 =back
 
 =cut
 
 sub symname {
-	my ($self, $symid) = @_;
+# 	my ($self, $symid) = @_;
+	my $self = shift @_;
 	my $symname;
 
-	$self->{'symbols_byid'}->execute($symid + 0);
+	$self->{'symbols_byid'}->execute(@_);
 	($symname) = $self->{'symbols_byid'}->fetchrow_array();
 
 	return $symname;
@@ -1207,9 +1297,9 @@ B<Requires:>
 
 =over
 
-=item C<langtypes_select>
+=item * C<langtypes_select>
 
-=item C<langtypes_insert>
+=item * C<langtypes_insert>
 
 =back
 
@@ -1222,6 +1312,8 @@ B<CAVEAT!>
 
 =over
 
+=item
+
 I<This implementation is valid for DB engines with auto-incrementing
 fields. It must be overridden when the auto-incrementation feature
 is missing (e.g. PostgreSQL and SQLite).>
@@ -1231,47 +1323,20 @@ is missing (e.g. PostgreSQL and SQLite).>
 =cut
 
 sub decid {
-	my ($self, $lang, $string) = @_;
-	my $id;
+# 	my ($self, $lang, $string) = @_;
+	my $self = shift @_;
+	my $declid;
 
-	$self->{'langtypes_select'}->execute($lang, $string);
-	($id) = $self->{'langtypes_select'}->fetchrow_array();
-	unless (defined($id)) {
-		$self->{'langtypes_insert'}->execute($lang, $string);
-		$self->{'langtypes_select'}->execute($lang, $string);
-		($id) = $self->{'langtypes_select'}->fetchrow_array();
+	$self->{'langtypes_select'}->execute(@_);
+	($declid) = $self->{'langtypes_select'}->fetchrow_array();
+# opt	$self->{'langtypes_select'}->finish();
+	unless (defined($declid)) {
+		$declid = ++$typenum;
+		$self->{'langtypes_insert'}->execute($declid, @_);
 	}
 # opt	$self->{'langtypes_select'}->finish();
 
-	return $id;
-}
-
-=head2 C<deccount ()>
-
-C<deccount> retrieves the number of declaration types in the database.
-
-It is used as a check to see if the database has been initialised.
-The previous mechanism based on a package variable in F<Generic.pm>
-proved not reliable with C<--allurls> implementation.
-
-B<Requires:>
-
-=over
-
-=item C<langtypes_count>
-
-=back
-
-=cut
-
-sub deccount {
-	my ($self) = @_;
-	my $dcount;
-
-	$self->{'langtypes_count'}->execute();
-	($dcount) = $self->{'langtypes_count'}->fetchrow_array();
-	$self->{'langtypes_count'}->finish();
-	return $dcount;
+	return $declid;
 }
 
 =head2 C<commit ()>
@@ -1283,7 +1348,7 @@ If transactions are not supported, it's OK for this to be a no-op.
 =cut
 
 sub commit {
-	my ($self) = @_;
+	my $self = shift @_;
 	$self->{dbh}->commit;
 }
 
@@ -1296,7 +1361,7 @@ This method should not be overridden in specific drivers.
 =cut
 
 sub forcecommit {
-	my ($self) = @_;
+	my $self = shift @_;
 
 	my $oldcommitmode = $self->{dbh}{'AutoCommit'};
 	$self->{dbh}{'AutoCommit'} = 0;
@@ -1315,6 +1380,8 @@ things will become very slow.
 B<Note:>
 
 =over
+
+=item
 
 I<With the implementation of> C<flushcache>I<, this function is
 no longer necessary since the cache is also emptied in that
@@ -1340,7 +1407,7 @@ C<flushcache> flushes the internal symbol cache.
 optional argument to force 0-count write back
 
 (When creating the database, reference counts are incremented.
-Consequently, if the final count is still zero, the symbols has not
+Consequently, if the final count is still zero, the symbol has not
 been referenced and there is no need to overwrite the record.
 On the contrary, when purging the database, reference counts may
 decrement to zero and it is then mandatory to update the record
@@ -1358,6 +1425,14 @@ incremented. Thus strictly positive values show which symbols have
 been referenced. Only these are flushed to the DB.
 
 The cache is then emptied
+
+B<Requires:>
+
+=over
+
+=item * C<symbols_setref>
+
+=back
 
 =cut
 
@@ -1400,11 +1475,11 @@ B<Requires:>
 
 =over
 
-=item C<related_symbols_select>
+=item * C<related_symbols_select>
 
-=item C<delete_file_definitions>
+=item * C<delete_file_definitions>
 
-=item C<delete_file_usages>
+=item * C<delete_file_usages>
 
 =back
 
@@ -1435,25 +1510,25 @@ sub purgefile {
 	$self->{dbh}{'AutoCommit'} = 0;
 	$self->{dbh}->commit;
 
-	$self->{'related_symbols_select'}->execute($fid);
-	while (($symid, $symcount, $symname)
-			= $self->{'related_symbols_select'}->fetchrow_array()
-		) {
-		if (!exists($symcache{$symname})) {
-			$symcache{$symname} = $symid;
-			$cntcache{$symname} = $symcount;
-		} else {
-			if ($cntcache{$symname} < 0) {
-				$cntcache{$symname} = -$cntcache{$symname};
-die "Inconsistent symbol reference count for $symname"
-	if $symcount != $cntcache{$symname};
-			}
-		}
-		$cntcache{$symname} = $symcount - 1
-			if $cntcache{$symname} > 0;
-	}
-# opt	$self->{'related_symbols_select'}->finish();
-	$self->flushcache(1);
+# 	$self->{'related_symbols_select'}->execute($fid);
+# 	while (($symid, $symcount, $symname)
+# 			= $self->{'related_symbols_select'}->fetchrow_array()
+# 		) {
+# 		if (!exists($symcache{$symname})) {
+# 			$symcache{$symname} = $symid;
+# 			$cntcache{$symname} = $symcount;
+# 		} else {
+# 			if ($cntcache{$symname} < 0) {
+# 				$cntcache{$symname} = -$cntcache{$symname};
+# die "Inconsistent symbol reference count for $symname"
+# 	if $symcount != $cntcache{$symname};
+# 			}
+# 		}
+# 		$cntcache{$symname} = $symcount - 1
+# 			if $cntcache{$symname} > 0;
+# 	}
+# # opt	$self->{'related_symbols_select'}->finish();
+# 	$self->flushcache(1);
 	$self->{'delete_file_definitions'}->execute($fid);
 	$self->{'delete_file_usages'}->execute($fid);
 	$self->{dbh}->commit;
@@ -1495,15 +1570,15 @@ B<Requires:>
 
 =over
 
-=item C<delete_definitions>
+=item * C<delete_definitions>
 
-=item C<delete_usages>
+=item * C<delete_usages>
 
-=item C<delete_symbolss>
+=item * C<delete_symbols>
 
-=item C<delete_releases>
+=item * C<delete_releases>
 
-=item C<delete_unused_status>
+=item * C<delete_unused_status>
 
 which should also delete I<files> table
 
@@ -1513,6 +1588,8 @@ B<Note:>
 
 =over
 
+=item
+
 DBD C<commit()> is explicitly called to bypass possible
 disabling caused by private overriding method C<commit>.
 
@@ -1521,6 +1598,8 @@ disabling caused by private overriding method C<commit>.
 B<Todo:>
 
 =over
+
+=item
 
 Manage the I<relid> relationship in I<definitions>
 
@@ -1553,39 +1632,19 @@ sub purge {
 	$self->{dbh}{'AutoCommit'} = $oldcommitmode;
 }
 
-=head2 C<purgeall>
+=head2 C<purgeall ()>
 
 C<purgeall> deletes all data in the DB.
 
-This is a more extensive version of C<purge> aimed at
-C<--reindexall --allversions> with VCSes
-which do not manage versions very well (e.g. CVS).
-
-=over
-
-=item 1 C<$releaseid>
-
-the target release (or version)
-
-=back
+This is a brutal way of erasing everything, I<e.g.> for
+C<--reindexall --allversions>.
+It is much more efficient than a sequence of C<purge> on every version.
 
 B<Requires:>
 
 =over
 
-=item C<purge_langtypes>
-
-=item C<purge_files>
-
-=item C<purge_definitions>
-
-=item C<purge_releases>
-
-=item C<purge_status>
-
-=item C<purge_symbols>
-
-=item C<purge_usages>
+=item * C<purge_all>
 
 =back
 
@@ -1597,9 +1656,135 @@ sub purgeall {
 	$self->{'purge_all'}->execute();
 }
 
-=head2 C<final_cleanup>
+=head2 C<uniquecountersreset ($force)>
 
-C<final_cleanup> allows to execute last actions on the database
+C<uniquecountersreset> restarts the counters from 0.
+
+=over
+
+=item 1 C<$force>
+
+an I<integer> used to force the C<$>I<xxx>C<ini> variables
+
+If different from 0, this forces C<uniquecounterssave> to write
+the reset values to the DB if immediately called after this method.
+
+It is better to call the method a second time with argument 0 to
+avoid any unforeseen side-effects, though there should be none.
+
+=back
+
+=cut
+
+sub uniquecountersreset {
+	my ($self, $force) = @_;
+	$filenum = 0;
+	$symnum = 0;
+	$typenum = 0;
+	$fileini = $force;
+	$symini  = $force;
+	$typeini = $force;
+}
+
+=head2 C<uniquecounterssave ()>
+
+C<uniquecounterssave> stores in the DB the current values of the
+file, symbol and type counters for later sessions.
+
+=cut
+
+sub uniquecounterssave {
+	my	($self) = @_;
+
+	$self->{dbh}{'AutoCommit'} = 0;
+	my $prefix = $self->{'config'}{'dbprefix'};
+	if ($filenum != $fileini) {
+		my $fnnv =
+			$self->{dbh}->prepare
+				( "update ${prefix}filenum"
+				. ' set fid = ?'
+				. ' where rcd = 0'
+				);
+		$fnnv->execute($filenum);
+		$fnnv = undef;
+	}
+	if ($symnum != $symini) {
+		my $snnv =
+			$self->{dbh}->prepare
+				( "update ${prefix}symnum"
+				. ' set sid = ?'
+				. ' where rcd = 0'
+			);
+		$snnv->execute($symnum);
+		$snnv = undef;
+	}
+	if ($typenum != $typeini) {
+		my $tnnv =
+			$self->{dbh}->prepare
+				( "update ${prefix}typenum"
+				. ' set tid = ?'
+				. ' where rcd = 0'
+				);
+		$tnnv->execute($typenum);
+		$tnnv = undef;
+	}
+}
+
+=head2 C<dropuniversalqueries ()>
+
+C<dropuniversalqueries> deactivates all "universal" query statement
+to prevent annoying "Disconnect invalidates xx active statement handles ..."
+messages from disturbing the end user.
+Derived instances are responsible for killing their own queries.
+
+Most are probably overkill since C<execure> or C<fetchrow_array> may
+already have disactivated the statement.
+
+Must be called before C<final_cleanup> before disconnecting.
+
+=cut
+
+sub dropuniversalqueries {
+	my ($self) = @_;
+
+	# Kill the universal statement handles (specific modules
+	# are responsible for their own additions).
+	$self->{'files_insert'} = undef;
+	$self->{'files_select'} = undef;
+	$self->{'allfiles_select'} = undef;
+	$self->{'symbols_insert'} = undef;
+	$self->{'symbols_byname'} = undef;
+	$self->{'symbols_byid'} = undef;
+	$self->{'symbols_setref'} = undef;
+	$self->{'related_symbols_select'} = undef;
+	$self->{'delete_symbols'} = undef;
+	$self->{'definitions_insert'} = undef;
+	$self->{'definitions_select'} = undef;
+	$self->{'delete_file_definitions'} = undef;
+	$self->{'delete_definitions'} = undef;
+	$self->{'releases_insert'} = undef;
+	$self->{'releases_select'} = undef;
+	$self->{'delete_one_release'} = undef;
+	$self->{'delete_releases'} = undef;
+	$self->{'status_insert'} = undef;
+	$self->{'status_select'} = undef;
+	$self->{'status_update'} = undef;
+	$self->{'status_timestamp'} = undef;
+	$self->{'status_update_timestamp'} = undef;
+	$self->{'delete_unused_status'} = undef;
+	$self->{'usages_insert'} = undef;
+	$self->{'usages_select'} = undef;
+	$self->{'delete_file_usages'} = undef;
+	$self->{'delete_usages'} = undef;
+	$self->{'langtypes_insert'} = undef;
+	$self->{'langtypes_select'} = undef;
+	$self->{'langtypes_count'} = undef;
+	$self->{'purge_all'} = undef;
+}
+
+=head2 C<final_cleanup ()>
+
+C<final_cleanup> allows to execute last-minute actions on the database
 and disconnects.
 
 Must be called before C<Index> object disappears.
@@ -1610,11 +1795,7 @@ sub final_cleanup {
 	my ($self) = @_;
 
 	$self->commit();
-	$self->{'files_select'} = undef;
-	$self->{'releases_select'} = undef;
-	$self->{'status_select'} = undef;
-	$self->{'langtypes_select'} = undef;
-	$self->{'symbols_byname'} = undef;
+	$self->dropuniversalqueries();
 	$self->{dbh}->disconnect() or die "Disconnect failed: $DBI::errstr";
 }
 

@@ -1,8 +1,8 @@
 /*- -*- tab-width: 4 -*- -*/
 /*-
  *	SQL template for creating Oracle tables
- *	(C) 2012 A. Littoz
- *	$Id: initdb-o-template.sql,v 1.3 2013/01/11 12:08:48 ajlittoz Exp $
+ *	(C) 2012-2013 A. Littoz
+ *	$Id: initdb-o-template.sql,v 1.4 2013/11/17 11:12:07 ajlittoz Exp $
  *
  *	This template is intended to be customised by Perl script
  *	initdb-config.pl which creates a ready to use shell script
@@ -222,10 +222,33 @@ create table %DB_tbl_prefix%symbols
 		unique (symnane)
 	);
 
+create index %DB_tbl_prefix%symlookup
+	on %DB_tbl_prefix%files(symname);
+
 /* The following function decrements the symbol reference count
+ * for a definition
  * (to be used in triggers).
  */
-create or replace procedure %DB_tbl_prefix%decsym()
+create or replace procedure %DB_tbl_prefix%decdecl()
+as
+begin
+	update %DB_tbl_prefix%symbols
+		set	symcount = symcount - 1
+		where symid = old.symid
+		and symcount > 0;
+	if old.relid is not null
+	then update %DB_tbl_prefix%symbols
+		set	symcount = symcount - 1
+		where symid = old.relid
+		and symcount > 0;
+	end if;
+end;
+
+/* The following function decrements the symbol reference count
+ * for a usage
+ * (to be used in triggers).
+ */
+create or replace procedure %DB_tbl_prefix%decusage()
 as
 begin
 	update %DB_tbl_prefix%symbols
@@ -233,7 +256,6 @@ begin
 		where symid = old.symid
 		and symcount > 0;
 end;
-/
 
 commit;
 
@@ -275,7 +297,7 @@ create index %DB_tbl_prefix%i_definitions
 create or replace trigger %DB_tbl_prefix%remove_definition
 	after delete on %DB_tbl_prefix%definitions
 	for each row
-	execute procedure %DB_tbl_prefix%decsym();
+	execute procedure %DB_tbl_prefix%decdecl();
 
 commit;
 
@@ -301,7 +323,7 @@ create index %DB_tbl_prefix%i_usages
 create or replace trigger %DB_tbl_prefix%remove_usage
 	after delete on %DB_tbl_prefix%usages
 	for each row
-	execute procedure %DB_tbl_prefix%decsym();
+	execute procedure %DB_tbl_prefix%decusage();
 
 commit;
 

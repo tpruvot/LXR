@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Mercurial.pm,v 1.1 2013/01/18 16:18:26 ajlittoz Exp $
+# $Id: Mercurial.pm,v 1.5 2013/12/03 13:38:23 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ Methods are sorted in the same order as in the super-class.
 
 package LXR::Files::Mercurial;
 
-$CVSID = '$Id: Mercurial.pm,v 1.1 2013/01/18 16:18:26 ajlittoz Exp $ ';
+$CVSID = '$Id: Mercurial.pm,v 1.5 2013/12/03 13:38:23 ajlittoz Exp $ ';
 
 use strict;
 use Time::Local;
@@ -43,22 +43,24 @@ our %hg;
 our $cache_filename = '';
 
 sub new {
-	my ($self, $rootpath, $params) = @_;
+	my ($self, $config) = @_;
 
 	$self = bless({}, $self);
+	my $rootpath = substr($config->{'sourceroot'}, 3);
+	$rootpath =~ s@/*$@@;
 	$self->{'rootpath'} = $rootpath;
-#	$self->{'rootpath'} =~ s@/*$@@;
-	$self->{'hg_blame'} = $$params{'hg_blame'};
-	$self->{'hg_annotations'} = $$params{'hg_annotations'}
+	$self->{'hg_blame'} = $config->{'sourceparams'}{'hg_blame'};
+	$self->{'hg_annotations'} = $config->{'sourceparams'}{'hg_annotations'}
 	# Though Mercurial can provide changeset author independently
 	# from annotations, source script design won't work without
 	# annotations.
-			|| $$params{'hg_blame'};
+		or $config->{'sourceparams'}{'hg_blame'};
 	$self->{'path'} = $config->{'hgpath'};
 	my $cmd = 'cd ' . $rootpath
 		. ';HGRCPATH=' . $rootpath . '/hg.rc hg ';
 	$cmd =~ m/(.*)/;
 	$self->{'hg-cmd'} = $1;	# Untaint string
+	$self->{'path'} = $config->{'hgpath'};
 
 	return $self;
 }
@@ -72,9 +74,10 @@ sub getdir {
 	# Paths on the hg command lines must not start with a slash
 	# to be relative to 'rootpath'. Changes LXR convention.
 	$hgpath =~ s,^/+,,;
+	$ENV{'PATH'} = $self->{'path'};
 	open(DIR, $$self{'hg-cmd'}
 				. "ls-onelevel -r \"$releaseid\" \"$hgpath\" |")
-	|| die ("hg subprocess died unexpectedly: $!");
+	or die ("hg subprocess died unexpectedly: $!");
 
 	while($node = <DIR>) {
 		chomp($node);
@@ -119,6 +122,7 @@ sub filerev {
 	my ($self, $filename, $releaseid) = @_;
 	my ($rev, $outrev);
 
+	$ENV{'PATH'} = $self->{'path'};
 	$filename =~ s,^/+,,;
 	$self->parsehg($filename);
 	if ($releaseid !~ m/^\d+$/) {
@@ -167,8 +171,9 @@ sub filerev {
 #	checked out content can be read.
 sub getfilehandle {
 	my ($self, $filename, $releaseid, $withannot) = @_;
-	my ($fileh);
+	my $fileh;
 
+	$ENV{'PATH'} = $self->{'path'};
 	$filename =~ s,^/+,,;
 	$filename =~ m/(.*)/;
 	$filename = $1;
@@ -183,7 +188,7 @@ sub getfilehandle {
 		$opt .= 'u' if $self->{'hg_blame'};
 		open ($fileh, $$self{'hg-cmd'}
 					. "blame $opt -r $rev \"$filename\" 2>/dev/null |")
-		|| die("hg subprocess died unexpextedly: $!");
+		or die("hg subprocess died unexpextedly: $!");
 		$self->{'fileh'}       = $fileh;
 		$self->{'nextline'}    = undef;
 		$self->{'annotations'} = [];
@@ -192,7 +197,7 @@ sub getfilehandle {
 	} else {
 		open ($fileh, $$self{'hg-cmd'}
 					. "cat -r $rev $filename 2>/dev/null |")
-		|| die("hg subprocess died unexpextedly: $!");
+		or die("hg subprocess died unexpextedly: $!");
 		return $fileh;
 	}
 }
@@ -203,6 +208,7 @@ sub loadline {
 	return if !exists $self->{'fileh'};
 	my $hgline = $self->{'fileh'}->getline();
 	if (!defined($hgline)) {
+		close($self->{'fileh'});
 		delete $self->{'nextline'};
 		delete $self->{'fileh'};
 	}
@@ -239,6 +245,7 @@ sub getfilesize {
 	my $rev = $self->filerev($filename, $releaseid);
 	$rev =~ m/(.*)/;
 	$rev = $1;
+	$ENV{'PATH'} = $self->{'path'};
 	my $fsize = `$$self{'hg-cmd'} fsize -r $rev $filename`;
 	return $fsize;
 }
@@ -300,9 +307,10 @@ sub alltags {
 	my ($self, $filename) = @_;
 	my @tags;
 
+	$ENV{'PATH'} = $self->{'path'};
 	open(TAGS, $$self{'hg-cmd'}
 				. 'tags |')
-	|| die("hg subprocess died unexpextedly: $!");
+	or die("hg subprocess died unexpextedly: $!");
 	while( <TAGS> ) { 
 		m/^(\S+)/;
 		push(@tags, $1);
@@ -332,9 +340,10 @@ sub allbranches {
 	my ($self, $filename) = @_;
 	my @brch;
 
+	$ENV{'PATH'} = $self->{'path'};
 	open(BRANCH, $$self{'hg-cmd'}
 				. 'branches |')
-	|| die("hg subprocess died unexpextedly: $!");
+	or die("hg subprocess died unexpextedly: $!");
 	while( <BRANCH> ) { 
 		m/^(\S+)/;
 		push(@brch, $1);
@@ -378,11 +387,12 @@ sub parsehg {
 	$filename =~ m/(.*)/;
 	$filename = $1;
 	my $file = '';
+	$ENV{'PATH'} = $self->{'path'};
 	# This log request with a template retrieves only the LXR-relevant
 	# data, i.e. changeset-id and commit time.
 	open(HG, $$self{'hg-cmd'}
 				. "log --template '{rev} {date|hgdate}\n' $filename |")
-	|| die("hg subprocess died unexpextedly: $!");
+	or die("hg subprocess died unexpextedly: $!");
 	while (<HG>) {
 # 		$file .= $_;	# For "standard" output
 		m/^(\d+)\s+(\d+)\s+([+-]?\d+)\s*\n/;

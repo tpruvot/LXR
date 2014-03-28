@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Python.pm,v 1.9 2013/04/12 15:01:09 ajlittoz Exp $
+# $Id: Python.pm,v 1.11 2013/09/24 07:59:19 ajlittoz Exp $
 #
 # Enhances the support for the Python language over that provided by
 # Generic.pm
@@ -33,7 +33,7 @@ It only overrides C<processinclude> for efficiency.
 
 package LXR::Lang::Python;
 
-$CVSID = '$Id: Python.pm,v 1.9 2013/04/12 15:01:09 ajlittoz Exp $ ';
+$CVSID = '$Id: Python.pm,v 1.11 2013/09/24 07:59:19 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -85,7 +85,7 @@ sub processinclude {
 		# Advance past keyword, so that parsing may continue without loop.
 		$source =~ s/^([\w]+)//;	# Erase keyword
 		$dirname = $1;
-		$$frag =	"<span class='reserved'>$dirname</span>";
+		$$frag = "<span class='reserved'>$dirname</span>";
 		&LXR::SimpleParse::requeuefrag($source);
 		return;
 	}
@@ -99,7 +99,7 @@ sub processinclude {
 	$path =~ s@$@.py@;		# Add file extension
 
 	# Create the hyperlinks
-	$link = &LXR::Common::incref($file, "include" ,$path ,$dir);
+	$link = &LXR::Common::incref($file, 'include', $path, $dir);
 	if (!defined($link)) {
 		# Can it be a directory ('from ... import ...' instruction ?)
 		# NOTE: the parser is too rudimentary to cope with a directory
@@ -110,7 +110,7 @@ sub processinclude {
 		#		this would suppress the possibility to click-link to
 		#		the directory itself.
 		$path =~ s@\.py$@@;	# Remove file extension
-		$link = &LXR::Common::incdirref($file, "include", $path, $dir);
+		$link = &LXR::Lang::incdirref($file, 'include', $path, $dir);
 		# Erase last path separator from <a> link to enable
 		# following partial path processing.
 		# NOTE: this creates a dependency of link structure from incref!

@@ -3,7 +3,7 @@
 #
 # GIT.pm - A file backend for LXR based on GIT.
 #
-# $Id: GIT.pm,v 1.12 2013/01/17 09:30:01 ajlittoz Exp $
+# $Id: GIT.pm,v 1.17 2013/12/03 13:38:23 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ module, but at least it works for LXR.
 
 package LXR::Files::GIT;
 
-$CVSID = '$Id: GIT.pm,v 1.12 2013/01/17 09:30:01 ajlittoz Exp $';
+$CVSID = '$Id: GIT.pm,v 1.17 2013/12/03 13:38:23 ajlittoz Exp $';
 
 use strict;
 use Time::Local;
@@ -62,15 +62,16 @@ use LXR::Common;
 @LXR::Files::GIT::ISA = ('LXR::Files');
 
 sub new {
-	my ($self, $rootpath, $params) = @_;
+	my ($self, $config) = @_;
 
 	$self = bless({}, $self);
-	$self->{'rootpath'} = $rootpath;
-	$self->{'git_blame'} = $$params{'git_blame'};
-	$self->{'git_annotations'} = $$params{'git_annotations'}
-			|| $$params{'git_blame'};
+	$self->{'rootpath'} = substr($config->{'sourceroot'}, 4);
+	$self->{'git_blame'} = $config->{'sourceparams'}{'git_blame'};
+	$self->{'git_annotations'} = $config->{'sourceparams'}{'git_annotations'}
+			|| $config->{'sourceparams'}{'git_blame'};
 		# Blame support will only work when commit IDs are available,
 		# called annotations here...
+	$self->{'path'} = $config->{'gitpath'};
 	return $self;
 }
 
@@ -79,7 +80,7 @@ sub getdir {
 	my ($dir, @dirs, @files);
 
 	# Paths on the git command lines must not start with a slash
-	# to be relative to 'rootpath'. Change LXR convention.
+	# to be relative to 'rootpath'. Changes LXR convention.
 	$pathname =~ s,^/+,,;
 
 	my $git;
@@ -89,7 +90,7 @@ sub getdir {
 	if ($pathname eq '') {
 		$git = $self->_git_cmd ('ls-tree', $releaseid);
 	} else {
-		$git = $self->_git_cmd ('ls-tree', $releaseid, $pathname);
+		$git = $self->_git_cmd ('ls-tree', $releaseid, '--', $pathname);
 	}
 	while (<$git>) {
 		if (m/(\d+) (\w+) ([[:xdigit:]]+)\t(.*)/) {
@@ -153,18 +154,19 @@ sub filerev {
 	my ($self, $filename, $releaseid) = @_;
 
 	# Paths on the git command lines must not start with a slash
-	# to be relative to 'rootpath'. Change LXR convention.
+	# to be relative to 'rootpath'. Changes LXR convention.
 	$filename =~ s,^/+,,;
 
-	my $sha1hashline = $self->_git_oneline ('ls-tree', $releaseid, $filename);
+	my $sha1hashline = $self->_git_oneline ('ls-tree', $releaseid, '--', $filename);
 	if ($sha1hashline =~ m/\d+ blob ([[:xdigit:]]+)\t.*/) {
 		return substr	($self->_git_oneline
 							('rev-list'
-							, '-n 1'
+							, '-n', '1'
 	# WARNING: 8 is the default abbreviated SHA1 length implied
 	#			by option -c in getfilehandle. Update this value
-	#			git uses a different default length.
-							, '--abbrev-commit --abbrev=8'
+	#			if git uses a different default length.
+							, '--abbrev-commit'
+							, '--abbrev=8'
 							, $releaseid
 							, '--'
 							, $filename
@@ -179,7 +181,7 @@ sub getfilehandle {
 	my ($self, $filename, $releaseid, $withannot) = @_;
 
 	# Paths on the git command lines must not start with a slash
-	# to be relative to 'rootpath'. Change LXR convention.
+	# to be relative to 'rootpath'. Changes LXR convention.
 	$filename =~ s,^/+,,;
 
 	if	(	$withannot
@@ -197,7 +199,7 @@ sub getfilehandle {
 		$self->{'authors'}     = [];
 		return $self;
 	} else {
-		my $sha1hashline = $self->_git_oneline ('ls-tree', $releaseid,  $filename);
+		my $sha1hashline = $self->_git_oneline ('ls-tree', $releaseid, '--', $filename);
 		if ($sha1hashline =~ m/^\d+ blob ([[:xdigit:]]+)\t.*/) {
 			my $fh = $self->_git_cmd ('cat-file', 'blob', $1);
 			die('Error executing "git cat-file"') unless $fh;
@@ -214,12 +216,14 @@ sub loadline {
 	return if !exists $self->{'fileh'};
 	my $gitline = $self->{'fileh'}->getline();
 	if (!defined($gitline)) {
+		close($self->{'fileh'});
 		delete $self->{'nextline'};
 		delete $self->{'fileh'};
 	}
 	(my $tag, my $auth, $self->{'nextline'}) =
 		$gitline =~
-			m/^([[:xdigit:]]+)\s+\(\s*(\S+)\s+\d+\s+[+-]?\d+\s+\d+\)(.*)/s;
+			m/^([[:xdigit:]]+)\s+\(\s*(.+)\s+\d+\s+[+-]?\d+\s+\d+\)(.*)/s;
+			#  +---- tag ----+        auth                         line
 	if ($self->{'git_annotations'}) {
 		push @{$self->{'annotations'}}, $tag;
 		push @{$self->{'authors'}}, $auth
@@ -244,10 +248,10 @@ sub getfilesize {
 	my ($self, $filename, $releaseid) = @_;
 
 	# Paths on the git command lines must not start with a slash
-	# to be relative to 'rootpath'. Change LXR convention.
+	# to be relative to 'rootpath'. Changes LXR convention.
 	$filename =~ s,^/+,,;
 
-	my $sha1hashline = $self->_git_oneline ('ls-tree', $releaseid, $filename);
+	my $sha1hashline = $self->_git_oneline ('ls-tree', $releaseid, '--', $filename);
 	if ($sha1hashline =~ m/\d+ blob ([[:xdigit:]]+)\t.*/) {
 		return $self->_git_oneline ('cat-file', '-s', $1);
 	}
@@ -261,7 +265,7 @@ sub getfiletime {
 	my ($self, $filename, $releaseid) = @_;
 
 	# Paths on the git command lines must not start with a slash
-	# to be relative to 'rootpath'. Change LXR convention.
+	# to be relative to 'rootpath'. Changes LXR convention.
 	$filename =~ s,^/+,,;
 
 	if ($filename eq '') {
@@ -300,12 +304,12 @@ sub isdir {
 	my ($self, $pathname, $releaseid) = @_;
 
 	# Paths on the git command lines must not start with a slash
-	# to be relative to 'rootpath'. Change LXR convention.
+	# to be relative to 'rootpath'. Changes LXR convention.
 	$pathname =~ s,^/+,,;
 	if ($pathname eq '') {
 		return 1 == 1;
 	} else {
-		my $line = $self->_git_oneline ('ls-tree', $releaseid, $pathname);
+		my $line = $self->_git_oneline ('ls-tree', $releaseid, '--', $pathname);
 		return $line =~ m/^\d+ tree .*$/;
 	}
 }
@@ -314,12 +318,12 @@ sub isfile {
 	my ($self, $pathname, $releaseid) = @_;
 
 	# Paths on the git command lines must not start with a slash
-	# to be relative to 'rootpath'. Change LXR convention.
+	# to be relative to 'rootpath'. Changes LXR convention.
 	$pathname =~ s,^/+,,;
 	if ($pathname eq '') {
 		return 1 == 0;
 	} else {
-		my $line = $self->_git_oneline ('ls-tree', $releaseid, $pathname);
+		my $line = $self->_git_oneline ('ls-tree', $releaseid, '--', $pathname);
 		return $line =~ m/^\d+ blob .*$/;
 	}
 }
@@ -331,7 +335,7 @@ sub isfile {
 
 =head2 C<_git_cmd ($cmd, @args)>
 
-C<_git_cmd> returns a handle to a pipe wher the command outputs its result.
+C<_git_cmd> returns a handle to a pipe where the command outputs its result.
 
 =over
 
@@ -364,19 +368,21 @@ sub _git_cmd {
 	}
 	my $git;
 	$! = '';
+	$ENV{'PATH'} = $self->{'path'};
 	open	( $git
-			, 'git --git-dir='.$$self{'rootpath'}
-				.' '
-				.join(' ',$cmd, @clean)
-				.' |'
+			, '-|'
+			, 'git'
+			, '--git-dir='.$$self{'rootpath'}
+			, $cmd
+			, @clean
 			)
-	|| die "git subprocess died unexpextedly: $!\n";
+	or die "git subprocess died unexpextedly: $!\n";
 	return $git;
 }
 
 =head2 C<_git_oneline ($cmd, @args)>
 
-C<_git_oneline> is a wrapper function for C<_gitcmd> when a single line
+C<_git_oneline> is a wrapper function for C<_git-cmd> when a single line
 result is expected.
 
 =over

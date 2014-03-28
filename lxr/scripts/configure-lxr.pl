@@ -2,7 +2,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: configure-lxr.pl,v 1.13 2013/01/23 16:48:48 ajlittoz Exp $
+# $Id: configure-lxr.pl,v 1.15 2013/11/07 17:38:36 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 #
 ###############################################
 
-# $Id: configure-lxr.pl,v 1.13 2013/01/23 16:48:48 ajlittoz Exp $
+# $Id: configure-lxr.pl,v 1.15 2013/11/07 17:38:36 ajlittoz Exp $
 
 use strict;
 use Getopt::Long qw(:config gnu_getopt);
@@ -39,14 +39,9 @@ use VTescape;
 #
 ##############################################################
 
-#	This is a nasty trick to fool Perl into accepting the CVS
-#	revision tag without trying to make sense with a supposed
-#	variable (sigils may be separated from the variable name
-#	by spaces! Not documented of course!)
-$_ = '';	# Calm down Perl ardour
-my $version ="\$Revision: 1.13 $_";
-$version =~ s/Revision: (.*) $/$1/;
-$version =~ s/\$//;
+my $version = '$Revision: 1.15 $';
+$version =~ s/Revision: (.*) /$1/;
+$version =~ s/\$//g;
 
 #	Who am I? Strip directory path.
 my $cmdname = $0;
@@ -71,6 +66,7 @@ my $rootdir = `pwd`;
 chomp($rootdir);
 my ($scriptdir) = $0 =~ m!([^/]+)/[^/]+$!;
 my $tmpldir = 'templates';
+my $ovrdir  = 'custom.d/templates';
 my $verbose;
 my $confout;
 my $scriptout = 'initdb.sh';
@@ -83,6 +79,7 @@ if (!GetOptions	(\%option
 				, 'root-dir=s'	=> \$rootdir
 				, 'script-out=s'=> \$scriptout
 				, 'tmpl-dir=s'	=> \$tmpldir
+				, 'tmpl-ovr=s'	=> \$ovrdir
 				, 'verbose:2'	=> \$verbose
 				, 'v+'			=> \$verbose
 				, 'version'
@@ -116,7 +113,13 @@ Valid options are:
       --tmpl-dir=directory
                   Define template directory
                   (default: $tmpldir)
+      --tmpl-ovr=directory
+                  Define template user-override directory
+                  (default: $ovrdir)
   -v, --verbose   Explain what is being done
+                  full verbosity:   -vv or --verbose,
+                  medium verbosity: -v
+                  minimal verbosity: none
       --version   Print version information and quit
 
 lxr-conf-template  LXR master configuration template name in templates/
@@ -131,7 +134,7 @@ END_HELP
 if ($option{'version'}) {
 	print <<END_VERSION;
 ${cmdname} version $version
-(C) 2012 A. J. Littoz
+(C) 2012-2013 A. J. Littoz
 This is free software under GPL v3 (or higher) licence.
 There is NO warranty, not even for MERCHANTABILITY nor
 FITNESS FOR A PARICULAR PURPOSE to the extent permitted by law.
@@ -145,6 +148,7 @@ END_VERSION
 #	"Canonise" directory names
 $confdir =~ s:/*$::;
 $tmpldir =~ s:/*$::;
+$ovrdir  =~ s:/*$::;
 $rootdir =~ s:/*$::;
 
 #	Check LXR environment
@@ -165,7 +169,7 @@ if (! -d $tmpldir) {
 	$error = 1;
 }
 
-if ($scriptout =~ m:/:) {
+if (0 <= index($scriptout, '/')) {
 	print "${VTred}ERROR:${VTnorm} output script ${VTred}$scriptout${VTnorm} should not contain directory name!\n";
 	$error = 1;
 }
@@ -176,27 +180,29 @@ if (@ARGV > 1) {
 }
 if (@ARGV == 1) {
 	$lxrtmplconf = $ARGV[0];
-	if ($lxrtmplconf =~ m:/:) {
+	if (0 <= index($lxrtmplconf, '/')) {
 		print "${VTred}ERROR:${VTnorm} template ${VTred}$lxrtmplconf${VTnorm} should not contain directory name!\n";
 	$error = 1;
 	}
 }
-if (! -e "$tmpldir/$lxrtmplconf") {
-	print "${VTred}ERROR:${VTnorm} template file"
-		. " ${VTred}$tmpldir/$lxrtmplconf${VTnorm} does not exist!\n";
+if	(	! -e "$ovrdir/$lxrtmplconf"
+	&&	! -e "$tmpldir/$lxrtmplconf"
+	) {
+	print "${VTred}ERROR:${VTnorm} template file ${VTred}$lxrtmplconf${VTnorm}"
+		. " exists neither in override nor in templates directory!\n";
 	$error = 1;
 }
 
 $confout =  $lxrtmplconf unless defined($confout);
-if ($confout =~ m:/:) {
+if (0 <= index($confout, '/')) {
 	print "${VTred}ERROR:${VTnorm} output configuration ${VTred}$confout${VTnorm} should not contain directory name!\n";
 	$error = 1;
 }
-if ($confout =~ m:\.ctxt$:) {
+if (substr($confout, -5) eq '.ctxt') {
 	print "${VTred}ERROR:${VTnorm} output configuration file ${VTred}$confout${VTnorm} has a forbidden extension!\n";
 	$error = 1;
 }
-if ($confout !~ m:\.conf$:) {
+if (substr($confout, -5) ne '.conf') {
 	print "${VTyellow}WARNING:${VTnorm} output configuration file ${VTbold}$confout${VTnorm} has an unusual extension!\n";
 }
 
@@ -213,10 +219,12 @@ $contextfile =~ s!(?:\.[^/]*|)$!.ctxt!;
 ##############################################################
 
 if ($verbose) {
-	print "${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} configurator (version: $version) ${VTyellow}***${VTnorm}\n";
-	print "\n";
-	print "LXR root directory is ${VTbold}$rootdir${VTnorm}\n";
-	print "Configuration will be stored in ${VTbold}$confdir/${VTnorm}\n";
+	print <<END_INTRO;
+${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} configurator (version: $version) ${VTyellow}***${VTnorm}
+
+LXR root directory is ${VTbold}$rootdir${VTnorm}
+Configuration will be stored in ${VTbold}$confdir/${VTnorm}
+END_INTRO
 }
 
 if (! -d $confdir) {
@@ -254,11 +262,13 @@ if ($addtree != 1) {
 	}
 	contextServer ($verbose);
 	if ('c' eq $virtrootpolicy) {
-		print "${VTyellow}Reminder:${VTnorm} do not forget to implement your management in the following files:\n";
-		print "- ${confdir}/${VTbold}apache-lxrserver.conf${VTnorm} if using Apache,\n";
-		print "- ${confdir}/${VTbold}lighttpd-lxrserver.conf${VTnorm} if using lighttpd,\n";
-		print "- ${confdir}/${VTbold}${confout}${VTnorm} for parameter 'treeextract'.\n";
-		print "It is wise to thoroughly read the Web server chapter in the User's Manual.\n";
+		print <<END_C_VIRT;
+${VTyellow}Reminder:${VTnorm} do not forget to implement your management in the following files:
+- ${confdir}/${VTbold}apache-lxrserver.conf${VTnorm} if using Apache,
+- ${confdir}/${VTbold}lighttpd-lxrserver.conf${VTnorm} if using lighttpd,
+- ${confdir}/${VTbold}${confout}${VTnorm} for parameter 'treeextract'.
+It is wise to thoroughly read the Web server chapter in the User's Manual.
+END_C_VIRT
 		if	('s' eq get_user_choice
 						( 'Continue or stop?'
 						, 1
@@ -280,55 +290,59 @@ if ($addtree) {
 		print "\n";
 	}
 	$addtree += contextReload ($verbose, "$confdir/$contextfile");
-		if ($cardinality eq 's') {
-			print "${VTred}ERROR:${VTnorm} initial configuration was done for a single tree!\n";
-			print "This is not compatible with the present web server configuration.\n";
-			print "To add more trees, you must reconfigure for multiple trees.\n";
-			exit 1;
+	if ($cardinality eq 's') {
+		print "${VTred}ERROR:${VTnorm} initial configuration was done for a single tree!\n";
+		print "This is not compatible with the present web server configuration.\n";
+		print "To add more trees, you must reconfigure for multiple trees.\n";
+		exit 1;
+	}
+	if ($dbpolicy eq 't') {
+		print "${VTnorm}\n";
+		print "Advanced users can configure different DB engines for different trees.\n";
+		print "This is not recommended for average users.\n";
+		if ('n' eq get_user_choice
+				( 'Use previous DB engine?'
+				, 1
+				, [ 'yes', 'no' ]
+				, [ 'y', 'n' ]
+				) ) {
+			$dbengine =  get_user_choice
+					( 'New database engine?'
+					, 3
+					, [ 'mysql', 'oracle', 'postgres', 'sqlite' ]
+					, [ 'm', 'o', 'p', 's' ]
+					);
+			$dbenginechanged = 1;
 		}
-		if ($dbpolicy eq 't') {
-			print "${VTnorm}\n";
-			print "Advanced users can configure different DB engines for different trees.\n";
-			print "This is not recommended for average users.\n";
-			if ('n' eq get_user_choice
-					( 'Use previous DB engine?'
-					, 1
-					, [ 'yes', 'no' ]
-					, [ 'y', 'n' ]
-					) ) {
-				$dbengine =  get_user_choice
-						( 'New database engine?'
-						, 3
-						, [ 'mysql', 'oracle', 'postgres', 'sqlite' ]
-						, [ 'm', 'o', 'p', 's' ]
-						);
-				$dbenginechanged = 1;
-			}
-		}
+	}
 }
 
 if ($addtree != 1) {
 	if ($verbose) {
-		print "\n";
-		print "${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} database configuration ${VTyellow}***${VTnorm}\n";
-		print "\n";
+		print <<END_DB;
+
+${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} database configuration ${VTyellow}***${VTnorm}
+
+END_DB
 	}
 	if ($verbose > 1) {
-		print "\n";
-		print "The choice of the database engine can make a difference in indexing performance,\n";
-		print "but resource consumption is also an important factor.\n";
-		print "  * For a small personal project, try ${VTbold}SQLite${VTnorm} which do not\n";
-		print "    need a server and is free from configuration burden.\n";
-		print "  * For medium to large projects, choice is between ${VTbold}MySQL${VTnorm},\n";
-		print "    ${VTbold}PostgreSQL${VTnorm} and Oracle.\n";
-		print "    Oracle is not a free software, its interface has not been\n";
-		print "    tested for a long time.\n";
-		print "  * ${VTbold}PostgreSQL${VTnorm} databases are smaller than MySQL's\n";
-		print "    and performance is roughly equivalent.\n";
-		print "  * ${VTbold}MySQL${VTnorm} is at its best with large-sized projects\n";
-		print "    (such as kernel cross-referencing) where it is fastest at the cost\n";
-		print "    of bigger databases.\n";
-		print "  * Take also in consideration the number of connected users.\n";
+		print <<END_DB;
+
+The choice of the database engine can make a difference in indexing performance,
+but resource consumption is also an important factor.
+  * For a small personal project, try ${VTbold}SQLite${VTnorm} which do not
+    need a server and is free from configuration burden.
+  * For medium to large projects, choice is between ${VTbold}MySQL${VTnorm},
+    ${VTbold}PostgreSQL${VTnorm} and Oracle.
+    Oracle is not a free software, its interface has not been
+    tested for a long time.
+  * ${VTbold}PostgreSQL${VTnorm} databases are smaller than MySQL's
+    and performance is roughly equivalent.
+  * ${VTbold}MySQL${VTnorm} is at its best with large-sized projects
+    (such as kernel cross-referencing) where it is fastest at the cost
+    of bigger databases.
+  * Take also in consideration the number of connected users.
+END_DB
 	}
 	contextDB ($verbose);
 	if ($dbuser) {
@@ -359,7 +373,10 @@ if (!$addtree) {
 # From release 1.1 on, both are stuffed in the same hash since
 # it simplifies processing in the macro interpreter.
 my %markers =
+	# Read-only options and parameters
+	# (mainly from context)
 		( '%_add%'		=> $addtree
+		, '%_shell%'	=> 0
 		, '%_singlecontext%' => $cardinality eq 's'
 		, '%_createglobals%' => $cardinality eq 'm'
 							&&	(  0 == $addtree
@@ -374,18 +391,27 @@ my %markers =
 		, '%_nodbuser%'	=> $nodbuser
 		, '%_nodbprefix%' => $nodbprefix
 		, '%_virtrootpolicy%' => $virtrootpolicy
-		, '%_virthost%'	=> 'I' eq substr($servertype, 0, 1)
+		, '%_routing%'	=> $treematch
+		, '%_shared%'	=> 'S' eq $servertype
+		, '%_commonvirtroot%' => $commonvirtroot
+
+	# Global parameters: directories, server URL
+	# (may be overwritten, but not recommended!)
+		, '%LXRconfUser%'	=> getlogin	# OS-user running configuration
+		, '%LXRroot%'		=> $rootdir
+		, '%LXRtmpldir%'	=> $tmpldir
+		, '%LXRovrdir%'		=> $ovrdir
+		, '%LXRconfdir%'	=> $confdir
+		, '%scheme%'		=> $scheme
+		, '%hostname%'		=> $hostname
+		, '%schemealiases%'	=> \@schemealiases
+		, '%hostaliases%'	=> \@hostaliases
+		, '%portaliases%'	=> \@portaliases
+		, '%port%'			=> $port
+		, '%virtrootbase%'	=> $virtrootbase
 		);
 
 my $sample;
-$markers{'%LXRconfUser%'} = getlogin;	# OS-user running configuration
-$markers{'%LXRroot%'} = $rootdir;
-$markers{'%LXRtmpldir%'} = $tmpldir;
-$markers{'%LXRconfdir%'} = $confdir;
-$markers{'%scheme%'} = $scheme;
-$markers{'%hostname%'} = $hostname;
-$markers{'%port%'} = $port;
-$markers{'%virtrootbase%'} = $virtrootbase;
 $sample = `command -v glimpse 2>/dev/null`;
 chomp($sample);
 $markers{'%glimpse%'} = $sample if $sample;
@@ -434,22 +460,22 @@ if (!$addtree) {
 					);
 			if ($search eq '%glimpse%') {
 				$markers{'%glimpse%'} = get_user_choice
-					( "--- Location? (e.g. /usr/share/glimpse-dir/glimpse)"
+					( '--- Location? (e.g. /usr/share/glimpse-dir/glimpse)'
 					, -2
-					, []
+					, [ '^/', 'absolute file path required' ]
 					, []
 					);
 				$markers{'%glimpseindex%'} = get_user_choice
 					( '--- Location of indexer? (e.g. /usr/share/glimpse-dir/glimpseindex)'
 					, -2
-					, []
+					, [ '^/', 'absolute file path required' ]
 					, []
 					);
 			} else {
 				$markers{'%swish%'} = get_user_choice
-					( "--- Location? (e.g. /usr/share/swish-dir/swish-e)"
+					( '--- Location? (e.g. /usr/share/swish-dir/swish-e)'
 					, -2
-					, []
+					, [ '^/', 'absolute file path required' ]
 					, []
 					);
 			}
@@ -466,7 +492,7 @@ if (!$addtree) {
 		$markers{'%glimpsedirbase%'} = get_user_choice
 					( '--- Directory for glimpse databases?'
 					, -2
-					, []
+					, [ '^/', 'absolute file path required' ]
 					, []
 					);
 	}
@@ -474,7 +500,7 @@ if (!$addtree) {
 		$markers{'%swishdirbase%'} = get_user_choice
 					( '--- Directory for swish-e databases?'
 					, -2
-					, []
+					, [ '^/', 'absolute file path required' ]
 					, []
 					);
 		if	(  !defined($markers{'%glimpse%'})
@@ -501,8 +527,12 @@ if (!$addtree) {
 sub copy_and_configure_template {
 	my ($fin, $fout, $target) = @_;
 
-	unless (open(SOURCE, '<', $fin)) {
-		die("${VTred}ERROR:${VTnorm} couldn't open template file \"$fin\"\n");
+	my $input = $ovrdir . '/' . $fin;
+	if (! -e $input) {
+		$input = $tmpldir. '/' . $fin;
+	}
+	unless (open(SOURCE, '<', $input)) {
+		die("${VTred}ERROR:${VTnorm} couldn't open template file \"$input\"\n");
 	}
 	unless (open(DEST, '>', $fout)) {
 		die("${VTred}ERROR:${VTnorm} couldn't open output file \"$fout\n");
@@ -517,9 +547,9 @@ sub copy_and_configure_template {
 	if ($target && $verbose) {
 		print "file ${VTbold}$target${VTnorm} written into ";
 		if ($fout eq $target) {
-			print "LXR root";
+			print 'LXR root';
 		} else {
-			print "configuration";
+			print 'configuration';
 		}
 		print " directory\n";
 	}
@@ -528,51 +558,67 @@ sub copy_and_configure_template {
 if (!$addtree) {
 	print "\n" if $verbose;
 
-	chmod(0555, $tmpldir);
-	if ($verbose) {
-		print "templates directory ${VTbold}$tmpldir/${VTnorm} now protected read-only\n"
-	}
+	chmod(0555, "$tmpldir/Apache/apache2-require.pl");	# Make sure it is executable
+# 	chmod(0555, $tmpldir);
+# 	if ($verbose) {
+# 		print "templates directory ${VTbold}$tmpldir/${VTnorm} now protected read-only\n"
+# 	}
 
 	my $target;
 
 	#	Apache: per-directory access control file
 	$target = '.htaccess';
-	copy_and_configure_template	( "${tmpldir}/Apache/htaccess-generic"
+	copy_and_configure_template	( 'Apache/htaccess-generic'
 								, ${target}
 								, $target
 								);
 
 	#	Apache: mod_perl startup file
 	$target = 'apache2-require.pl';
-	copy_and_configure_template	( "${tmpldir}/Apache/$target"
+	copy_and_configure_template	( "Apache/$target"
 								, "${confdir}/${target}"
-								, $target
+								, ${target}
 								);
 
 	#	Apache: LXR server configuration file
 	$target = 'apache-lxrserver.conf';
-	copy_and_configure_template	( "${tmpldir}/Apache/$target"
+	copy_and_configure_template	( "Apache/$target"
 								, "${confdir}/${target}"
-								, $target
+								, ${target}
 								);
 
 	#	lighttpd: LXR server configuration file
 	$target = 'lighttpd-lxrserver.conf';
-	copy_and_configure_template	( "${tmpldir}/lighttpd/$target"
+	copy_and_configure_template	( "lighttpd/$target"
 								, "${confdir}/${target}"
-								, $target
+								, ${target}
+								);
+
+	#	nginx: LXR server configuration file
+	$target = 'nginx-lxrserver.conf';
+	copy_and_configure_template	( "Nginx/${target}"
+								, "${confdir}/${target}"
+								, ${target}
+								);
+
+	#	thttpd: LXR server configuration file
+	$target = 'thttpd-lxrserver.conf';
+	copy_and_configure_template	( ${target}
+								, "${confdir}/${target}"
+								, ${target}
 								);
 
 	#	Mercurial: extension and configuration file
-	if (-d "${tmpldir}/Mercurial") {
-		`cp ${tmpldir}/Mercurial/hg-lxr-ext.py ${confdir}/`;
-		$target = 'hg.rc';
-		copy_and_configure_template	( "${tmpldir}/Mercurial/$target"
-									, "${confdir}/${target}"
-									);
-		if ($verbose) {
-			print "${VTbold}Mercurial${VTnorm} support files written into configuration directory\n"
-		}
+	$target = 'hg-lxr-ext.py';
+	copy_and_configure_template	( "Mercurial/$target"
+								, "${confdir}/${target}"
+								);
+	$target = 'hg.rc';
+	copy_and_configure_template	( "Mercurial/$target"
+								, "${confdir}/${target}"
+								);
+	if ($verbose) {
+		print "${VTbold}Mercurial${VTnorm} support files written into configuration directory\n"
 	}
 }
 ##############################################################
@@ -583,12 +629,14 @@ if (!$addtree) {
 
 if (!$addtree) {
 	if ($verbose) {
-		print "\n";
-		print "${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} master configuration file setup ${VTyellow}***${VTnorm}\n";
-		print "    Global section part\n";
-		print "\n";
+		print <<END_GLOBAL;
+
+${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} master configuration file setup ${VTyellow}***${VTnorm}
+    Global section part
+
+END_GLOBAL
 	}
-	copy_and_configure_template	(  "${tmpldir}/$lxrtmplconf"
+	copy_and_configure_template	( $lxrtmplconf
 								, "${confdir}/${confout}"
 								);
 } elsif ($dbenginechanged && !$nodbuser) {
@@ -611,11 +659,13 @@ if (!$addtree) {
 ##############################################################
 
 if ($verbose) {
-	print "\n";
-	print "${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} master configuration file setup ${VTyellow}***${VTnorm}\n";
-	print "    Tree section part\n";
-	print "    SQL script for database initialisation\n";
-	print "\n";
+	print <<END_TREE;
+
+${VTyellow}***${VTnorm} ${VTred}L${VTblue}X${VTgreen}R${VTnorm} master configuration file setup ${VTyellow}***${VTnorm}
+    Tree section part
+    SQL script for database initialisation
+
+END_TREE
 }
 
 while (1) {
@@ -626,8 +676,12 @@ while (1) {
 	delete $markers{'%DB_tree_password%'};
 	delete $markers{'%DB_tbl_prefix%'};
 
-	unless (open(SOURCE, '<', "${tmpldir}/$lxrtmplconf")) {
-		die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/$lxrtmplconf\"\n");
+	my $input = $ovrdir . '/' . $lxrtmplconf;
+	if (! -e $input) {
+		$input = ${tmpldir} . '/' . $lxrtmplconf;
+	}
+	unless (open(SOURCE, '<', $input)) {
+		die("${VTred}ERROR:${VTnorm} couldn't open template file \"${input}\"\n");
 	}
 
 	pass2_hash	( \*SOURCE
@@ -638,11 +692,43 @@ while (1) {
 
 	close(SOURCE);
 
+	#	Update Apache configuration with the new 'virtroot'
+	$input = $ovrdir . '/Apache/apache-lxrserver.conf';
+	if (! -e $input) {
+		$input = ${tmpldir} . '/Apache/apache-lxrserver.conf';
+	}
+	open(SOURCE, '<', ${input})
+	or die("${VTred}ERROR:${VTnorm} couldn't open template file \"${input}\"\n");
+	pass2_hash	( \*SOURCE
+				, "${confdir}/apache-lxrserver.conf"
+				, \%markers
+				, $verbose
+				);
+	close(SOURCE);
+
 	#	Update lighttpd configuration with the new 'virtroot'
-	open(SOURCE, '<', "${tmpldir}/lighttpd/lighttpd-lxrserver.conf")
-	or die("${VTred}ERROR:${VTnorm} couldn't open template file \"${tmpldir}/lighttpd/lighttpd-lxrserver.conf\"\n");
+	$input = $ovrdir . '/lighttpd/lighttpd-lxrserver.conf';
+	if (! -e $input) {
+		$input = ${tmpldir} . '/lighttpd/lighttpd-lxrserver.conf';
+	}
+	open(SOURCE, '<', ${input})
+	or die("${VTred}ERROR:${VTnorm} couldn't open template file \"${input}\"\n");
 	pass2_hash	( \*SOURCE
 				, "${confdir}/lighttpd-lxrserver.conf"
+				, \%markers
+				, $verbose
+				);
+	close(SOURCE);
+
+	#	Update Nginx configuration with the new 'virtroot'
+	$input = $ovrdir . '/Nginx/nginx-lxrserver.conf';
+	if (! -e $input) {
+		$input = ${tmpldir} . '/Nginx/nginx-lxrserver.conf';
+	}
+	open(SOURCE, '<', ${input})
+	or die("${VTred}ERROR:${VTnorm} couldn't open template file \"${input}\"\n");
+	pass2_hash	( \*SOURCE
+				, "${confdir}/nginx-lxrserver.conf"
 				, \%markers
 				, $verbose
 				);
@@ -667,8 +753,12 @@ while (1) {
 		$markers{'%DB_tbl_prefix%'} = $markers{'%DB_global_prefix%'};
 	}
 
-	open(SOURCE, '<', "${tmpldir}/initdb/initdb-${dbengine}-template.sql")
-	or die("${VTred}ERROR:${VTnorm} couldn't open  script template file \"${tmpldir}/initdb/initdb-${dbengine}-template.sql\"\n");
+	$input = $ovrdir . "/initdb/initdb-${dbengine}-template.sql";
+	if (! -e $input) {
+		$input = ${tmpldir} . "/initdb/initdb-${dbengine}-template.sql";
+	}
+	open(SOURCE, '<', ${input})
+	or die("${VTred}ERROR:${VTnorm} couldn't open  script template file \"${input}\"\n");
 	if (!$addtree) {
 		unlink "${confdir}/${scriptout}";
 	};
@@ -695,6 +785,7 @@ while (1) {
 						, \%markers
 						, $verbose
 						);
+	$markers{'%_shell%'} = 0;
 
 	close(SOURCE);
 	close(DEST);

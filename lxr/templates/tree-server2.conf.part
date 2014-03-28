@@ -1,0 +1,65 @@
+#- -*- mode: perl -*-
+#- LXR master configuration file
+#-	Tree configuration section
+#-		Server configuration subsection part 2
+#-
+#-	$Id: tree-server2.conf.part,v 1.2 2013/11/07 17:45:41 ajlittoz Exp $
+#-
+#-
+#-	This file fragment is meant to be "included" to form the
+#-	complete configuration file.
+#-
+#-
+#-		###############################
+#-		# Tree configuration sections #
+#-		###############################
+#-
+#-		# Server configuration subsection #
+#-		#=================================#
+#-
+#- - In single tree context, just output a reminder in case of change;
+#- - for multiple trees, generate the speed switch buttons
+#@IF	%_singlecontext%
+		# Button title to switch to this tree when multiple
+		# trees are managed by LXR
+#	, 'shortcaption' => 'Tree'
+#@ELSE
+#@	ASK Do you want a speed switch button for this tree ?\
+	#@		; 1; yes, no; Y, N
+#@	IF	"%A%" eq 'Y'
+#@		IF	%treeid%
+#@			ASK --- Short title for button? (e.g. XYZZY); -1\
+			#@		; ^[^']+$,quotes not allowed\
+			#@		; %treeid%
+#@		ELSE
+#@			ASK --- Short title for button? (e.g. XYZZY); -2\
+			#@		; ^[^']+$,quotes not allowed
+#-	Prevent possible XSS attacks
+#@			CANONR <,&lt;,>,&gt 
+#@		ENDIF
+	, 'shortcaption' => '%A%'
+#@	ENDIF
+#@	IF	'A' eq "%_routing%"
+#@		ASK,treeid --- Tree identification in URL? (e.g. the-tree)\
+		#@			; -2; ^[\w-]+(?:\.[\w-]+)*$,invalid characters in name
+
+	, 'treename'     => '%treeid%'
+#@	ENDIF
+#@ENDIF	%_singlecontext%
+#-
+#@ASK Do you need a specific encoding for this tree ?; 2; yes, no; Y, N
+#@IF	"%A%" eq 'Y'
+
+#@	ASK --- Encoding name? (e.g. iso-8859-1)\
+	#@		; -2; ^[\w-]+$,invalid characters in name
+		# Character encoding (overrides default)
+	, 'encoding'	=> '%A%'
+#@ENDIF
+
+		# a link of the form (prefix)($filepath)(postfix) is generated when viewing a file
+		#   example for cvsweb:
+#	, 'cvswebprefix' => 'http://cvs.myhost.com/cgi-bin/cvsweb.cgi'
+#	, 'cvswebpostfix' => '?cvsroot=rootname'
+		#   example for viewcvs:
+#	, 'cvswebprefix' => 'http://cvs.myhost.com/cgi-bin/viewcvs.cgi/myroot'
+#	, 'cvswebpostfix' => ''

@@ -1,5 +1,5 @@
 /*
- *	$Id: classic.css,v 1.4 2013/01/24 15:09:53 ajlittoz Exp $
+ *	$Id: classic.css,v 1.5 2013/09/24 09:05:52 ajlittoz Exp $
  */
 
 /* Some definitions are grouped together to allow modification
@@ -24,6 +24,7 @@
 , .dirrow2
 , .modes		/* mode switches */
 , .modes-sel
+, .mode-dis
 , BUTTON
 , .varlink		/* 'variables' switches */
 , .var-sel

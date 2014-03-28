@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Config.pm,v 1.57 2013/01/22 09:39:28 ajlittoz Exp $
+# $Id: Config.pm,v 1.60 2013/11/29 16:01:05 ajlittoz Exp $
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ an abstract interface to the C<'variables'>.
 
 package LXR::Config;
 
-$CVSID = '$Id: Config.pm,v 1.57 2013/01/22 09:39:28 ajlittoz Exp $ ';
+$CVSID = '$Id: Config.pm,v 1.60 2013/11/29 16:01:05 ajlittoz Exp $ ';
 
 use strict;
 use File::Path;
@@ -52,7 +52,7 @@ Method C<new> creates a new configuration object.
 
 =item 1 C<@parms>
 
-the paramaters I<array> (just passed to C<_initialize>
+the paramaters I<array> (just passed "as is" to C<_initialize>)
 
 =back
 
@@ -98,6 +98,8 @@ B<Note:>
 
 =over
 
+=item
+
 This method should only be used in cases when it is relevant to
 make distinction between the different blocks (such as I<showconfig>
 or the need to create links to other trees).
@@ -118,7 +120,7 @@ sub readconfig {
 
 	local ($/) = undef;
 	my $config_contents = <CONFIG>;
-	$config_contents =~ /(.*)/s;
+	$config_contents =~ m/(.*)/s;
 	$config_contents = $1;    #untaint it
 	my @config = eval("\n#line 1 \"configuration file\"\n" . $config_contents);
 	die($@) if $@;
@@ -145,6 +147,8 @@ B<Note:>
 
 =over
 
+=item
+
 This is not a "method", it is a standard function.
 Its main goal is to provide an easy way to initialize the
 configuration C<'variables'> by reading the set of values from
@@ -159,57 +163,96 @@ sub readfile {
 	my $file = shift;
 	my @data;
 
-	open(INPUT, $file) || fatal("Config: cannot open $file\n");
+	open(INPUT, $file) or die("Config: cannot open $file");
 	$file = <INPUT>;
 	close(INPUT);
 
-	@data = $file =~ /([^\s]+)/gs;
+	@data = $file =~ m/([^\s]+)/gs;
 
 	return wantarray ? @data : $data[0];
 }
 
 
-=head2 C<_initialize ($url, $confpath)>
+=head2 C<_initialize ($host, $script_path, $firstseg, $confpath)>
 
 Internal method C<_initialize> does the real object initialization.
 
 =over
 
-=item 1 C<$url>
+=item 1 C<$host>
 
-a I<string> containing the initial part of the URL
+a I<string> containing the host name
+
+=item 1 C<$script_path>
+
+a I<string> containing the hierarchical web path to the script
 (truncated at the invoking script)
+
+=item 1 C<$firstseg>
+
+a I<string> containing the first segment of the path into the
+source-trees, possibly the tree name
+(may be empty if single-tree context)
+
+I<CAUTION! It may also be a first-level directory!>
 
 =item 1 C<$confpath>
 
-a I<string> containing the path of the configuration file
+a I<string> containing the path of an alternate configuration file
 (either relative to the LXR root directory or absolute)
 
 =back
 
 If C<$confpath> is not defined, use the internal C<$confname>.
 
-If C<$url> is not defined, try to extract something meaningful
-from the invoking URL.
+If C<$host>, C<$script_path> is not defined,
+try to extract something meaningful from the invoking URL.
+
+B<CAVEAT!>
+
+=over
+
+=item
+
+This C<sub> is also used by C<genxref>.
+C<genxref> is an ordinary script, operating in OS environment.
+Remember then that HTTP environment does not exists
+and there is no URL.
+Consequently, the last two arguments must be explicitly given.
+
+=back
 
 =cut
 
 sub _initialize {
-	my ($self, $url, $confpath) = @_;
+	my ($self, $host, $script_path, $firstseg, $confpath) = @_;
 	my ($dir,  $arg);
+	my	$routing;
 
-	unless ($url) {
-		$url = 'http://' . $ENV{'SERVER_NAME'} . ':' . $ENV{'SERVER_PORT'};
-		$url =~ s/:80$//;
+	unless ($host) {
+		$host = 'http://' . $ENV{'SERVER_NAME'} . ':' . $ENV{'SERVER_PORT'};
+		$host =~ s/:80$//;
 	}
 
-	$url =~ s!^//!http://!;		# allow a shortened form in genxref
-	$url =~ s!^http://([^/]*):443/!https://$1/!;
-	$url =~ s!/*$!/!;			# append / if necessary
+	$host =~ s!^//!http://!;		# allow a shortened form in genxref
+	$host =~ s!(//[^:/]+(:\d+)?).*!$1!;	# only host name and port
+	$host =~ s!^http://([^/]*):443!https://$1!;
+
+	unless ($script_path) {
+		$script_path = $ENV{'SCRIPT_NAME'};
+		$script_path =~ s!/[^/]*$!!;	# path to script
+	}
+	$script_path =~ s!^/*!/!;		# ensure a single starting /
 
 	unless ($confpath) {
-		($confpath) = ($0 =~ /(.*?)[^\/]*$/);
-		$confpath .= $confname;
+		# If $confname defines an absolute path, use it
+		if ('/' eq substr($confname, 0, 1)) {
+			$confpath = $confname;
+		} else {
+		# Otherwise, path is relative to the current executing script directory
+			($confpath) = ($0 =~ m!(.*?)[^/]*$!);
+			$confpath .= $confname;
+		}
 	}
 
 	unless (open(CONFIG, $confpath)) {
@@ -220,7 +263,7 @@ sub _initialize {
 
 	local ($/) = undef;
 	my $config_contents = <CONFIG>;
-	$config_contents =~ /(.*)/s;
+	$config_contents =~ m/(.*)/s;
 	$config_contents = $1;    #untaint it
 	my @config = eval("\n#line 1 \"configuration file\"\n" . $config_contents);
 	die($@) if $@;
@@ -230,26 +273,111 @@ sub _initialize {
 		%$self = (%$self, %{ $config[0] });
 	}
 
+#	Check for the presence of 'routing' parameters.
+#	It really matters when it is equal to 'argument' to force
+#	comparison with the first argument.
+#	Otherwise, for 'single' it cross-checks that configuration
+#	file has not been damaged or extended.
+#	If it does not exist, consider that tree selection is based
+#	on whatever is passed in the URL before the script name.
+	if (exists($config[0]->{'routing'})) {
+		$routing = $config[0]->{'routing'};
+		(my $caller) = $0 =~ m/([^\/]*)$/;
+		if ('single' eq $routing && 1 < $#config) {
+			die "single tree operation requested and $#config trees found in configuration file";
+		}
+		# tree selection through first argument, but none present;
+		# ask user to manually select.
+		if	(	'argument' eq $routing
+			&&	!defined($firstseg)
+			) {
+			if (1 == $#config) {	# Single tree, accept it
+				$firstseg = $config[1]->{'treename'};
+			} elsif ('genxref' eq $caller) {
+				goto FINAL;
+			} else {
+				print <<END_PROLOG;
+Content-Type: text/html; charset=utf-8
+Expires: Thu, 01 Jan 1970 00:00:00 GMT
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+	<head>
+		<title>Tree selector</title>
+	</head>
+	<body>
+		<h1>Please select one of the following trees:</h1>
+		<ul>
+END_PROLOG
+			# We don't check hostname and virtroot because we suppose
+			# user set them right (but for the missing tree name).
+			# Anyway, they'll be checked when we return with the
+			# completed URL
+				my $no_tree = 1;
+				my $uri = $ENV{'SCRIPT_NAME'};
+				$uri =~ s|([^-a-zA-Z0-9.@/_~\r\n])|sprintf('%%%02X', ord($1))|ge;
+				foreach my $config (@config[1..$#config]) {
+					my $c =  $config->{'caption'};
+					$c =~ s/</&lt;/g;	# Protect against HTML mayhem
+					$c =~ s/>/&gt;/g;
+					print '<li>';
+					if (exists($config->{'treename'})) {
+						print '<em>'
+							, $config->{'treename'}
+							, '</em>: ';
+						print '<a href="'
+							, $host
+							, $uri
+							, '/'
+							, $config->{'treename'}
+							, '">'
+							, $c
+							, '</a>';
+						$no_tree = 0;
+					} else {
+						print '<del>'
+							, $c
+							, '</del>'
+							, ' <em>(No tree identification)</em>';
+					}
+					print "</li>\n";
+				}
+				print "</ul>\n";
+				if ($no_tree) {
+					print <<END_NOTREE;
+		<h2>Error! No enabled tree!</h2>
+			<p>
+Configuration file claims tree selection through first segment of
+argument to script and no tree has an associated
+<code>'treename'</code> parameter.
+			</p>
+			<p>
+You must first fix your configuration file!
+			</p>
+END_NOTREE
+				}
+				print <<END_EPILOG;
+	</body>
+</html>
+END_EPILOG
+				exit 0;
+			}
+		}
+	}
+
 #	Find the applicable parameter group
 #	"Modern" identification is based on 'host_names' and 'virtroot'
 #	parameters (which needs to spplit $url); "compatibility"
 #	identification uses 'baseurl' and 'baseurl_aliases'.
 #	The target id ends up in 'baseurl' in both cases.
-	$url =~ m!(^.*?://[^/]+)!;	# host name and port used to access server
-	my $host = $1;
 		# To allow simultaneous Apache and lighttpd operation
 		# on 2 different ports, remove port for identification
 	$host =~ s/(:\d+|)$//;
-	my $port = $1;
-	my $script_path;
-	if ($url) {
-		($script_path = $url) =~ s!^.*?://[^/]*!!; # remove host and port
-	} else {
-		$script_path = $ENV{'SCRIPT_NAME'};
-	}
-	$script_path =~ s!/[^/]*$!!;	# path to script
-	$script_path =~ s!^/*!/!;		# ensure a single starting /
+	$host = lc($host);	# hosts should match case-insensitively
+	my $port = $1;#die "host $host - port $port - script $script_path - SCRIPT_NAME $ENV{'SCRIPT_NAME'} - tree $firstseg - PATH_INFO $ENV{'PATH_INFO'}\n";
+
 	my $parmgroup = 0;
+	my $virtroot;
 		# Test every parameter group in turn
 CANDIDATE: foreach my $config (@config[1..$#config]) {
 		$parmgroup++;				# next parameter group
@@ -262,15 +390,10 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 		} elsif (exists($self->{'host_names'})) {
 			@hostnames = @{$self->{'host_names'}};
 		};
-		my $virtroot = $config->{'virtroot'};
-		my $hits = $virtroot =~ s!/+$!!;	# ensure no ending /
-		$hits += $virtroot =~ s!^/*!/!;		# and a single starting /
-		if ($hits > 0) {
-			$config->{'virtroot'} = $virtroot
-		}
-		if ('/' eq $virtroot) {				# special case: LXR at root
-			$config->{'virtroot'} = '';		# make sure no trouble on relative links
-		}
+		$virtroot = $config->{'virtroot'}
+					// $$self{'virtroot'};
+		$virtroot =~ s!/+$!!;		# ensure no ending /
+		$virtroot =~ s!^/*!/!;		# and a single starting /
 		if (scalar(@hostnames)>0) {
 			foreach my $rt (@hostnames) {
 				$rt =~ s!/*$!!;		# remove trailing /
@@ -278,8 +401,13 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 		# To allow simultaneous Apache and lighttpd operation
 		# on 2 different ports, remove port for identification
 				$rt =~ s/:\d+$//;
-				if	(	$host eq $rt
+				if	(	$host eq lc($rt)
 					&&	$script_path eq $virtroot
+					&&	(	'argument' ne $routing
+						||	(	defined($firstseg)
+							&&	$firstseg eq $config->{'treename'}
+							)
+						)
 					) {
 					$config->{'baseurl'} = $rt . $port . $script_path;
 					%$self = (%$self, %$config);
@@ -290,19 +418,25 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 		} else { # elsif ($config->{'baseurl'}) {
 		# To allow simultaneous Apache and lighttpd operation
 		# on 2 different ports, remove port for identification
-			$url =~ s/:\d+$//;
 			my @aliases;
 			if ($config->{'baseurl_aliases'}) {
 				@aliases = @{ $config->{'baseurl_aliases'} };
 			}
-			my $root = $config->{'baseurl'};
-			push @aliases, $root;
+			unshift @aliases, $config->{'baseurl'};
+			my $l = length($host);
 			foreach my $rt (@aliases) {
-				$rt .= '/' unless $rt =~ m#/$#;    # append / if necessary
-				$rt =~ s/:\d+$//;	# remove port (approximate match)
-				my $r = quotemeta($rt);
-				if ($url =~ /^$r/) {
-					$rt =~ s/^$r/$rt$port/;
+				$rt =~ s!/*$!/!;    # append / if necessary
+				if	(	$host eq lc(substr($rt, 0, $l))
+					&&	(  substr($rt, $l, 1) eq '/'
+						|| substr($rt, $l, 1) eq ':'
+						)
+					&&	$script_path eq $virtroot
+					&&	(	'argument' ne $routing
+						||	(	defined($firstseg)
+							&&	$firstseg eq $config->{'treename'}
+							)
+						)
+					) {
 					$config->{'baseurl'} = $rt;
 					%$self = (%$self, %$config);
 					$$self{'parmgroupnr'} = $parmgroup;
@@ -312,31 +446,51 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 		}
 	}
 
+FINAL:
 #	Have we found our target?
 	if(!exists $self->{'baseurl'}) {
 		$0 =~ m/([^\/]*)$/;
-		if("genxref" ne $1) {
+		if('genxref' ne $1) {
+			#	Create a surrogate baseurl to allow an expansion of
+			#	$baseurl for <base> in the HTML templates
+			$self->{'baseurl'} = $host . $port . $script_path;
 			return 0;
-		} elsif($url =~ m!(https?:)?//.+!) {
-			die "Can't find config for $url: make sure there is a 'host_names' + 'virtroot' combination or a 'baseurl' line that matches in lxr.conf\n";
+		} elsif($host =~ m!^(https?:)?//.!) {
+			die 'Can\'t find config for '
+				. $host.$script_path
+				. ( $firstseg
+				  ? " ($firstseg)"
+				  : ''
+				  )
+				. ': make sure there is a "host_names" + "virtroot" combination'
+				. ' or a "baseurl" line that matches in lxr.conf'
+				. "\n";
 		} else {
 			# wasn't a url, so probably genxref with a bad --url parameter
-			die "Can't find config for $url: " . 
-			 	"the --url parameter should be a URL (e.g. http://example.com/lxr) and must match a baseurl line in lxr.conf\n";
+			die 'Can\'t find config for '
+				. $host.$script_path
+				. ": the --url parameter should be a URL (e.g. http://example.com/lxr) and must match a baseurl line in lxr.conf\n";
 		}
 	}
 
-	$$self{'encoding'} = "iso-8859-1" unless (exists $self->{'encoding'});
+# Make sure there is a trailing /, so that the script name may be concatenated
+# without any separator. This avoids the site-root special case where we
+# could inadvertantly generate an URL starting with //, erroneously
+# exhibiting an non existent host!
+	$virtroot =~ s!/*$!/!;
+	$$self{'virtroot'} = $virtroot;	# From now on, use the modified virtual root
+
+	$$self{'encoding'} = 'iso-8859-1' unless (exists $self->{'encoding'});
 
 #	Final checks on the parsing dispatcher
 	if (!exists $self->{'filetype'}) {
 		if (exists $self->{'filetypeconf'}) {
 			unless (open(FILETYPE, $self->{'filetypeconf'})) {
-				die("Couldn't open configuration file ".$self->{'filetypeconf'});
+				die('Couldn\'t open configuration file '.$self->{'filetypeconf'});
 			}
 			local ($/) = undef;
 			my $contents = <FILETYPE>;
-			$contents =~ /(.*)/s;
+			$contents =~ m/(.*)/s;
 			$contents = $1;    #untaint it
 			my $mapping = eval("\n#line 1 \"file mappings\"\n" . $contents);
 			die($@) if $@;
@@ -357,31 +511,44 @@ CANDIDATE: foreach my $config (@config[1..$#config]) {
 	# Set-up various directories as necessary
 	_ensuredirexists($self->{'tmpdir'});
 
+	if ($self->{'sourceroot'} !~ m/^\w+:/) {
 #	See if there is ambiguity on the free-text search engine
-	if (exists $self->{'glimpsebin'} && exists $self->{'swishbin'}) {
-		die "Both Glimpse and Swish have been specified in $confpath.\n"
-			."Please choose one of them by commenting out either glimpsebin or swishbin.\n";
-		
-	} elsif (exists $self->{'glimpsebin'}) {    
-		if (!exists($self->{'glimpsedir'})) {
-			die "Please specify glimpsedirbase or glimpsedir in $confpath\n"
-				unless exists($self->{'glimpsedirbase'});
-			$self->{'glimpsedir'} = $self->{'glimpsedirbase'} . $self->{'virtroot'};
+#	only when tree is stored in plain files
+#	since free-text search is not operational with VCSes,
+		if (exists $self->{'glimpsebin'} && exists $self->{'swishbin'}) {
+			die "Both Glimpse and Swish have been specified in $confpath.\n"
+				."Please choose one of them by commenting out either glimpsebin or swishbin.\n";
+			
+		} elsif (exists $self->{'glimpsebin'}) {    
+			if (!exists($self->{'glimpsedir'})) {
+				die "Please specify 'glimpsedirbase' or 'glimpsedir' in $confpath\n"
+					unless exists($self->{'glimpsedirbase'});
+				$self->{'glimpsedir'}	= $self->{'glimpsedirbase'}
+										. $self->{'virtroot'}
+										. ('argument' eq $routing
+										? $self->{'treename'}
+										: ''
+										)
+										;
+			}
+			_ensuredirexists($self->{'glimpsedir'});
+		} elsif (exists $self->{'swishbin'}) {    
+			if (!exists($self->{'swishdir'})) {
+				die "Please specify 'swishdirbase' or 'swishdir' in $confpath\n"
+					unless exists($self->{'swishdirbase'});
+				$self->{'swishdir'}	= $self->{'swishdirbase'}
+									. $self->{'virtroot'}
+									. ('argument' eq $routing
+									? $self->{'treename'}
+									: ''
+									)
+									;
+			}
+			_ensuredirexists($self->{'swishdir'});
+		} else {
+			die	"Neither Glimpse nor Swish have been specified in $confpath.\n"
+				."Please choose one of them by specifing a value for either glimpsebin or swishbin.\n";
 		}
-		_ensuredirexists($self->{'glimpsedir'});
-	} elsif (exists $self->{'swishbin'}) {    
-		if (!exists($self->{'swishdir'})) {
-			die "Please specify swishdirbase or swishdir in $confpath\n"
-				unless exists($self->{'swishdirbase'});
-			$self->{'swishdir'} = $self->{'swishdirbase'} . $self->{'virtroot'};
-		}
-		_ensuredirexists($self->{'swishdir'});
-	} else {
-	# Since free-text search is not operational with VCSes,
-	# don't complain if not configured.
-	die	"Neither Glimpse nor Swish have been specified in $confpath.\n"
-		."Please choose one of them by specifing a value for either glimpsebin or swishbin.\n"
-		unless $self->{'sourceroot'} =~ m!^[^/]+:! ;
 	}
 	return 1;
 }
@@ -430,7 +597,7 @@ B<Potential problems:>
 
 =over
 
-=item 1 Presently, only parameter C<'hostnames'> is used
+=item 1 Presently, only parameter C<'host_names'> is used
 because the automatic configurator does not use C<'baseurl'>
 nor C<'baseurl_aliases'>, which are deprecated.
 
@@ -465,23 +632,33 @@ sub treeurl {
 	my ($self, $group, $global) = @_;
 
 	my ($accesshost, $accessport) =
-		$HTTP->{'script_path'} =~ m!(^.+?://[^/:]+)(:\d+)?!;
-	(my $scriptpath = $HTTP->{'script_path'}) =~ s!(^.+?://[^/:]+)(:\d+)?!$1!;
-	my @hosts = @{$group->{'host_names'} || $global->{'host_names'}};
-	my $virtroot =  $group->{'virtroot'};
+		$HTTP->{'host_access'} =~ m!(^.+?://[^/:]+)(:\d+)?!;
+	$accesshost = lc($accesshost);
+	my $scriptpath = $HTTP->{'script_path'};
+	$scriptpath =~ s!^/*!/!;	# ensure a single starting /
+	my @hosts = @{$group->{'host_names'} // $global->{'host_names'}};
+	my $virtroot =  $group->{'virtroot'} // $global->{'virtroot'};
+	$virtroot =~ s!/+$!!;		# ensure no ending /
+	$virtroot =~ s!^/*!/!;		# and a single starting /
 	my $url;
 	my $port;
 	for my $hostname (@hosts) {
 		$hostname =~ s!/*$!!;		# remove trailing /
 		$hostname =~ s/(:\d+)$//;	# remove port
-		my $port = $1;
+		$port = $1;
+		$hostname = lc($hostname);
 	# Add http: if it was dropped in the hostname
 		if ($hostname !~ m!^.+?://!) {
-			$hostname = "http:" . $hostname;
+			$hostname = 'http:' . $hostname;
 		}
 		$url = $hostname . $virtroot;
 	# Is this the presently used hostname?
-		last if $url eq $scriptpath;
+		if	(	$hostname eq $accesshost
+			&&	$virtroot eq $scriptpath
+			&&	$config->{'treename'} eq $group->{'treename'}
+			) {
+			last;
+		}
 		$url = undef;
 	}
 	# The current tree has been found, tell the caller
@@ -494,9 +671,10 @@ sub treeurl {
 		$hostname =~ s!/*$!!;		# remove trailing /
 		$hostname =~ s/(:\d+)$//;	# remove port
 		$port = $1;
+		$hostname = lc($hostname);
 	# Add http: if it was dropped in the hostname
 		if ($hostname !~ m!^.+?://!) {
-			$hostname = "http:" . $hostname;
+			$hostname = 'http:' . $hostname;
 		}
 		if ($hostname eq $accesshost) {
 			$url = $hostname;
@@ -507,15 +685,15 @@ sub treeurl {
 	# Take the first name but NOTE it is not reliable
 	if (!defined($url)) {
 		$url = $group->{'host_names'}[0]
-			|| $global->{'host_names'}[0];
+			// $global->{'host_names'}[0];
 		$url =~ s/(:\d+)$//;
 		$port = $1;
 	}
 	# If a port is given on 'host_names', use it.
 	# Otherwise, use the incoming request port
-	$url .= $port || $accessport;
-	$url = "http:" . $url unless ($url =~ m!^.+?://!);
-	return $url . $virtroot;
+	$url .= $port // $accessport;
+	$url = 'http:' . $url unless ($url =~ m!^.+?://!);
+	return $url . $virtroot . '/';
 }
 
 
@@ -557,13 +735,13 @@ sub variable {
 
 	$self->{'variables'}{$var}{'value'} = $val if defined($val);
 	return $self->{'variables'}{$var}{'value'}
-	  || $self->vardefault($var);
+	  // $self->vardefault($var);
 }
 
 
 =head2 C<vardefault ($var)>
 
-Method C<variable> returns the default value of the designated variable.
+Method C<vardefault> returns the default value of the designated variable.
 
 =over
 
@@ -584,17 +762,18 @@ sub vardefault {
 	if (exists($self->{'variables'}{$var}{'default'})) {
 		return $self->{'variables'}{$var}{'default'}
 	}
-	if (ref($self->{'variables'}{$var}{'range'}) eq "CODE") {
+	if (ref($self->{'variables'}{$var}{'range'}) eq 'CODE') {
 		my @vr = varrange($var);
-		return $vr[0] if scalar(@vr)>0; return "head"
+		return $vr[0] if scalar(@vr)>0;
+		return 'head'
 	}
 	return	$self->{'variables'}{$var}{'range'}[0];
 }
 
 
-=head2 C<vardefault ($var, $val)>
+=head2 C<vardescription ($var, $val)>
 
-Method C<variable> returns the description of the designated variable.
+Method C<vardescription> returns the description of the designated variable.
 
 =over
 
@@ -612,8 +791,10 @@ B<Note:>
 
 =over
 
+=item
+
 Don't be confused! The word "description" is human semantic meaning
-for this data. It is stored in the C<'data'> element of the hash
+for this data. It is stored in the C<'name'> element of the hash
 representing the variable and its state.
 
 =back
@@ -631,7 +812,7 @@ sub vardescription {
 
 =head2 C<varrange ($var)>
 
-Method C<variable> returns the set of values of the designated variable.
+Method C<varrange> returns the set of values of the designated variable.
 
 =over
 
@@ -645,18 +826,18 @@ a I<string> containing the name of the variable
 
 sub varrange {
 	my ($self, $var) = @_;
-no strict "refs";
-	if (ref($self->{'variables'}{$var}{'range'}) eq "CODE") {
+no strict 'refs';	# NOTE: Without it, next line fails in $var!
+	if (ref($self->{'variables'}{$var}{'range'}) eq 'CODE') {
 		return &{ $self->{'variables'}{$var}{'range'} };
 	}
 
-	return @{ $self->{'variables'}{$var}{'range'} || [] };
+	return @{ $self->{'variables'}{$var}{'range'} // [] };
 }
 
 
 =head2 C<varexpand ($exp)>
 
-Method C<variable> returns its argument with all occurrences of
+Method C<varexpand> returns its argument with all occurrences of
 C<$xxx> replaced by the current value of variable C<'xxx'>.
 
 =over
@@ -679,7 +860,7 @@ sub varexpand {
 
 =head2 C<value ($var)>
 
-Method C<variable> returns the value of a configuration parameter
+Method C<value> returns the value of a configuration parameter
 with occurrences of C<$xxx> replaced by the current value of
 variable C<'xxx'>.
 
@@ -724,7 +905,7 @@ optional arguments I<array> passed to instantiated function
 
 =back
 
-When a bareword is encountered in a construct like C<$config->bareword>,
+When a bareword is encountered in a construct like C<$config-E<gt>bareword>,
 this method is called. It tries to get the expanded value of
 configuration parameter C<'bareword'> with method C<value>.
 If the value itself is a function, that function is called with
@@ -751,7 +932,7 @@ sub AUTOLOAD {
 =head2 C<mappath ($path, @args)>
 
 Method C<mappath> returns its argument path transformed by
-the C'maps'> rules.
+the C<'maps'> rules.
 
 =over
 
@@ -770,6 +951,8 @@ B<Note:>
 
 =over
 
+=item
+
 The rules are applied once only in the path.
 Should they be globally applied (with flag C<g> on the regexp)?
 Does this make sense?
@@ -786,7 +969,7 @@ sub mappath {
 
 	# Protect the current context
 	foreach $m (@args) {
-		if ($m =~ /(.*?)=(.*)/) {
+		if ($m =~ m/(.*?)=(.*)/) {
 			$oldvars{$1} = $self->variable($1);
 			$self->variable($1, $2);
 		}
@@ -861,7 +1044,7 @@ transformed I<replacement> C<=E<gt> > transformed I<pattern>
 =over
 
 =item 1 C<$num> elements become C<.+?>, i.e. "match something, but not
-too much" to avoid to "swallow" what is described after this
+too much" to avoid "swallowing" what is described after this
 sub-pattern.
 
 B<Note:>
@@ -974,7 +1157,7 @@ C<$path> is returned as the value of this C<sub>.
 
 sub unmappath {
 	my ($self, $path, @args) = @_;
-	return $path if	(!exists($self->{'maps'})
+	return $path if	(  !exists($self->{'maps'})
 					|| scalar($self->allvariables)<2
 					);
 	my ($m, $n);
@@ -982,7 +1165,7 @@ sub unmappath {
 
 #	Save current environment before switching to @args environment
 	foreach $m (@args) {
-		if ($m =~ /(.*?)=(.*)/) {
+		if ($m =~ m/(.*?)=(.*)/) {
 			$oldvars{$1} = $self->variable($1);
 			$self->variable($1, $2);
 		}
@@ -992,9 +1175,7 @@ sub unmappath {
 	while ($i >= 0) {
 		$n = ${$self->{'maps'}}[$i--];
 		$m = ${$self->{'maps'}}[$i--];
-# 		if ($n =~ m/\$\{?[0-9]/) {
-# 			warning("Unable to reverse 'maps' rule $m => $n");
-# 		}
+
 	# Transform the original "replacement" into a pattern
 	#	Replace variable markers by their values
 		$n = $self->varexpand($n);
@@ -1003,42 +1184,65 @@ sub unmappath {
 
 	# Next transform the original "pattern" into a replacement
 	#	Remove x* or x? fragments since they are optional
+	#	Guard prefix insures left parenthesis is not an escaped one:
+	#	any character-----+
+	#	or escaped  <->   v     <-------> quantifiers
 		$m =~ s/((?:\\.|[^*?])+)[*?][+?]?/{
 			my $pre = $1;
-	#	( ... ) sub-pattern
-			if ($pre =~ m!(\\.|[^\\])\)$!) {
-	#	a- remove innermost ( ... ) blocks
+		#	( ... ) sub-pattern
+			if (')' eq substr($pre, -1)) {
+		#	a- remove innermost ( ... ) blocks
+				#          guards:     <------->      <->                <--------->
 				while ($pre =~ s!((?:^|\\.|[^\\])\((?:\\.|[^\(\)])*)\((?:\\.|[^\(\)])*\)!$1!) {};
-	# 			                 1                ^                1 ^                 ^
-	#	b- remove outer ( ... ) block
+				#     prefix     1                ^                1 ^     removed     ^
+				#        outer left parenthesis---+                  + innermost block +
+		#	b- remove outer ( ... ) block
+				#  guards:   <------->      <------->
 				$pre =~ s!(^|\\.|[^\\])\((?:\\.|[^\)])*\)$!$1!;
-	#	[ ... ] sub-pattern
-			} elsif ($pre =~ m!(\\.|[^\\])\]$!) {
+				# prefix  1           1 ^               ^
+				# removed block---------+---------------+
+		#	[ ... ] sub-pattern
+			} elsif (']' eq substr($pre, -1)) {
+				#  guards:   <------->      <------->
 				$pre =~ s!(^|\\.|[^\\])\[(?:\\.|[^\]])+\]$!$1!;
-	#	single character or class
+				# prefix  1           1 ^               ^
+				# removed block---------+---------------+
+		#	single character or class
 			} else {
 				$pre =~ s!\\?.$!!;
 			}
 			$pre;
 		}/ge;
+	#	Remove empty () blocks
 		$m =~ s!(^|[^\\])\(\)!$1!;
 	#	Remove + quantifiers since a single occurrence is enough
 		$m =~ s/(\\.|[^+])\+[+?]?/$1/g;
 	#	Process block constructs
 	#	( ... ) sub-pattern: replace by first alternative
 		while ($m =~ m!(^|\\.|[^\\])\(!) {
-	#	a- process innermost, i.e. non-nested, ( ... ) blocks
+		# guard prefix    <------->  ^
+		# real opening parenthesis---+
+		#	a- process innermost, i.e. non-nesting, ( ... ) blocks
+			#    guards:         <------->      <--------->         <----------->         <--------->
 			while ($m =~ s!((?:^|\\.|[^\\])\((?:\\.|[^\(\)])*)\(((?:\\.|[^\(\)\|])+)\|?(?:\\.|[^\(\)])*\)!$1$2!) {};
-		#	               1                ^                1 ^2                  2                    ^
-	#	b- process the remaining outer ( ... ) block
+			#   prefix     1                ^                1 ^2                  2                    ^
+			# outer left parenthesis--------+                  |+first-alternative-+                    |
+			#                 innermost left parenthesis-------+          innermost right parenthesis---+
+		#	b- process the remaining outer ( ... ) block
+			#  guards: <------->       <--------->           <--------->
 			$m =~ s!(^|\\.|[^\\])\(((?:\\.|[^\)\|])+)(?:\|(?:\\.|[^\(\)])*)?\)!$1$2!;
-#			        1           1 ^2                2                        ^
+			#       1--prefix---1 ^2                2    ^                ^  ^
+			# outer left par------+|                |    |                |  +-outer right par
+			# first alternative----+----------------+    +-----------other+alternatives
 		}
 	#	[ ... ] sub-pattern: replace by one character
+		#  guards: <------->   <------->     <------->
 		$m =~ s!(^|\\.|[^\\])\[(\\.|[^\]])(?:\\.|[^\\])*\]!
-			# Heuristic attempt to handle [^range]
-			if ($2 eq "^") {
-				$2 = "%";
+			#   1--prefix---1 ^2         2               ^
+			# left bracket----+|         |               +--right bracket
+			# firstcharacter --+---------+
+			if ($2 eq '^') {	# Heuristic attempt to handle [^range]
+				$2 = '%';		# Use this character (non used elsewhere)
 			}
 			$1 . $2;
 				!ge;
@@ -1056,8 +1260,8 @@ sub unmappath {
 
 	# Finally, transfer position information from original pattern
 	# to new pattern (i.e. start and end tags)
-		$n = "^" . $n if $m =~ s/^\^//;
-		$n .= "\$" if $m =~ s/\$$//;
+		$n = '^' . $n if $m =~ s/^\^//;
+		$n .= '$' if $m =~ s/\$$//;
 
 	# Apply the generated rule
 		$path =~ s/$n/$m/;

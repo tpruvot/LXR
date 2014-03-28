@@ -1,6 +1,8 @@
 #!/usr/bin/perl -T
-# $Id: search,v 1.50 2013/01/24 15:09:52 ajlittoz Exp $
-#
+######################################################################
+# $Id: search,v 1.52 2013/11/08 14:22:25 ajlittoz Exp $
+##
+
 # search --	Freetext search
 #
 #	Arne Georg Gleditsch <argggh@ifi.uio.no>
@@ -23,12 +25,12 @@
 #
 ######################################################################
 
-$CVSID = '$Id: search,v 1.50 2013/01/24 15:09:52 ajlittoz Exp $ ';
+$CVSID = '$Id: search,v 1.52 2013/11/08 14:22:25 ajlittoz Exp $ ';
 
 use strict;
-use lib do { $0 =~ m{(.*)/} ? "$1/lib" : "lib" }; # if LXR modules are in ./lib
+use lib do { $0 =~ m{(.*)/} ? "$1/lib" : 'lib' }; # if LXR modules are in ./lib
 
-=head1 indent script
+=head1 search script
 
 This script manages the HTTP requests for free-text search.
 
@@ -49,7 +51,7 @@ my $maxhits = 1000;
 Function C<varinputs> is a "$function" substitution function.
 It returns a string which is a concatenation of tags
 
-C<<E<lt>input type="hidden" name=">>I<variable_name>C<" value=">I<variable_value>C<<"E<gt> >>
+C<E<lt>input type="hidden" name=">I<variable_name>C<" value=">I<variable_value>C<"E<gt>>
 
 one for each variable defined in configuration parameter C<'variables'>.
 
@@ -124,10 +126,10 @@ sub filename_matches {
 	my ($filetext, $advanced, $casesensitive, $file) = @_;
 	if ($advanced) {
 		if ($casesensitive) {
-			if ($file =~ /$filetext/) {
+			if ($file =~ m/$filetext/) {
 				return 1;
 			}
-		} elsif ($file =~ /$filetext/i) {
+		} elsif ($file =~ m/$filetext/i) {
 			return 1;
 		}
 	} else {
@@ -184,21 +186,21 @@ sub glimpsesearch {
 		# Don't scan files ending in ,v or ~
 				." -F '-v (\\,v\|\\~)\$' "
 		# Should we match casesensitive ?
-				. ($casesensitive ? "" : "-i")
+				. ($casesensitive ? '' : '-i')
 		# Location of index datadbase
-				. " -H "
-				.$config->{'glimpsedir'}."/".$releaseid
+				. ' -H '
+				. $config->{'glimpsedir'}.'/'.$releaseid
 		# The pattern to search for
 				." -y -n '$searchtext' 2>&1 |"
 			)
-	|| print(STDERR "Glimpse subprocess died unexpextedly: $!\n");
+	or die "Glimpse subprocess died unexpextedly: $!\n";
 
 	my $numlines     = 0;
 	my @glimpselines = ();
 	my @glimpsemsgs  = ();
 	while (<GLIMPSE>) {
 		if (s/^$sourceroot//) {
-		my ($file) = $_ =~ /(.*?):\s*/;
+		my ($file) = $_ =~ m/(.*?):\s*/;
 	# Keep only occurrences matching file name if given
 		next if $filetext && !filename_matches($filetext, $advanced, $casesensitive, $file);
 		$numlines++;
@@ -225,11 +227,11 @@ sub glimpsesearch {
 
 	if ($retval == 0) {
 		my @ret;
-		my $i          = 0;
+		my $i = 0;
 		foreach my $glimpseline (@glimpselines) {
 			last if ($i > $maxhits);
 
-			my ($file, $line, $text) = $glimpseline =~ /(.*?):\s*(\d+)\s*:(.*)/;
+			my ($file, $line, $text) = $glimpseline =~ m/(.*?):\s*(\d+)\s*:(.*)/;
 
 			$text =~ s/&/&amp;/g;
 			$text =~ s/</&lt;/g;
@@ -243,7 +245,7 @@ sub glimpsesearch {
 		return sort {$$a[0] cmp $$b[0]} @ret;
 	} elsif ($retval == 1) {
 		my $glimpsebin = $config->{'glimpsebin'};
-		my $glimpseresponse = join("<br>", @glimpselines);
+		my $glimpseresponse = join('<br>', @glimpselines);
 		my $glimpseresponse =~ s/$glimpsebin/Reason/;
 		my $glimpseresponse =~ s/glimpse: error in searching index//;
 		print("<p class='error'>Search failed</p>\n<p>$glimpseresponse</p>\n");
@@ -294,16 +296,19 @@ The remaining hits are returned in an array.
 sub swishsearch {
 	my ($searchtext, $filetext, $advanced, $casesensitive) = @_;
 
-  my $swishIndex = $config->{'swishdir'} . "/" . $releaseid . ".index";
+  my $swishIndex = $config->{'swishdir'} . '/' . $releaseid . '.index';
 	if (!-e $swishIndex) {
-		print "<p class='error'>";
+		print '<p class="error">';
 		print "Version '$releaseid' has not been indexed and is unavailable for searching.";
-		print "</p>";
+		print '</p>';
 		return;
 	}
 	
 	$ENV{'PATH'} = '/bin:/usr/local/bin:/usr/bin:/usr/sbin';
-  my $swishCommand =  join(' ', $config->{'swishbin'}, "-f", $swishIndex, "-w", "'(" . $searchtext . ")'");
+  my $swishCommand =  $config->{'swishbin'}
+					. ' -f ' . $swishIndex
+					. ' -w \'(' . $searchtext . ')\''
+					;
   my $ret = `$swishCommand`;
   my @result = grep { not /^[\#\.]/ } split(/\n/, $ret);
 
@@ -313,9 +318,9 @@ sub swishsearch {
 		my $numlines = 0;
 		foreach my $hit (@result) {
 			print $hit, "<br>\n" if $hit =~ /No such file or directory/;	# feeble attempt to print possible errors (e.g. incomplete LD_LIBRARY_PATH causes linking errors)
-			next if $hit =~ /^err:/;    # skip; only 'no results' errors happen with return value 0
+			next if substr($hit, 0, 4) eq 'err:';	# skip; only 'no results' errors happen with return value 0
 
-			my ($score, $file) = $hit =~ /^(\d+) \/(.+) "(.+)" \d+/;
+			my ($score, $file) = $hit =~ m/^(\d+) \/(.+) "(.+)" \d+/;
 			next if $filetext && !filename_matches($filetext, $advanced, $casesensitive, $file);
 			push @ret, [ $file, $score ];
 			$numlines++;
@@ -325,7 +330,7 @@ sub swishsearch {
 		return @ret;
 	} else {
 		print( "<p class='error'>Search failed: internal error</p><br>\n<p>"
-				. join("<br>", @result)
+				. join('<br>', @result)
 				. "<\p>\n");
 		return;
 	}
@@ -364,7 +369,9 @@ sub checkvalidref {
 		&&	LXR::Lang::parseable($file)
 		) {
 		'searchinvalid'
-	} else {''}
+	} else {
+		''
+	}
 }
 
 
@@ -398,6 +405,8 @@ while with I<Swish-e>, only a relevance score is available.
 B<Note:>
 
 =over
+
+=item
 
 I<Both search engines start by looking into their private "index"
 files before accessing the source-tree files.
@@ -437,19 +446,19 @@ sub printresults {
 			$ret .= expandtemplate
 				( $templ
 				,	( 'text'    => sub { return "<pre class='searchtext'>$text</pre>" }
-					, 'file'    => sub { fileref($file, "searchfile", "/$file") }
+					, 'file'    => sub { fileref($file, 'searchfile', "/$file") }
 					, 'fileonce'=> sub { if ($fileonce) {
-											return fileref($fileonce, "searchfile", "/$file")
+											return fileref($fileonce, 'searchfile', "/$file")
 										} else {
-											return "&nbsp;"
+											return '&nbsp;'
 										}
 									}
-					, 'line'    => sub { fileref($line, "searchline", "/$file", $line) }
-					, 'fileref' => sub { fileref("$file, line $line", "searchfile", "/$file", $line) }
+					, 'line'    => sub { fileref($line, 'searchline', "/$file", $line) }
+					, 'fileref' => sub { fileref("$file, line $line", 'searchfile', "/$file", $line) }
 					, 'tdfile'  => sub { if ($fileonce) {
-											return "searchfile"
+											return 'searchfile'
 										} else {
-											return "searchfilevoid"
+											return 'searchfilevoid'
 										}
 									}
 					, 'searchinvalid'	=> sub { checkvalidref($file) }
@@ -463,19 +472,19 @@ sub printresults {
 			$ret .= expandtemplate
 				( $templ
 				,	( 'text'    => sub { return $score }
-					, 'file'    => sub { fileref($file, "searchfile", "/$file") }
+					, 'file'    => sub { fileref($file, 'searchfile', "/$file") }
 					, 'fileonce'=> sub { if ($fileonce) {
-											return fileref($fileonce, "searchfile", "/$file")
+											return fileref($fileonce, 'searchfile', "/$file")
 										} else {
-											return "&nbsp;"
+											return '&nbsp;'
 										}
 									}
 					, 'line'    => sub { return '' }
-					, 'fileref' => sub { fileref($file, "searchfile", "/$file") }
+					, 'fileref' => sub { fileref($file, 'searchfile', "/$file") }
 					, 'tdfile'  => sub { if ($fileonce) {
-											return "searchfile"
+											return 'searchfile'
 										} else {
-											return "searchfilevoid"
+											return 'searchfilevoid'
 										}
 									}
 					, 'searchinvalid'	=> sub { checkvalidref($file) }
@@ -499,8 +508,10 @@ B<Note:>
 
 =over
 
+=item
+
 Filename search may give inaccurate results if source-tree has
-been modified since last genxref indexation because search is
+been modified since last F<genxref> indexation because search is
 done against an internal list captured at indexing time.
 
 =back
@@ -513,10 +524,10 @@ sub search {
 
 	$templ = gettemplate	( 'htmlsearch'
 							, $errorsig
-							, "<h2 class\"error\">Free-text search not available without 'htmlsearch' template</h2>\n"
+							, ''
 							);
 	if ($templ =~ m/^$errorsig/) {
-		die "'htmlsearch' template not configured";
+		die "Free-text search not available without 'htmlsearch' template\n";
 	}
 
 	my $searchtext    = $HTTP->{'param'}{'_string'};
@@ -527,38 +538,35 @@ sub search {
 	$searchtext =~ s/\+/ /g;	# Reverse <form> space encoding
 
 	my @results;
-	if ($searchtext ne "") {
+	if ($searchtext ne '') {
 		if ($config->{'glimpsebin'}) {
 			@results = glimpsesearch($searchtext, $filetext, $advanced, $casesensitive);
 		} elsif ($config->{'swishbin'} && $config->{'swishdir'}) {
 			@results = swishsearch($searchtext, $filetext, $advanced, $casesensitive);
 		} else {
-			warning("No freetext search engine configured.");
+			warn "No freetext search engine configured.\n";
 		}
-	} elsif ($filetext ne "") {
+	} elsif ($filetext ne '') {
 		my $FILELISTING;
 		if ($config->{'swishdir'} && $config->{'swishbin'}) {
 			unless ($FILELISTING = IO::File->new($config->{'swishdir'} . "/$releaseid.filenames")) {
-				&warning(
-					"Version '$releaseid' has not been indexed and is unavailable for searching<br>Could not open "
-					  . $config->{'swishdir'}
-					  . "/$releaseid.filenames.");
+				warn	"Version '$releaseid' has not been indexed and is unavailable for searching<br>Could not open "
+						. $config->{'swishdir'}
+						. "/$releaseid.filenames\n";
 				return;
 			}
 		} elsif ($config->{'glimpsedir'} && $config->{'glimpsebin'}) {
 			unless ($FILELISTING =
-				IO::File->new($config->{'glimpsedir'} . "/" . $releaseid . "/.glimpse_filenames"))
+				IO::File->new($config->{'glimpsedir'} . '/' . $releaseid . "/.glimpse_filenames"))
 			{
-				&warning(
-					"Version '$releaseid' has not been indexed and is unavailable for searching<br>Could not open "
-					  . $config->{'glimpsedir'}
-					  . "/$releaseid/.glimpse_filenames.");
+				warn	"Version '$releaseid' has not been indexed and is unavailable for searching\n"
+						. 'Could not open '
+						. $config->{'glimpsedir'}
+						. "/$releaseid/.glimpse_filenames\n";
 				return;
 			}
 		} else {
-			warning(
-				"Freetext search engine required for file search, and no freetext search engine is configured"
-			);
+			warn "Freetext search engine required for file search, and no freetext search engine is configured\n";
 			return;
 		}
 		my $sourceroot = $config->{'sourceroot'} . '/' . $releaseid . '/';
@@ -572,16 +580,18 @@ sub search {
 
 	print expandtemplate
 		( $templ
-		,	( 'variables'          => sub { varinputs( @_) }
-			, 'searchtext'         => sub { $_ = $searchtext; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; return $_; }
-			, 'searchtext_escaped' => sub { $_ = $searchtext; s/\"/&quot;/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; return $_; }
-			, 'filetext_escaped'   => sub { $_ = $filetext; s/\"/&quot;/g; return $_; }
-			, 'advancedchecked'      => sub { return $advanced      ? "checked" : "" }
-			, 'casesensitivechecked' => sub { return $casesensitive ? "checked" : "" }
-			, 'maxhits_message'      => sub {
+		,	( 'variables'			=> \&varinputs
+			, 'searchtext'			=> sub { $_ = $searchtext; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; return $_; }
+			, 'searchtext_escaped'	=> sub { $_ = $searchtext; s/\"/&quot;/g; s/&/&amp;/g; s/</&lt;/g; s/>/&gt;/g; return $_; }
+			, 'filetext_escaped'	=> sub { $_ = $filetext; s/\"/&quot;/g; return $_; }
+			, 'advancedchecked'		=> sub { $advanced ? 'checked' : '' }
+			, 'casesensitivechecked'=> sub { $casesensitive ? 'checked' : '' }
+			, 'varbtnaction'		=> sub { varbtnaction(@_, 'search') }
+			, 'urlargs'				=> sub { urlexpand('-', 'search') }
+			, 'maxhits_message'		=> sub {
 				return @results == $maxhits
 				  ? "<b>Too many hits, displaying first $maxhits</b><br>"
-				  : "";
+				  : '';
 				}
 
 			, 'results'     => sub { printresults(@_, $searchtext, @results) }
@@ -590,20 +600,28 @@ sub search {
 		);
 }
 
+
+=head2 Script entry point
+
+Builds the header and footer and launches C<search>
+for the real job.
+
+=cut
+
 httpinit;
 makeheader('search');
-if ($files->isa("LXR::Files::Plain")) {
+if ($files->isa('LXR::Files::Plain')) {
 	if	(	$config->{'glimpsebin'}
 			&& $config->{'glimpsebin'} =~ m!^(.*/)?true$!
 		||	$config->{'swishbin'}
 			&& $config->{'swishbin'} =~ m!^(.*/)?true$!
 		) {
-		print "<h2 class='error'>Free-text search disabled by configuration file!</h2>\n";
+		warn "Free-text search disabled by configuration file!\n";
 	} else {
 		&search;
 	}
 } else {
-	print "<h2 class='error'>Free-text search not available with VCSs!</h2>\n";
+	warn "Free-text search not available with VCSs!\n";
 }
 makefooter('search');
 

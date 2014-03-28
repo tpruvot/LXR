@@ -1,7 +1,7 @@
 #
 #	Web server configuration for LXR root directory
 #
-#	$Id: htaccess-generic,v 1.6 2013/01/21 10:49:36 ajlittoz Exp $
+#	$Id: htaccess-generic,v 1.9 2014/03/10 16:40:27 ajlittoz Exp $
 #
 #	Content of this file is independent of the location of
 #	the LXR root directory.
@@ -13,8 +13,8 @@
 # directive syntax and semantics changed between releases.
 # When updating 2.2 -> 2.4, uncomment 2.4 specific lines
 #@IF	!%Apache24%
-#@	ASK Is your Apache version 2.4 or higher?; 1; yes, no; y, n
-#@	DEFINE	Apache24="%A%"
+#@	ASK,Apache24 Is your Apache version 2.4 or higher?\
+	#@	; 1; yes, no; y, n
 #@ENDIF
 
 
@@ -22,7 +22,11 @@
 Options ExecCGI FollowSymlinks
 
 		# up to Apache 2.2
+#@IF 'y' eq "%Apache24%"
+#	Order deny,allow
+#@ELSE
 Order deny,allow
+#@ENDIF
 		# from Apache 2.4
 #	No directive needed
 
@@ -40,7 +44,11 @@ Options -Indexes
 # Forbid direct access to any file in LXR root and its subdirectories
 <FilesMatch ".">
 		# up to Apache 2.2
+#@IF 'y' eq "%Apache24%"
+#	Deny from all
+#@ELSE
 	Deny from all
+#@ENDIF
 		# from Apache 2.4
 #@IF 'y' eq "%Apache24%"
 	Require all denied
@@ -52,7 +60,11 @@ Options -Indexes
 # But allow access to style sheets
 <FilesMatch "\.css$">
 		# up to Apache 2.2
+#@IF 'y' eq "%Apache24%"
+#	Allow from all
+#@ELSE
 	Allow from all
+#@ENDIF
 		# from Apache 2.4
 #@IF 'y' eq "%Apache24%"
 	Require all granted
@@ -63,7 +75,11 @@ Options -Indexes
 # and graphic files (for icons)
 <FilesMatch "\.(bmp|gif|icon?|jpe?g|png|svg|tiff?)$">
 		# up to Apache 2.2
+#@IF 'y' eq "%Apache24%"
+#	Allow from all
+#@ELSE
 	Allow from all
+#@ENDIF
 		# from Apache 2.4
 #@IF 'y' eq "%Apache24%"
 	Require all granted
@@ -80,7 +96,11 @@ Options -Indexes
 #
 <Files ~ (search|source|ident|diff|showconfig)$>
 		# up to Apache 2.2
+#@IF 'y' eq "%Apache24%"
+#	Allow from all
+#@ELSE
 	Allow from all
+#@ENDIF
 		# from Apache 2.4
 #@IF 'y' eq "%Apache24%"
 	Require all granted

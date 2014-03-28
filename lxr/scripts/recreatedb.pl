@@ -2,7 +2,7 @@
 # -*- tab-width: 4 -*-"
 ###############################################
 #
-# $Id: recreatedb.pl,v 1.7 2013/01/22 16:59:52 ajlittoz Exp $
+# $Id: recreatedb.pl,v 1.9 2013/11/17 15:50:21 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,24 +20,26 @@
 #
 ###############################################
 
-# $Id: recreatedb.pl,v 1.7 2013/01/22 16:59:52 ajlittoz Exp $
+# $Id: recreatedb.pl,v 1.9 2013/11/17 15:50:21 ajlittoz Exp $
 
 use strict;
 use lib 'lib', do { $0 =~ m{(.*)/}; "$1" };
 use Fcntl;
 use Getopt::Long;
 use IO::Handle;
-use File::MMagic;
 use File::Path qw(make_path);
-
-use LXR::Files;
-use LXR::Index;
-use LXR::Common;
 
 use ContextMgr;
 use LCLInterpreter;
-use QuestionAnswer;
 use VTescape;
+
+# The following use statements are written only to allow to eval
+# without error the lxr.conf file is the event it contains sub
+# definitions for 'range' with references to allbranches,
+# allreleases, allrevisions or alltags functions defined in Files.
+# These function calls may use LXR global $pathname defined in Common.
+use LXR::Files;
+use LXR::Common;
 
 
 ##############################################################
@@ -46,14 +48,9 @@ use VTescape;
 #
 ##############################################################
 
-#	This is a nasty trick to fool Perl into accepting the CVS
-#	revision tag without trying to make sense with a supposed
-#	variable (sigils may be separated from the variable name
-#	by spaces! Not documented of course!)
-$_ = '';	# Calm down Perl ardour
-my $version ="\$Revision: 1.7 $_";
-$version =~ s/Revision: (.*) $/$1/;
-$version =~ s/\$//;
+my $version = '$Revision: 1.9 $';
+$version =~ s/Revision: (.*) /$1/;
+$version =~ s/\$//g;
 
 #	Who am I? Strip directory path.
 my $cmdname = $0;
@@ -77,6 +74,7 @@ my $rootdir = `pwd`;
 chomp($rootdir);
 my ($scriptdir) = $0 =~ m!([^/]+)/[^/]+$!;
 my $tmpldir = 'templates';
+my $ovrdir  = 'custom.d/templates';
 my $verbose;
 my $scriptout = 'initdb.sh';
 my $lxrconf = 'lxr.conf';
@@ -89,6 +87,7 @@ if (!GetOptions	(\%option
 				, 'root-dir=s'	=> \$rootdir
 				, 'script-out=s'=> \$scriptout
 				, 'tmpl-dir=s'	=> \$tmpldir
+				, 'tmpl-ovr=s'	=> \$ovrdir
 				, 'verbose|v'	=> \$verbose
 				, 'version'
 				)
@@ -123,6 +122,9 @@ Valid options are:
       --tmpl-dir=directory
                   Define template directory
                   (default: $tmpldir)
+      --tmpl-ovr=directory
+                  Define template user-override directory
+                  (default: $ovrdir)
   -v, --verbose   Explain what is being done
       --version   Print version information and quit
 
@@ -139,7 +141,7 @@ END_HELP
 if ($option{'version'}) {
 	print <<END_VERSION;
 ${cmdname} version $version
-(C) 2012 A. J. Littoz
+(C) 2012-2013 A. J. Littoz
 This is free software under GPL v3 (or higher) licence.
 There is NO warranty, not even for MERCHANTABILITY nor
 FITNESS FOR A PARICULAR PURPOSE to the extent permitted by law.
@@ -153,6 +155,7 @@ END_VERSION
 #	"Canonise" directory names
 $confdir =~ s:/*$::;
 $tmpldir =~ s:/*$::;
+$ovrdir  =~ s:/*$::;
 $rootdir =~ s:/*$::;
 
 #	Check LXR environment
@@ -189,36 +192,51 @@ if (@ARGV == 1) {
 # If lxr-ctx not given, use default companion filename
 if (! $lxrctx) {
 	$lxrctx		= $lxrconf;
-	$lxrctx		=~ s/\.[^.]*$//;	# Remove extension
-	$lxrctxdft	=~ s/^[^.]*//;	# Context file extension
-	$lxrctx		=~ s/$/$lxrctxdft/;	# Insert correct extension
-	if ($lxrctx !~ m!/!) {
+	my $extpos  = rindex($lxrctx, '.');
+	if (0 <= $extpos) {		# Remove the extension
+		$lxrctx = substr($lxrctx, 0, $extpos);
+	}
+	$extpos  = rindex($lxrctxdft, '.');		# Default extension
+	$lxrctx	.= substr($lxrctxdft, $extpos);	# Insert correct extension
+	if (0 >= index($lxrctx, '/')) {
 		$lxrctx = $confdir . '/' . $lxrctx;
 	}
 }
-if (! -e "$lxrctx") {
+if (! -e $lxrctx) {
 	print "${VTred}ERROR:${VTnorm} configuration context file"
 		. " ${VTred}$lxrctx${VTnorm} does not exist!\n";
 }
 
-if (! -e "$tmpldir/initdb/initdb-m-template.sql") {
+if	(	! -e $tmpldir.'/initdb/initdb-m-template.sql'
+	&&	! -e $ovrdir .'/initdb/initdb-m-template.sql'
+	) {
 	print "${VTred}ERROR:${VTnorm} template file"
-		. " ${VTred}$tmpldir/initdb/initdb-m-template.sql{VTnorm} does not exist!\n";
+		. " ${VTred}initdb/initdb-m-template.sql{VTnorm}"
+		. " exists neither in override nor in templates directory!\n";
 	$error = 1;
 }
-if (! -e "$tmpldir/initdb/initdb-o-template.sql") {
+if	(	! -e $tmpldir.'/initdb/initdb-o-template.sql'
+	&&	! -e $ovrdir .'/initdb/initdb-o-template.sql'
+	) {
 	print "${VTred}ERROR:${VTnorm} template file"
-		. " ${VTred}$tmpldir/initdb/initdb-o-template.sql{VTnorm} does not exist!\n";
+		. " ${VTred}initdb/initdb-o-template.sql{VTnorm}"
+		. " exists neither in override nor in templates directory!\n";
 	$error = 1;
 }
-if (! -e "$tmpldir/initdb/initdb-p-template.sql") {
+if	(	! -e $tmpldir.'/initdb/initdb-p-template.sql'
+	&&	! -e $ovrdir .'/initdb/initdb-p-template.sql'
+	) {
 	print "${VTred}ERROR:${VTnorm} template file"
-		. " ${VTred}$tmpldir/initdb/initdb-p-template.sql{VTnorm} does not exist!\n";
+		. " ${VTred}initdb/initdb-p-template.sql{VTnorm}"
+		. " exists neither in override nor in templates directory!\n";
 	$error = 1;
 }
-if (! -e "$tmpldir/initdb/initdb-s-template.sql") {
+if	(	! -e $tmpldir.'/initdb/initdb-s-template.sql'
+	&&	! -e $ovrdir .'/initdb/initdb-s-template.sql'
+	) {
 	print "${VTred}ERROR:${VTnorm} template file"
-		. " ${VTred}$tmpldir/initdb/initdb-s-template.sql{VTnorm} does not exist!\n";
+		. " ${VTred}initdb/initdb-s-template.sql{VTnorm}"
+		. " exists neither in override nor in templates directory!\n";
 	$error = 1;
 }
 
@@ -331,10 +349,10 @@ if (exists($config[0]{'dbuser'})) {
 if (exists($config[0]{'dbprefix'})) {
 	$dbprefix = $config[0]{'dbprefix'};
 }
-if (exists($config->{'dbname'})) {
-	$config->{'dbname'} =~ m/dbi:(.)/;
+if (exists($config[0]{'dbname'})) {
+	$config[0]{'dbname'} =~ m/dbi:(.)/;
 	$dbengine = lc($1);
-	if ($config->{'dbname'} =~ m/dbname=([^;]+)/) {
+	if ($config[0]{'dbname'} =~ m/dbname=([^;]+)/) {
 		$dbname = $1;
 	}
 }
@@ -360,10 +378,15 @@ my %markers =
 		, '%_nodbuser%'	=> $nodbuser
 		, '%_nodbprefix%' => $nodbprefix
 		, '%_shell%'	=> 1
-		);
 
-my $sample;
-$markers{'%LXRroot%'} = $rootdir;
+	# Global parameters: directories, server URL
+	# (may be overwritten, but not recommended!)
+		, '%LXRconfUser%'	=> getlogin	# OS-user running configuration
+		, '%LXRroot%'		=> $rootdir
+		, '%LXRtmpldir%'	=> $tmpldir
+		, '%LXRovrdir%'		=> $ovrdir
+		, '%LXRconfdir%'	=> $confdir
+		);
 
 $markers{'%DB_name%'} = $dbname if $dbname;
 $markers{'%DB_user%'} = $dbuser if $dbuser;
@@ -379,8 +402,9 @@ $markers{'%DB_global_prefix%'} = $dbprefix if $dbprefix;
 ##############################################################
 
 unlink "${confdir}/${scriptout}";
-open(DEST, '>>', "${confdir}/${scriptout}")
+open(DEST, '>', "${confdir}/${scriptout}")
 or die("${VTred}ERROR:${VTnorm} couldn't open output file \"${confdir}/$scriptout\"\n");
+print DEST "#!/bin/sh\n";
 
 if ($verbose) {
 	print "\n";
@@ -430,29 +454,19 @@ foreach my $config (@config) {
 	}
 
 	if	(	$dbenginechanged
-		|| $treedbengine ne $dbengine && !$dbengine_seen{$treedbengine}
+		||	$treedbengine ne $dbengine && !$dbengine_seen{$treedbengine}
 		) {
 		$markers{'%_createglobals%'}  = 1;
 		$dbengine_seen{$treedbengine} = 1;
 	}
 
-	open(SOURCE, '<', "${tmpldir}/initdb/initdb-${treedbengine}-template.sql")
-	or die("${VTred}ERROR:${VTnorm} couldn't open  script template file \"${tmpldir}/initdb/initdb-${dbengine}-template.sql\"\n");
+	my $input = $ovrdir . "/initdb/initdb-${treedbengine}-template.sql";
+	if (! -e $input) {
+		$input = $tmpldir . "/initdb/initdb-${treedbengine}-template.sql";
+	}
+	open(SOURCE, '<', $input)
+	or die("${VTred}ERROR:${VTnorm} couldn't open  script template file \"${input}\"\n");
 
-	# NOTE:
-	#	The design of the configuration process left the possibility
-	#	to expand the SQL templates without interspersing the results
-	#	with shell commands (so that the result would be a sequence
-	#	of SQL commands only).
-	#	Initially, the sub expand_slash_star was intended to be a script
-	#	to which others would connect through a pipe.
-	#	A shell expander would pass --shell to expand_slash_star to enable
-	#	shell commands, while an SQL expander script would not pass
-	#	this option.
-	#	This is why the 'shell' pseudo-option is created.
-	#	Of course, this statement would be better outside the loop,
-	#	but this comment would be far from expand_slash_star invocation.
-	$markers{'%_shell%'} = 1;
 	#	Expand script model
 	expand_slash_star	( sub{ <SOURCE> }
 						, \*DEST

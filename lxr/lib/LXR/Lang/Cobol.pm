@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*-
 ###############################################
 #
-# $Id: Cobol.pm,v 1.4 2012/09/17 16:11:33 ajlittoz Exp $
+# $Id: Cobol.pm,v 1.6 2013/11/08 09:04:27 ajlittoz Exp $
 #
 # Enhances the support for the Cobol language over that provided by
 # Generic.pm
@@ -22,7 +22,7 @@
 
 package LXR::Lang::Cobol;
 
-my $CVSID = '$Id: Cobol.pm,v 1.4 2012/09/17 16:11:33 ajlittoz Exp $ ';
+my $CVSID = '$Id: Cobol.pm,v 1.6 2013/11/08 09:04:27 ajlittoz Exp $ ';
 
 use strict;
 use LXR::Common;
@@ -42,12 +42,15 @@ sub processcode {
 	$$code =~ s {(^|[^\w\#-])([\w~-][\w-]*)\b}
 	{
 	  $1.
-		( $2 eq "" ? $2 :
-		($self->isreserved($2) ? "<span class='reserved'>$2</span>" : 
-		(
-		  $index->issymbol(uc($2), $$self{'releaseid'})) ?
-		 join($2, @{$$self{'itag'}}) :
-		 $2));
+		( $2 eq ''
+		? $2
+		:	( $self->isreserved(uc($2))
+			? "<span class='reserved'>$2</span>"
+			:	( $index->issymbol(uc($2), $$self{'releaseid'})
+				? join($2, @{$$self{'itag'}})
+				:  $2
+			)
+		);
 	}ge;
 
 }

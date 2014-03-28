@@ -1,8 +1,8 @@
 /*- -*- tab-width: 4 -*- */
 /*
  *	SQL template for creating MySQL tables
- *	(C) 2012 A. Littoz
- *	$Id: initdb-s-template.sql,v 1.3 2013/01/11 12:08:48 ajlittoz Exp $
+ *	(C) 2012-2013 A. Littoz
+ *	$Id: initdb-s-template.sql,v 1.5 2013/11/17 15:33:55 ajlittoz Exp $
  *
  *	This template is intended to be customised by Perl script
  *	initdb-config.pl which creates a ready to use shell script
@@ -30,9 +30,6 @@
 /*--*/
 /*@XQT echo "*** SQLite -  Configuring tables %DB_tbl_prefix% in database %DB_name%"*/
 /*@XQT sqlite3 %DB_name% <<END_OF_TABLES*/
-drop table if exists %DB_tbl_prefix%filenum;
-drop table if exists %DB_tbl_prefix%symnum;
-drop table if exists %DB_tbl_prefix%typenum;
 drop table if exists %DB_tbl_prefix%files;
 drop table if exists %DB_tbl_prefix%symbols;
 drop table if exists %DB_tbl_prefix%definitions;
@@ -41,26 +38,8 @@ drop table if exists %DB_tbl_prefix%usages;
 drop table if exists %DB_tbl_prefix%status;
 drop table if exists %DB_tbl_prefix%langtypes;
 
-create table %DB_tbl_prefix%filenum
-	( rcd int primary key
-	, fid int
-	);
-insert into %DB_tbl_prefix%filenum
-	(rcd, fid) VALUES (0, 0);
-
-create table %DB_tbl_prefix%symnum
-	( rcd int primary key
-	, sid int
-	);
-insert into %DB_tbl_prefix%symnum
-	(rcd, sid) VALUES (0, 0);
-
-create table %DB_tbl_prefix%typenum
-	( rcd int primary key
-	, tid int
-	);
-insert into %DB_tbl_prefix%typenum
-	(rcd, tid) VALUES (0, 0);
+/*- Tables for unique ids management -*/
+/*@ADD initdb/unique-user-sequences.sql*/
 
 /* Base version of files */
 /*	revision:	a VCS generated unique id for this version
@@ -181,6 +160,8 @@ create table %DB_tbl_prefix%symbols
 	, symcount	int
 	, symname	varchar(255) not null unique
 	);
+create index %DB_tbl_prefix%symlookup
+	on %DB_tbl_prefix%symbols(symname);
 
 /* Definitions */
 /*	symid, fileid and line define the location of the declaration
@@ -226,6 +207,11 @@ create trigger %DB_tbl_prefix%remove_definition
 			set	symcount = symcount - 1
 			where symid = old.symid
 			and symcount > 0;
+		update %DB_tbl_prefix%symbols
+			set	symcount = symcount - 1
+			where symid = old.relid
+			and symcount > 0
+			and old.relid is not null;
 	end;
 
 /* Usages */

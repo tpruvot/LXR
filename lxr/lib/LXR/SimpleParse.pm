@@ -1,7 +1,7 @@
 # -*- tab-width: 4 -*- #
 ##############################################
 #
-# $Id: SimpleParse.pm,v 1.21 2012/08/18 15:47:21 ajlittoz Exp $
+# $Id: SimpleParse.pm,v 1.23 2013/11/08 08:27:24 ajlittoz Exp $
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ source file into homogeneous regions (i.e. fragments defined by
 
 package LXR::SimpleParse;
 
-$CVSID = '$Id: SimpleParse.pm,v 1.21 2012/08/18 15:47:21 ajlittoz Exp $ ';
+$CVSID = '$Id: SimpleParse.pm,v 1.23 2013/11/08 08:27:24 ajlittoz Exp $ ';
 
 use strict;
 use integer;
@@ -42,20 +42,23 @@ our @EXPORT = qw(
 	&untabify
 	&init
 	&nextfrag
+	$dountab
 );
 
 # Global module variables
 
-my $fileh;       # File handle
-my @frags;       # Fragments in queue
-my @bodyid;      # Array of body type ids
-my @open;        # Fragment opening delimiters
-my @term;        # Fragment closing delimiters
-my @stay;        # Fragment maintaining current context
-my $split;       # Fragmentation regexp
-my $open;        # Fragment opening regexp
-my $continue;	 # Fragment maintaining current context for "no category"
-my $tabwidth;    # Tab width
+my $fileh;		# File handle
+my @frags;		# Fragments in queue
+my $next;		# Current fragment
+my @bodyid;		# Array of body type ids
+my @open;		# Fragment opening delimiters
+my @term;		# Fragment closing delimiters
+my @stay;		# Fragment maintaining current context
+my $split;		# Fragmentation regexp
+my $open;		# Fragment opening regexp
+my $continue;	# Fragment maintaining current context for "no category"
+my $tabwidth;   # Tab width
+our $dountab;	# Untabify flag (in nextfrag)
 
 
 =head2 C<init ($fileh, $tabhint, @blksep)>
@@ -88,66 +91,44 @@ categories for this languages (see C<generic.conf>)
 sub init {
 	my @blksep;
 
-	$fileh    = "";
 	@frags    = ();
+	$next     = undef;
 	@bodyid   = ();
 	@open     = ();
 	@term     = ();
 	@stay     = ();
-	$split    = "";
-	$open     = "";
-	$continue = "";
-	$tabwidth = 8;
+	$split    = '';
+	$open     = '';
+	$continue = undef;
+	$dountab  = 1;
 	my $tabhint;
 
 	($fileh, $tabhint, @blksep) = @_;
-	$tabwidth = $tabhint || $tabwidth;
+	$tabwidth = $tabhint // 8;
 
 # Consider every specification in the order given
 	foreach my $s (@blksep) {
 		#	$k is category name (e.g; comment, string, ...)
 		my $k = (keys(%$s))[0];
-		if ($k eq "atom") {		# special case for uncategorised fragments
+		if ($k eq 'atom') {		# special case for uncategorised fragments
 			$continue = $$s{$k};
-		}
-		else {
+		} else {
 			#	Value is itself a reference to an array
-			my $v = @$s{$k};
+			my $v = $$s{$k};
 			push (@bodyid, $k);			# Category name
 			push (@open, $$v[0]);		# Open delimiter
-			if (defined($$v[1])) {
-				push (@term, $$v[1]);	# Closing delimiter
-			} else {
-				push (@term, undef);
-			}
-			if (defined($$v[2])) {
-				push (@stay, $$v[2]);	# Locking pattern
-			} else {
-				push (@stay, '');
-			}
+			push (@term, $$v[1]);	# Closing delimiter
+			push (@stay, $$v[2]);	# Locking pattern
 		}
 	}
-
-	# Replace the anchors with a Start_of_Line marker
-	# The markers are removed by sub C<markupfile before
-	# emiting HTML code
-	foreach (@open) {
-		$_ =~ s/^\^/\xFF/;
-	}
-	foreach (@term) {
-		$_ =~ s/^\^/\xFF/;
-	}
-	foreach (@stay) {
-		$_ =~ s/^\^/\xFF/;
-	}
-	$continue =~ s/^\^/\xFF/;
 
 	# Create the regexps to find any opening delimiter
 	foreach (@open) {
-		$open  .= "^($_)\$|";
+		$open  .= "($_)|";
 		$split .= "$_|";
 	}
 	chop($open);	# Remove the last (extraneous) bar
+	$open = '^[\xFF\n]*(?:'.$open.')$';	# Set the anchors
 	chop($split);	# Remove the last (extraneous) bar
 }
 
@@ -172,7 +153,7 @@ Returns the line after replacement.
 
 Note that this sub is presently only used by sub C<markupfile>
 when no specific parser definition could be found.
-No attempt is made to interpret an Emacs-style tab specification.
+No attempt is made to interpret an emacs-style tab specification.
 Consequently, tab width can be erroneous.
 
 =cut
@@ -180,8 +161,8 @@ Consequently, tab width can be erroneous.
 sub untabify {
 	my $t = $_[1] || 8;
 
-	$_[0] =~ s/^(\t+)/(' ' x ($t * length($1)))/ge;                 # Optimize for common case.
-	$_[0] =~ s/([^\t]*)\t/$1.(' ' x ($t - (length($1) % $t)))/ge;
+	$_[0] =~ s/^(\t+)/(' ' x ($t * length($1)))/geo;	# Optimize for common case.
+	$_[0] =~ s/([^\t]*)\t/$1.(' ' x ($t - (length($1) % $t)))/geo;
 	return ($_[0]);
 }
 
@@ -216,12 +197,16 @@ automaton (FSA).
 
 =over
 
+=item
+
 I<Speed is acceptable when displaying a file (since time here is
 dominated by HTML editing).>
 
-I<<Raw speed can be seen during C<genxref> where the full tree is
+=item
+
+I<Raw speed can be seen during C<genxref> where the full tree is
 parsed. It could be worth to replace the parser by a compiled
-deterministic FSA version.>>
+deterministic FSA version.>
 
 =back
 
@@ -232,46 +217,42 @@ sub nextfrag {
 	my $frag  = undef;	# output buffer
 	my $term  = undef;	# closing delim pattern
 	my $stay  = $continue;	# lock pattern
-	my $line  = '';		# line buffer
-	# These initial values sets the state for the "anonymous"
+	my $change = $split;	# delimiter introducing a category change
+	# These initial values set the state for the "anonymous"
 	# default category (i.e. code). It is switched to another
 	# state if $next (the following characters to process)
 	# begins with a starting delimiter.
+	my $line;			# line buffer
+	my $opos;			# position of this delimiter
+	my $spos;			# position of a (conflicting?) "stay" delimimter
 
 # 		print "nextfrag called\n";
 
 	while (1) {
+		$next = shift(@frags) if !defined($next);
 
 		# read one more line if we have processed
 		# all of the previously read line
-		if ($#frags < 0) {
+		if (!$next) {
 			$line = $fileh->getline;
+		#	Exit loop on EOF returning the currently assembled region
+		#	or an undefined pair
+			last if !defined($line);
 			# Interpret an Emacs-style tab specification
-			if	(  $. <= 2		# Line # 1?
-				&& $line =~ m/^.*-[*]-.*?[ \t;]tab-width:[ \t]*([0-9]+).*-[*]-/
+			if	(  $. <= 2		# Line # 1 or 2?
+				&& $line =~ m/^.*-\*-.*?[ \t;]tab-width:[ \t]*([0-9]+).*-\*-/o
 				) {
 				if ($1) {	# make sure there really is a non-zero tabwidth
 					$tabwidth = $1;
 				}
 			}
-
 #			&untabify($line, $tabwidth); # We inline this for performance.
-				# Optimize for common case.
-			if (defined($line)) {
-				$line =~ s/^(\t+)/' ' x ($tabwidth * length($1))/ge;
-				$line =~ s/([^\t]*)\t/$1.(' ' x ($tabwidth - (length($1) % $tabwidth)))/ge;
-
-				$frags[0] = "\xFF" . $line;	# Add SOL marker
+			# Optimize for common case.
+			if ($dountab) {
+				$line =~ s/^(\t+)/' ' x ($tabwidth * length($1))/geo;
+				$line =~ s/([^\t]*)\t/$1.(' ' x ($tabwidth - (length($1) % $tabwidth)))/geo;
 			}
-		}
-
-#	Exit loop on EOF returning the currently assembled region
-#	or an undefined pair
-		last if $#frags < 0;
-
-		# skip empty fragments
-		if ($frags[0] eq '') {
-			shift(@frags);
+			$next = "\xFF" . $line;	# Add SOL marker
 		}
 
 #	If the specification defines a locking pattern (in $stay),
@@ -279,135 +260,99 @@ sub nextfrag {
 #	only if the "stay" atom is located inside the present category.
 #	The test below is rather complicated because we rely on
 #	pattern matching, not LR parsing.
-#	1-	See if there is a "stay" atom in the line.
+#	1-	See if there is a terminator (either the closing delimiter
+#		if defined or any opening delimiter) in the line.
+#		If none, the whole line is made of a single category.
+#		Otherwise, note its position.
+#	2-	Loop on the presence of a "stay" atom in the line.
 #		If none, leave the loop.
-#	2-	Check the terminator (either the closing delimiter if
-#		defined or any opening delimiter).
 #	3-	If the "stay" atom is located after (i.e. at the right of)
 #		the closing delimiter, leave the loop.
 #	4-	The part up to and including the "stay" atom is shifted
-#		into the candidate fragment.
+#		into the candidate fragment and the position of the
+#		terminator is updated for the next iteration of the
+#		inner loop.
 #	The process is repeated until there is no more "stay" atoms
 #	in the correct range.
 
 		# check for "stay" atoms
-		my $next = shift(@frags);
-		if ($stay ne '') {
-			while ($next =~ m/$stay/) {
-			# Compute the position of the "stay" atom
-				$next =~ m/^(.*?)($stay)/s;
-				my $spos = undef;
-				if (defined($2)) {
-					$spos = length($1) || 0;
-				}
-				my $opos = undef;
+		if (defined($stay)) {
 			# Look for "term" or any "open delim" if not defined
-				my $change = $term || $split;
-				if ($next =~ m/$change/) {
+			$opos = undef;
+			while	(	!defined($opos)
+					&&	$next =~ m/$change/
+					) {
 			# Compute the position of the "end" delimiter
-					$next =~ m/^(.*?)($change)/s;
-					if (defined($2)) {
-						$opos = length($1) || 0 ;
+				$opos = $-[0];
+				while ($next =~ m/$stay/) {
+				# Compute the end position of the "stay" atom
+					$spos = $+[0];
+				# Compare positions and make decision
+					last if $-[0] > $opos;
+				# There is a "stay" atom, shift it into fragment
+					$frag .= substr($next, 0, $spos);
+					$next = substr($next, $spos);
+					$opos -= $spos;
+					if ($opos <= 0) {
+						$opos = undef;
+						last;
 					}
 				}
-			# Compare positions and make decision
-				last if (defined($opos) && ($spos > $opos));
-			# There is a "stay" atom, shift it into fragment
-				$next =~ s/^(.*?)($stay)//s;
-				$frag .= $1 . $2;
 			}
 		}
 
 #	Have we already started a region?
-		if (defined($frag)) {
+		if	(	defined($frag)				# something in output buffer?
+			&&	$frag !~ m/^[\xFF\n]*$/o	# not just newlines?
+			) {
 #	We already have something in the buffer.
 #	Is it a named category?
 #	Add to output buffer till we find a closing delimiter.
 #	Remember that "stay" constructs have been processed above.
-			if (defined($btype)) {
-				if ($next =~ m/$term/) {		# A close delim in this fragment?
-			# Next instruction group is 5.8 compatible but does
-			# not allow capture parenthesis in regexps
-			#		$next =~ m/^(.*?)($term)(.*)/s;
-			#		if ($3 ne '') {
-			#			unshift(@frags, $3);	# Requeue last part
-			#		}
-			#		$frag .= $1 . $2;
-			# This group contains 5.10 features and removes the
-			# above mentioned limitation
-					$next =~ m/^(?'HEAD'.*?$term)(?'TAIL'.*)/s;
-					if ($+{'TAIL'} ne '') {
-						unshift(@frags, $+{'TAIL'});	# Requeue last part
-					}
-					$frag .= $+{'HEAD'};
-			# End of group
-					last;						# We are done, terminator met
+			if (defined($btype) && defined($term)) {
+				if ($next =~ m/$term/) {	# A close delim in this fragment?
+					$frag .= substr($next, 0, $+[0]);
+					$next = substr($next, $+[0]);
+					last;					# We are done, terminator met
 				}
 #	An anonymous region is in the buffer (it defaults to "code").
 #	This default region is left on any opening delimiter.
 			} else {
-				if ($next =~ m/^($split)/) {
-					unshift(@frags, $next);		# requeue block
-#					print "encountered open token while btype was $btype\n";
+					# Split at delimiter
+				if ($next =~ s/^(.*?)($split)//) {	# An open delim in this fragment?
+					unshift(@frags, $next) if $next ne '';	# Requeue last part
+					$frag .= $1;		# Stuff part before delim
+					$next = $2;			# Delimiter
 					last;
 				}
-				if ($next =~ m/$split/) {		# An open delim in this fragment?
-			# Next instruction group is 5.8 compatible but does
-			# not allow capture parenthesis in regexps
-			#		$next =~ m/^(.*?)($split)(.*)/s;
-			#		if ($3 ne '') {
-			#			unshift(@frags, $3);	# Requeue last part
-			#		}
-			#		unshift(@frags, $2);		# Requeue open delimiter
-			#		$next = $1
-			# This group contains 5.10 features and removes the
-			# above mentioned limitation
-					$next =~ m/^(?'HEAD'.*?)(?'OPEN'$split)(?'TAIL'.*)/s;
-					if ($+{'TAIL'} ne '') {
-						unshift(@frags, $+{'TAIL'});	# Requeue last part
-					}
-					unshift(@frags, $+{'OPEN'});		# Requeue open delimiter
-					$next = $+{'HEAD'}
-			# End of group
-				}
 			}
-			$frag .= $next;
+			$frag .= $next;				# Full fragment (no delim)
+			$next = undef;
 		} else {
 #	This begins a new region (output buffer empty).
 #	Stuff the sequence up to any opening delimiter or the complete
 #	input line if there is no delimiter in range.
-#			print "start of new fragment\n";
-			if ($next =~ m/$split/) {			# An open delim in this fragment?
-			# Next instruction group is 5.8 compatible but does
-			# not allow capture parenthesis in regexps
-			#	$next =~ m/^(.*?)($split)(.*)/s;	# Split fragment at first
-			#	if ($3 ne '') {
-			#		unshift(@frags, $3);		# Requeue last part
-			#	}
-			#	if ($1 ne '') {					# Choose which frag to process
-			#		unshift(@frags, $2);		# Queue delimiter
-			#		$frag = $1;
-			#	} else {
-			#		$frag = $2;
-			# This group contains 5.10 features and removes the
-			# above mentioned limitation
-				$next =~ m/^(?'HEAD'.*?)(?'OPEN'$split)(?'TAIL'.*)/s;	# Split fragment at first
-				if ($+{'TAIL'} ne '') {
-					unshift(@frags, $+{'TAIL'});	# Requeue last part
-				}
-				if ($+{'HEAD'} ne '') {			# Choose which frag to process
-					unshift(@frags, $+{'OPEN'});	# Queue delimiter
-					$frag = $+{'HEAD'};
+# 			print "start of new fragment\n";
+			if ($next =~ s/^(.*?)($split)//) {	# An open delim in this fragment?
+				if ($1 ne '') {			# Anything before the delim?
+					unshift(@frags, $next) if $next ne '';	# Requeue last part
+					$next = $2;			# Delimiter
+					$frag .= $1;		# Stuff part before delim
+					last if $frag !~ m/^[\xFF\n]*$/o;
+					$frag .= $next;		# Fragment was "empty"
+					$next = undef;
 				} else {
-					$frag = $+{'OPEN'};
+					$frag .= $2;
+					$next = undef if $next eq '';
 				}
-			# End of group
-			} else {								# Full fragment (no delim)
-				$frag = $next;
+			} else {					# Full fragment (no delim)
+				$frag .= $next;
+				$next = undef;
 			}
 #	Find the blocktype of the current block
-			if (defined($frag) && (@_ = $frag =~ m/$open/)) {
-#				print "hit:$frag\n";
+# 			if (defined($frag) && (@_ = $frag =~ m/$open/)) {
+			if (@_ = $frag =~ m/$open/) {
+# 				print "hit:$frag\n";
 				# grep in a scalar context returns the number of times
 				# EXPR evaluates to true, which is this case will be
 				# the index of the first defined element in @_.
@@ -419,14 +364,18 @@ sub nextfrag {
 					last;
 				} else {
 #	Set the category characteristics for further parsing
-					$term = $term[$btype];
-					$stay = $stay[$btype];
-				}
+					$term	= $term[$btype];
+					if ('CODE' eq ref($term)) {
+						$term = eval(&$term());
+					}
+					$stay	= $stay[$btype];
+					$change	= $term // $split;
+ 				}
 			}
 		}
 	}
 	$btype = $bodyid[$btype] if defined($btype);
-
+	$frag =~ s/\xFF//go;	# Remove start of line markers
 	return ($btype, $frag);
 }
 
@@ -452,18 +401,19 @@ B<Caveat:>
 
 =over
 
+=item
+
 When using this sub, pay special attention to the order of
 requests so that you do not create permutations of source
-sequences: it is a LIFO!
+sequences: it is a stack (LIFO)!
 
 =back
 
 =cut
 
 sub requeuefrag {
-	my $frag = shift;
-
-	unshift(@frags, $frag);	# Requeue fragment
+	unshift(@frags, $next) if defined($next);	# Requeue fragment
+	$next = $_[0];
 }
 
 1;

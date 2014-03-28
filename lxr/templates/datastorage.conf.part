@@ -3,7 +3,7 @@
 #-	Tree configuration section
 #-		Data storage subsection
 #-
-#-	$Id: datastorage.conf.part,v 1.1 2013/01/11 12:04:27 ajlittoz Exp $
+#-	$Id: datastorage.conf.part,v 1.4 2013/11/17 09:13:21 ajlittoz Exp $
 #-
 #-
 #-	This file fragment is meant to be "included" to form the
@@ -24,8 +24,7 @@
 	#- ----- MySQL -----
 #@m:
 #@	IF	!%_globaldb%
-#@		ASK --- Database name?; -2
-#@		DEFINE DB_name="%A%"
+#@		ASK,DB_name --- Database name?; -2; ^\w+$,invalid characters in name
 #@	ENDIF
 	, 'dbname' => 'dbi:mysql:dbname=%DB_name%'
 	#-
@@ -36,16 +35,17 @@
 	#- ----- PostgreSQL -----
 #@p:
 #@	IF	!%_globaldb%
-#@		ASK --- Database name?; -2
-#@		DEFINE DB_name="%A%"
+#@		ASK,DB_name --- Database name?; -2; ^\w+$,invalid characters in name
 #@	ENDIF
 	, 'dbname' => 'dbi:Pg:dbname=%DB_name%;host=localhost'
 	#-
 	#- ----- SQLite -----
 #@s:
 #@	IF	!%_globaldb%
-#@		ASK --- Database file? (e.g. /home/myself/storage.db); -2
-#@		DEFINE DB_name="%A%"
+#@		ASK,DB_name --- Database file? (e.g. /home/myself/storage.db); -2\
+		#@				; ^/,absolute file path required\
+		#@				, [^/]$,must be a file
+#@		CANONR,DB_name ',\'
 #@	ENDIF
 	, 'dbname' => 'dbi:SQLite:dbname=%DB_name%'
 #@ENDC	%_dbengine%
@@ -53,10 +53,9 @@
 #-
 #@IF	%_dbengine% ne "s"
 #@	IF		!%_dbuser%
-#@		ASK --- DB user name?; -1; ; lxr
-#@		DEFINE DB_tree_user="%A%"
-#@		ASK --- DB password?; -1; ; lxrpw
-#@		DEFINE DB_tree_password="%A%"
+#@		ASK,DB_tree_user --- DB user name?; -1; ^\w+$,invalid characters in name; lxr
+#@		ASK,DB_tree_password --- DB password?; -1; ; lxrpw
+#@		CANONR,DB_tree_password ',\'
 
 	, 'dbuser'		=> '%DB_tree_user%'
 	, 'dbpass'		=> '%DB_tree_password%'
@@ -64,10 +63,9 @@
 #@	ELSEIF	!%_globaldb%
 #@		ASK,C Do you want to override the global '%DB_user%' user name?; 2; yes,no; Y,N
 #@		IF	%C% eq "Y"
-#@			ASK --- DB user name?; -1; ; lxr
-#@			DEFINE DB_tree_user="%A%"
-#@			ASK --- DB password?; -1; ; lxrpw
-#@			DEFINE DB_tree_password="%A%"
+#@			ASK,DB_tree_user --- DB user name?; -1; ^\w+$,invalid characters in name; lxr
+#@			ASK,DB_tree_password --- DB password?; -1; ; lxrpw
+#@			CANONR,DB_tree_password ',\'
 
 	, 'dbuser'		=> '%DB_tree_user%'
 	, 'dbpass'		=> '%DB_tree_password%'
@@ -82,8 +80,7 @@
 #-
 #-
 #@IF	!%_dbprefix%
-#@	ASK --- DB table prefix?; -1; ; lxr_
-#@	DEFINE DB_tbl_prefix="%A%"
+#@	ASK,DB_tbl_prefix --- DB table prefix?; -1; ^\w+$,invalid characters in name; lxr_
 
 	, 'dbprefix'	=> '%DB_tbl_prefix%'
 #-
@@ -91,8 +88,7 @@
 
 #@	ASK,C Do you want to override the global '%DB_global_prefix%' table prefix?; 2; yes,no; Y,N
 #@	IF	%C% eq "Y"
-#@		ASK --- DB table prefix?; -1; ; lxr_
-#@		DEFINE DB_tbl_prefix="%A%"
+#@		ASK,DB_tbl_prefix --- DB table prefix?; -1; ^\w+$,invalid characters in name; lxr_
 	, 'dbprefix'	=> '%DB_tbl_prefix%'
 #@	ELSE
 		# If you need multiple lxr configurations in one database, set different table
